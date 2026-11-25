@@ -289,6 +289,8 @@ These gates supersede the earlier progress notes where evidence has advanced. Pu
 - **Use verified inputs and one publishing machine.** Build and publish verify the upstream SDK digest before extracting release tools. Publish compares the ZIP with the verified app, checks the complete manifest, takes a local lock and advances the feed last. Resume an interrupted publication using identical artifacts. Conditional remote writes and signed-feed migration remain deferred.
 - **Complete consolidated validation.** Packaged Apple Silicon validation passed for termination retry, Later, scheduled checks, save-through-quit and recovery of an unsaved edit after installation. Earlier isolated tests covered signature rejection and unavailable feed handling. The full frontend/native and Worker suites, release checks and universal App Store preflight passed against 9b677ed3 on 25 November 2026. Intel runtime remains deferred. [Updater failure-path verification](release-architecture-security-audit.md#updater-failure-path-verification)
 
+- **Production dependency notices complete.** The common bundle includes acknowledgements for the locked macOS and frontend dependency graphs, with MPL source links. Universal packaging passed. Refresh the inventory after dependency changes. [Licence review](third-party-dependency-licenses.md)
+
 ### After Apple Developer enrolment
 
 - **Developer ID.** Establish the Team ID, Developer ID Application identity and notarytool profile. Validate signing of nested Sparkle services, notarization and stapling for the app and DMG, and Gatekeeper on a clean Mac. Test ad-hoc-to-Developer-ID migration with the existing EdDSA key, full fallback, bookmarks, notes, settings and recovery.

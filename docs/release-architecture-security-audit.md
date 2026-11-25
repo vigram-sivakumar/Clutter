@@ -339,7 +339,7 @@ Reviewed against 223e4a96 on release/apple-silicon-beta. The public 0.0.10 appca
 | Artifact integrity and publication | **Fixed.** Publication verifies checksum coverage and compares the app inside the actual ZIP with the verified staging bundle. All publisher entry points take the local lock. Existing version, key continuity, signing downgrade, remote byte comparison and appcast-last controls remain in place. |
 | Terminal installer | The ad-hoc beta relies on HTTPS for the script and feed. The installer checks the ZIP digest and length, the signed bundle identity and version, and the embedded updater key. It verifies again after staging and refuses to overwrite an installed app. It does not independently verify EdDSA. Pin the enrolled Team ID and validate Gatekeeper acceptance before offering a Developer ID build through Terminal. |
 | Automatic update privacy | **Published and verified on 25 November 2026.** The policy explains direct-channel automatic checks and downloads, Cloudflare request information including app version, and the App Store channel distinction. Account-level Workers logging and retention remain unverified. |
-| Credential-independent App Store | The prior updater-free universal preflight and privacy manifest evidence stands. The archived preflight had no quarantine xattrs. Missing font and PDF.js notices are mapped into the common bundle, and the direct build includes the Sparkle SDK license. The remaining license inventory, listing materials, export-compliance decision and final preflight are open. |
+| Credential-independent App Store | The prior updater-free universal preflight and privacy manifest evidence stands. The archived preflight had no quarantine xattrs. Missing font and PDF.js notices are mapped into the common bundle, and the direct build includes the Sparkle SDK license. The production licence inventory and consolidated preflight are complete. Listing materials and the export-compliance decision remain open. |
 
 The SDK tests accepted the official digest and refused a modified archive before extraction. An isolated publisher fixture refused a missing checksum entry, a substituted ZIP, a second local publisher and different bytes at an existing URL. It also verified interrupted upload recovery, identical retry and feed-last ordering. The real 0.0.10 ZIP matched its staging bundle. Applying the released delta to the exact published 0.0.9 archive produced the same file bytes and symlink targets as the full 0.0.10 ZIP and passed strict code-signature verification. Shell and Python syntax, six bundle comparator tests, ten Updates Worker tests and Worker type checking passed. License resource mapping and policy text parity were checked. Three Sparkle-linked native IPC tests passed. [Upstream asset digest](https://github.com/sparkle-project/Sparkle/releases/expanded_assets/2.10.1) · [SDK gate](../apps/app/scripts/prepare-sparkle-sdk.sh) · [Publisher](../apps/app/scripts/publish-update.sh) · [Privacy source](public-site/privacy/index.html)
 
@@ -382,7 +382,7 @@ The execution sandbox initially refused compression, Trash and test-runner IPC o
 
 ### Remaining readiness work
 
-- Complete the production dependency licence inventory and required acknowledgements.
+- Production dependency licence inventory and required acknowledgements completed on 25 November 2026. Refresh when dependencies change.
 - Prepare screenshots, listing copy and review notes, and resolve the export-compliance declaration.
 - Confirm account-level Cloudflare logging, Logpush and retention against the published policy.
 - Review the release branch and accepted limitations before any merge decision.
@@ -390,3 +390,13 @@ The execution sandbox initially refused compression, Trash and test-runner IPC o
 - Intel runtime verification remains deferred. Signed-feed migration, remote publication concurrency, performance work, legacy cleanup and standalone verifier improvements retain their existing dispositions.
 
 The published policy and signing-key recovery gate remain complete. This consolidation made documentation changes only.
+
+## Production dependency licence review — 25 November 2026
+
+Reviewed the union of both locked macOS normal Cargo graphs and the production npm dependency closure. The inventory covers 284 Rust crate versions, 54 npm package versions and three fonts. All 54 installed npm versions match the lockfile. Intel adds core_detect to the Apple Silicon graph.
+
+The existing font, PDF.js and direct-channel Sparkle notices omitted other runtime dependency notices. Added complete licence and attribution texts to the common app resources, including ring's nested notices and source availability links for the five MPL-2.0 components. Missing packaged licence files were recovered from the exact upstream revisions recorded by the crates. No dependency versions changed.
+
+The universal credential-independent App Store preflight passed with the new resource mapping. The packaged acknowledgements matched the checked-in file byte-for-byte. Each inventory entry has licence text coverage and source URLs. Lockfile SHA-256 values are recorded with the inventory. The prior consolidated regression results remain applicable to the unchanged product behavior.
+
+See the [licence review](third-party-dependency-licenses.md) and [component inventory](third-party-dependency-inventory.json). Remaining readiness work includes Cloudflare account logging and retention, listing materials, the export-compliance declaration and final branch review. Apple Developer work remains on hold.

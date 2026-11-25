@@ -83,6 +83,7 @@
       "signingIdentity": "-",
       "files": {
         "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy",
+        "Resources/Licenses/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
         "Resources/Licenses/Inter-OFL.txt": "../src/assets/fonts/inter/OFL.txt",
         "Resources/Licenses/EB-Garamond-OFL.txt": "../src/assets/fonts/eb-garamond/OFL.txt",
         "Resources/Licenses/Hanken-Grotesk-OFL.txt": "../src/assets/fonts/hanken-grotesk/OFL.txt",
