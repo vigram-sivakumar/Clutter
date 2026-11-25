@@ -88,9 +88,11 @@ class LabTable {
           td.tabIndex = -1;
           td.setAttribute('role', r === 0 ? 'columnheader' : 'gridcell');
           td.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1));
-          td.addEventListener('pointerdown', event => this.beginDrag(event, { row: r, col: c }, td));
+          td.addEventListener('pointerdown', event => this.beginDrag(event, { row: r, col: c }, td), { capture: true });
           td.addEventListener('mousedown', event => {
-            if (event.shiftKey || this.drag) event.preventDefault();
+            // Native caret placement and text selection remain available in
+            // an active editor until the pointer actually crosses a cell.
+            if (this.active?.host !== td && (event.shiftKey || this.drag)) event.preventDefault();
           });
           td.addEventListener('click', event => {
             if (this.suppressClick) { this.suppressClick = false; return; }
@@ -155,17 +157,19 @@ class LabTable {
 
   /** Click is still click-to-edit. Crossing into another cell while held
    * converts the gesture into range selection and suppresses the click.
-   * Existing active text editors keep native text drag behaviour.
+   * Inside an active editor, let native text selection run until crossing
+   * the cell boundary. Then hand ownership to rectangular selection.
    */
   private beginDrag(event: PointerEvent, anchor: CellAddress, host: HTMLTableCellElement) {
     this.suppressClick = false;
     this.drag?.abort();
     this.drag = null;
-    if (event.button !== 0 || !event.isPrimary || event.shiftKey || event.pointerType === 'touch' || this.active?.host === host) return;
+    if (event.button !== 0 || !event.isPrimary || event.shiftKey || event.pointerType === 'touch') return;
     const abort = new AbortController();
     this.drag = abort;
     const doc = host.ownerDocument;
     let moved = false;
+    const startedEditing = this.active?.host === host;
     const pointer = event.pointerId;
     const finish = (next: PointerEvent) => {
       if (next.pointerId !== pointer) return;
@@ -181,11 +185,27 @@ class LabTable {
       if (!(tr instanceof HTMLTableRowElement)) return;
       const head = { row: tr.rowIndex, col: td.cellIndex };
       if (!moved && head.row === anchor.row && head.col === anchor.col) return;
+      const firstCrossing = !moved;
       moved = true;
       this.suppressClick = true;
       next.preventDefault();
+      if (firstCrossing && startedEditing) {
+        // End the nested editor's text-selection gesture before focusing
+        // a grid cell. Do not clear unrelated document selections.
+        const selection = doc.getSelection();
+        if (selection?.anchorNode && host.contains(selection.anchorNode)) selection.removeAllRanges();
+      }
       this.select({ kind: 'range', anchor, head });
-    }, { signal: abort.signal });
+    }, { capture: true, signal: abort.signal });
+    // Once ownership has transferred, compatibility mouse events must not
+    // restart native text selection. Before crossing, leave them untouched.
+    doc.addEventListener('mousemove', next => {
+      if (moved) { next.preventDefault(); next.stopPropagation(); }
+    }, { capture: true, signal: abort.signal });
+    // A preselected text fragment can start browser drag-and-drop instead
+    // of delivering further pointer moves. The lab's cross-cell gesture
+    // takes precedence over native text drag-and-drop.
+    host.addEventListener('dragstart', next => next.preventDefault(), { capture: true, signal: abort.signal });
     doc.addEventListener('pointerup', finish, { signal: abort.signal });
     doc.addEventListener('pointercancel', finish, { signal: abort.signal });
     doc.defaultView?.addEventListener('blur', () => {
