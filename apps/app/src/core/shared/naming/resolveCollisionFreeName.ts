@@ -1,34 +1,40 @@
+/** The single candidate-selection pipeline. Policy supplies names, the caller supplies occupancy.
+ * Keep synchronous Vault lookups and asynchronous filesystem lookups on the same ordered sequence.
+ * A successful lookup is not a reservation: writers must still use exclusive/no-clobber operations.
+ */
+export type CollisionCandidate = (attempt: number) => string;
+
+function* collisionCandidates(candidate: CollisionCandidate): Generator<string, never, unknown> {
+  for (let attempt = 0; ; attempt += 1) yield candidate(attempt);
+}
+
+export function resolveAvailableName(candidate: CollisionCandidate, isTaken: (name: string) => boolean): string {
+  for (const name of collisionCandidates(candidate)) {
+    if (!isTaken(name)) return name;
+  }
+  throw new Error('Name candidate sequence exhausted');
+}
+
+export async function resolveAvailableNameAsync(candidate: CollisionCandidate, isTaken: (name: string) => Promise<boolean>): Promise<string> {
+  for (const name of collisionCandidates(candidate)) {
+    if (!(await isTaken(name))) return name;
+  }
+  throw new Error('Name candidate sequence exhausted');
+}
+
 export interface ResolveCollisionFreeNameOptions {
   readonly firstSuffix?: number;
 }
 
-/**
- * Appends a numeric suffix (" 2", " 3", ...) to baseName until isTaken
- * returns false. Shared by PagePathResolver and FolderPathResolver — the
- * same collision-avoidance rule, applied to two different path shapes (a
- * note's ".md" file vs a folder's bare directory name), previously
- * duplicated identically in both.
- *
- * By default the first suffix tried when baseName is taken is 2 ("Note 2").
- * Pass `{ firstSuffix: 1 }` for Finder-style numbering ("Note 1") — used
- * by page move destination resolution only.
- */
+/** Preserve the caller's numeric suffix convention; default starts at 2. */
 export function resolveCollisionFreeName(
   baseName: string,
   isTaken: (candidateName: string) => boolean,
   options?: ResolveCollisionFreeNameOptions
 ): string {
   const firstSuffix = options?.firstSuffix ?? 2;
-
-  if (!isTaken(baseName)) {
-    return baseName;
-  }
-
-  let suffix = firstSuffix;
-
-  while (isTaken(`${baseName} ${suffix}`)) {
-    suffix += 1;
-  }
-
-  return `${baseName} ${suffix}`;
+  return resolveAvailableName(
+    (attempt) => attempt === 0 ? baseName : `${baseName} ${firstSuffix + attempt - 1}`,
+    isTaken
+  );
 }

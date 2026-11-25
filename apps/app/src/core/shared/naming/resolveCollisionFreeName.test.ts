@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCollisionFreeName } from './resolveCollisionFreeName';
+import { resolveAvailableName, resolveAvailableNameAsync, resolveCollisionFreeName } from './resolveCollisionFreeName';
 
 describe('resolveCollisionFreeName', () => {
   it('returns the base name when nothing is taken', () => {
@@ -58,5 +58,17 @@ describe('resolveCollisionFreeName', () => {
         })
       ).toBe('Note 1');
     });
+  });
+});
+
+describe('shared collision candidate pipeline', () => {
+  it('uses the same ordered candidates for indexed and filesystem occupancy', async () => {
+    const candidate = (attempt: number) => attempt === 0 ? 'Photo.png' : `Photo ${attempt + 1}.png`;
+    const taken = new Set(['Photo.png', 'Photo 2.png']);
+    const syncCalls: string[] = [];
+    const asyncCalls: string[] = [];
+    expect(resolveAvailableName(candidate, (name) => { syncCalls.push(name); return taken.has(name); })).toBe('Photo 3.png');
+    expect(await resolveAvailableNameAsync(candidate, async (name) => { asyncCalls.push(name); return taken.has(name); })).toBe('Photo 3.png');
+    expect(asyncCalls).toEqual(syncCalls);
   });
 });

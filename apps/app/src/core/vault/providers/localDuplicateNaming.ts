@@ -1,3 +1,4 @@
+import { resolveAvailableNameAsync } from '../../shared/naming/resolveCollisionFreeName';
 import type { VaultFileSystem } from './VaultFileSystem';
 
 const COPY_SUFFIX_PATTERN = /^(.*) copy(?: (\d+))?$/;
@@ -50,13 +51,12 @@ export async function resolveLocalDuplicatePath(
   const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
   const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';
 
-  let candidateBase = nextDuplicateBaseName(baseName);
-  let candidatePath = `${parentPath}/${candidateBase}${extension}`;
-
-  while (await fileSystem.exists(candidatePath)) {
-    candidateBase = nextDuplicateBaseName(candidateBase);
-    candidatePath = `${parentPath}/${candidateBase}${extension}`;
-  }
-
-  return candidatePath;
+  let candidateBase = baseName;
+  return resolveAvailableNameAsync(
+    () => {
+      candidateBase = nextDuplicateBaseName(candidateBase);
+      return `${parentPath}/${candidateBase}${extension}`;
+    },
+    (candidatePath) => fileSystem.exists(candidatePath)
+  );
 }

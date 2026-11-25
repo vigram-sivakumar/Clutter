@@ -1,3 +1,5 @@
+import { resolveAvailableName } from './resolveCollisionFreeName';
+
 /**
  * Archive-destination collision resolution (ADR-026 follow-up): the single
  * shared rule both MoveService.resolveArchiveDestination (pages) and
@@ -46,23 +48,10 @@ export function resolveArchiveCollisionFreeName(
   isTaken: (candidateName: string) => boolean,
   now: Date
 ): string {
-  if (!isTaken(baseName)) {
-    return baseName;
-  }
-
   const timestamped = `${baseName} ${formatArchiveTimestamp(now)}`;
-
-  if (!isTaken(timestamped)) {
-    return timestamped;
-  }
-
-  let suffix = 1;
-  let candidate = `${timestamped}.${String(suffix).padStart(2, '0')}`;
-
-  while (isTaken(candidate)) {
-    suffix += 1;
-    candidate = `${timestamped}.${String(suffix).padStart(2, '0')}`;
-  }
-
-  return candidate;
+  return resolveAvailableName((attempt) => {
+    if (attempt === 0) return baseName;
+    if (attempt === 1) return timestamped;
+    return `${timestamped}.${String(attempt - 1).padStart(2, '0')}`;
+  }, isTaken);
 }
