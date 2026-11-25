@@ -116,7 +116,7 @@ describe('embedCompletionSource — fresh, not-yet-closed ![[query', () => {
       option.apply(view, option, result?.from ?? 0, 9);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[Projects/hero.png]]\n y');
+    expect(view.state.doc.toString()).toBe('x  y\n![[Projects/hero.png]]');
   });
 
   it("apply() places the cursor immediately after the closing ']]' it just inserted", () => {
@@ -133,7 +133,7 @@ describe('embedCompletionSource — fresh, not-yet-closed ![[query', () => {
       option.apply(view, option, result?.from ?? 0, 7);
     }
 
-    expect(view.state.doc.toString()).toBe('![[hero.png]]\n');
+    expect(view.state.doc.toString()).toBe('![[hero.png]]');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 });
@@ -196,7 +196,7 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('![[hero.png|Caption]]\n');
+    expect(view.state.doc.toString()).toBe('![[hero.png|Caption]]');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
     expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
   });
@@ -216,7 +216,7 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n y');
+    expect(view.state.doc.toString()).toBe('x  y\n![[hero.png]]');
   });
 
   it(
@@ -237,11 +237,11 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
         option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
       }
 
-      expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n y');
+      expect(view.state.doc.toString()).toBe('x  y\n![[hero.png]]');
       // Right after the "]]" (index 5 + "![[".length... computed directly:
       // "x ![[hero.png]] y" — "]]" ends at index 15.
       // ...and one line break later: the cursor sits at the start of the new line.
-      expect(view.state.selection.main.head).toBe(16);
+      expect(view.state.selection.main.head).toBe(view.state.doc.length);
     }
   );
 
@@ -441,20 +441,20 @@ describe('embedCompletionSource — every embed moves the cursor to a fresh line
     return view;
   }
 
-  it('creates exactly one new line below the embed and puts the cursor at its start', () => {
+  it('reuses an empty line and selects the media without adding a line', () => {
     const view = accept('![[her', 6);
 
-    expect(view.state.doc.toString()).toBe('![[hero.png]]\n');
-    expect(view.state.doc.lines).toBe(2);
+    expect(view.state.doc.toString()).toBe('![[hero.png]]');
+    expect(view.state.doc.lines).toBe(1);
     const head = view.state.selection.main.head;
-    expect(head).toBe(view.state.doc.line(2).from);
+    expect(head).toBe(view.state.doc.length);
     expect(view.state.selection.main.empty).toBe(true);
   });
 
   it('preserves text before the embed on its line', () => {
     const view = accept('Some text ![[her', 16);
 
-    expect(view.state.doc.toString()).toBe('Some text ![[hero.png]]\n');
+    expect(view.state.doc.toString()).toBe('Some text \n![[hero.png]]');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
@@ -462,55 +462,55 @@ describe('embedCompletionSource — every embed moves the cursor to a fresh line
     const view = accept('![[her\n\nnext', 6);
 
     expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nnext');
-    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+    expect(view.state.selection.main.head).toBe(view.state.doc.toString().indexOf(']]') + 2);
   });
 
-  it('inserts a single break before a following content line, which stays intact', () => {
+  it('leaves a following content line intact without an extra blank line', () => {
     const view = accept('![[her\nnext', 6);
 
-    expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nnext');
-    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\nnext');
+    expect(view.state.selection.main.head).toBe(view.state.doc.toString().indexOf(']]') + 2);
   });
 
-  it('moves text after the completion range onto the new line, after the cursor', () => {
+  it('keeps surrounding text on its line and moves only the embed', () => {
     const view = accept('x ![[her tail', 8);
 
-    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
-    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+    expect(view.state.doc.toString()).toBe('x  tail\n![[hero.png]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.toString().indexOf(']]') + 2);
   });
 
-  it('reactivating inside a closed embed: replaces the reference, then breaks after the construct (alias kept)', () => {
+  it('reactivating inside a closed embed moves the media below intact surrounding text (alias kept)', () => {
     const view = accept('x ![[her|Cap]] y', 8);
 
-    expect(view.state.doc.toString()).toBe('x ![[hero.png|Cap]]\n y');
-    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+    expect(view.state.doc.toString()).toBe('x  y\n![[hero.png|Cap]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.toString().indexOf(']]') + 2);
   });
 
   it('reactivating a closed embed that already ends its line followed by a blank line adds no break', () => {
     const view = accept('![[her]]\n\nz', 6);
 
     expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nz');
-    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+    expect(view.state.selection.main.head).toBe(view.state.doc.toString().indexOf(']]') + 2);
   });
 
   it('a PDF embed behaves the same as an image embed', () => {
     const image_ = accept('Some text ![[her', 16, image);
     const pdf_ = accept('Some text ![[pla', 16, pdf);
 
-    expect(pdf_.state.doc.toString()).toBe('Some text ![[plan.pdf]]\n');
+    expect(pdf_.state.doc.toString()).toBe('Some text \n![[plan.pdf]]');
     expect(pdf_.state.selection.main.head).toBe(pdf_.state.doc.length);
     expect(image_.state.doc.lines).toBe(pdf_.state.doc.lines);
   });
 
   it('undo removes the insertion and the line break together, and redo restores both', () => {
     const view = accept('x ![[her tail', 8);
-    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
+    expect(view.state.doc.toString()).toBe('x  tail\n![[hero.png]]');
 
     undo(view);
     expect(view.state.doc.toString()).toBe('x ![[her tail');
 
     redo(view);
-    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
+    expect(view.state.doc.toString()).toBe('x  tail\n![[hero.png]]');
   });
 
   it('a heading embed (a section of a note, rendered as a block) breaks the line too', () => {

@@ -11,6 +11,7 @@ import { layoutFor, type CompletionListConfig, type CompletionListLayout } from 
 import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
 import { insertedEmbedEffects } from './insertedEmbedEffects';
+import { planMediaBlockInsertion } from './mediaBlockInsertion';
 import { syncEmbedObjectSelection } from './embedObjectSelection';
 import type { EmbedTargetSuggestion, GetEmbedSuggestions } from './embedSuggestion';
 
@@ -56,10 +57,14 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
     : from + insert.length;
 
   if (selectMedia) {
-    const changes = { from, to, insert };
-    const selection = { anchor: embedEndAfter };
+    const start = existingBeforeChange?.from ?? from;
+    // Keep the existing alias/presentation suffix when changing a closed target.
+    const raw = view.state.sliceDoc(start, from) + insert + view.state.sliceDoc(to, embedEndBefore);
+    const placement = planMediaBlockInsertion(view.state, { from: start, to: embedEndBefore }, raw);
+    const { changes } = placement;
+    const selection = { anchor: placement.to };
     const scratch = view.state.update({ changes, selection });
-    const effects = insertedEmbedEffects(scratch.state, existingBeforeChange?.from ?? from, embedEndAfter);
+    const effects = insertedEmbedEffects(scratch.state, placement.from, placement.to);
     view.dispatch({ changes, selection, effects, scrollIntoView: true, userEvent: 'input.complete' });
     syncEmbedObjectSelection(view);
     return;

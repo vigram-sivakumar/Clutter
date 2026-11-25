@@ -1,6 +1,7 @@
 import { EditorSelection, type EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { insertedEmbedEffects } from '../embed/insertedEmbedEffects';
+import { planMediaBlockInsertion } from '../embed/mediaBlockInsertion';
 import { serializeEmbed } from '../embed/embedSerialize';
 import { syncEmbedObjectSelection } from '../embed/embedObjectSelection';
 
@@ -183,12 +184,17 @@ export function embedPasted(view: EditorView, data: DataTransfer, assets: PasteA
       const unchanged = view.state.doc.eq(docAtStart);
       const at = unchanged ? { from, to } : { from: view.state.selection.main.head, to: view.state.selection.main.head };
       const { leading, body, trailing } = plan.block && !inTable ? blockBoundaries(view.state, at, insert) : { leading: '', body: insert, trailing: '' };
-      const changes = { ...at, insert: leading + body + trailing };
-      const selection = EditorSelection.cursor(at.from + leading.length + body.length);
       const inserted = new Set(pieces.flatMap((piece) => piece.reference === undefined ? [] : [serializeEmbed(piece.reference)]));
+      // File payloads (including any accompanying caption) are one media block.
+      // Rich HTML retains its existing content order and block-conversion rules.
+      const media = strategy === 'files' && !inTable && inserted.size > 0
+        ? planMediaBlockInsertion(view.state, at, insert)
+        : null;
+      const changes = media?.changes ?? [{ ...at, insert: leading + body + trailing }];
+      const selection = EditorSelection.cursor(media?.to ?? at.from + leading.length + body.length);
       const scratch = view.state.update({ changes, selection });
       const effects = !inTable && inserted.size
-        ? insertedEmbedEffects(scratch.state, at.from, at.from + changes.insert.length, (raw) => inserted.has(raw))
+        ? insertedEmbedEffects(scratch.state, media?.from ?? at.from, media?.to ?? at.from + leading.length + body.length + trailing.length, (raw) => inserted.has(raw))
         : [];
       view.dispatch({
         changes,

@@ -62,7 +62,7 @@ afterEach(() => {
 });
 
 describe('pasting files', () => {
-  it('one image: stored, and an embed inserted at the caret', async () => {
+  it('one image: stored below the intact current line', async () => {
     const { assets, stored } = fakeAssets();
     const view = mount('Hello  world', assets, 6);
 
@@ -71,8 +71,8 @@ describe('pasting files', () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(stored).toEqual(['shot.png:3']);
-    expect(view.state.doc.toString()).toBe('Hello ![[Assets/shot.png]] world');
-    expect(view.state.selection.main.head).toBe('Hello ![[Assets/shot.png]]'.length);
+    expect(view.state.doc.toString()).toBe('Hello  world\n![[Assets/shot.png]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
   it('several images keep the clipboard order, one per line', async () => {
@@ -157,7 +157,7 @@ describe('pasting files', () => {
     undo(view);
     expect(view.state.doc.toString()).toBe('Hi');
     redo(view);
-    expect(view.state.doc.toString()).toBe('Hi![[Assets/a.png]]\n![[Assets/b.png]]');
+    expect(view.state.doc.toString()).toBe('Hi\n![[Assets/a.png]]\n![[Assets/b.png]]');
   });
 
   it('goes at the caret when the document changed while the files were being stored', async () => {
@@ -168,7 +168,7 @@ describe('pasting files', () => {
     view.dispatch({ changes: { from: 0, insert: 'XX' }, selection: { anchor: 3 } });
     await settle();
 
-    expect(view.state.doc.toString()).toBe('XXa![[Assets/a.png]]b');
+    expect(view.state.doc.toString()).toBe('XXab\n![[Assets/a.png]]');
   });
 });
 

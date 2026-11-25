@@ -359,17 +359,17 @@ describe('B. clipboard format combinations — which representation wins', () =>
   });
 
   it('[behaviour] a file with plain text: the text comes first, then the embed', async () => {
-    expect((await paste(PLAIN, { files: [png()], text: 'caption text' })).doc).toBe('Startcaption text\n![[Assets/shot-1.png]]\n\nEnd');
+    expect((await paste(PLAIN, { files: [png()], text: 'caption text' })).doc).toBe('Start\ncaption text\n![[Assets/shot-1.png]]\n\nEnd');
   });
 
   it('[intentional] a file with only its own name as text: the name is not inserted', async () => {
-    expect((await paste(PLAIN, { files: [png('shot.png')], text: 'shot.png' })).doc).toBe('Start![[Assets/shot-1.png]]\n\nEnd');
+    expect((await paste(PLAIN, { files: [png('shot.png')], text: 'shot.png' })).doc).toBe('Start\n![[Assets/shot-1.png]]\n\nEnd');
   });
 
   it('[defect] a file with rich HTML: the HTML is DISCARDED. The formatting is lost; only the plain text and the embed remain', async () => {
     const o = await paste(PLAIN, { files: [png()], html: RICH, text: 'PLAINFALLBACK' });
 
-    expect(o.doc).toBe('StartPLAINFALLBACK\n![[Assets/shot-1.png]]\n\nEnd');
+    expect(o.doc).toBe('Start\nPLAINFALLBACK\n![[Assets/shot-1.png]]\n\nEnd');
     expect(o.doc).not.toContain('**bold**');
   });
 
@@ -401,7 +401,7 @@ describe('B. clipboard format combinations — which representation wins', () =>
   it('[defect] a supported file together with an unsupported one: the unsupported file is SILENTLY dropped (no notice)', async () => {
     const o = await paste(PLAIN, { files: [png(), docx()], text: '' });
 
-    expect(o.doc).toBe('Start![[Assets/shot-1.png]]\n\nEnd');
+    expect(o.doc).toBe('Start\n![[Assets/shot-1.png]]\n\nEnd');
     expect(o.stored).toEqual(['Assets/shot-1.png']);
     expect(o.failed).toEqual([]);
   });
@@ -415,7 +415,7 @@ describe('B. clipboard format combinations — which representation wins', () =>
   });
 
   it('[behaviour] a PDF alone is stored and embedded like an image', async () => {
-    expect((await paste(PLAIN, { files: [pdf()], text: '' })).doc).toBe('Start![[Assets/doc-1.pdf]]\n\nEnd');
+    expect((await paste(PLAIN, { files: [pdf()], text: '' })).doc).toBe('Start\n![[Assets/doc-1.pdf]]\n\nEnd');
   });
 
   it('[intentional] two HTML tables with no other markup are classified as rich HTML and converted: both tables\' rows arrive as Markdown', async () => {
@@ -680,7 +680,7 @@ describe('E. asynchronous asset import — lifecycle', () => {
     await sleep(40);
 
     expect(rootOf(container)).toBe(first);
-    expect(first.state.doc.toString()).toBe('Page two![[Assets/shot-1.png]]');
+    expect(first.state.doc.toString()).toBe('Page two\n![[Assets/shot-1.png]]');
   });
 
   it('[intentional] the document changes during the import: the content goes in at the caret as it is then, not where the paste started', async () => {
@@ -697,7 +697,7 @@ describe('E. asynchronous asset import — lifecycle', () => {
     release();
     await sleep(40);
 
-    expect(root.state.doc.toString()).toBe('XX Start ![[Assets/shot-1.png]]end');
+    expect(root.state.doc.toString()).toBe('XX Start end\n![[Assets/shot-1.png]]');
   });
 
   it('[intentional] text pasted while an import is pending stays, and the embed follows it', async () => {
@@ -716,7 +716,7 @@ describe('E. asynchronous asset import — lifecycle', () => {
     release();
     await sleep(40);
 
-    expect(root.state.doc.toString()).toBe('Start typed![[Assets/a-1.png]]');
+    expect(root.state.doc.toString()).toBe('Start typed\n![[Assets/a-1.png]]');
   });
 
   it('[intentional] an import failure is reported, and the text that came with the file is still inserted', async () => {
@@ -730,7 +730,7 @@ describe('E. asynchronous asset import — lifecycle', () => {
   it('[intentional] when only some files fail, the others are embedded and the failures reported once', async () => {
     const o = await paste({ markdown: 'Start', caret: 5, assets: { fails: (name) => name === 'a.png' } }, { files: [png('a.png'), png('b.png')], text: '' });
 
-    expect(o.doc).toBe('Start![[Assets/b-1.png]]');
+    expect(o.doc).toBe('Start\n![[Assets/b-1.png]]');
     expect(o.failed).toEqual([['a.png']]);
   });
 
@@ -745,7 +745,7 @@ describe('E. asynchronous asset import — lifecycle', () => {
   it('[intentional] identical bytes pasted twice are stored once and embedded twice', async () => {
     const o = await paste({ markdown: 'Start', caret: 5 }, { files: [png('a.png'), png('b.png')], text: '' });
 
-    expect(o.doc).toBe('Start![[Assets/a-1.png]]\n![[Assets/a-1.png]]');
+    expect(o.doc).toBe('Start\n![[Assets/a-1.png]]\n![[Assets/a-1.png]]');
     expect(o.stored).toEqual(['Assets/a-1.png']);
   });
 
@@ -1066,7 +1066,7 @@ describe('H. after the import — insertion is re-checked against the live edito
     release();
     await sleep(60);
 
-    expect(root.state.doc.toString()).toBe('Start![[Assets/shot-1.png]]');
+    expect(root.state.doc.toString()).toBe('Start\n![[Assets/shot-1.png]]');
     expect(fake.notInserted).toEqual([]);
     expect(fake.failed).toEqual([]);
   });
@@ -1104,7 +1104,7 @@ describe('H. after the import — insertion is re-checked against the live edito
     release();
     await sleep(60);
 
-    expect(root.state.doc.toString()).toBe('Start![[Assets/a-1.png]]\n![[Assets/b-2.pdf]]');
+    expect(root.state.doc.toString()).toBe('Start\n![[Assets/a-1.png]]\n![[Assets/b-2.pdf]]');
     expect(fake.notInserted).toEqual([]);
     expect(fake.failed).toEqual([]);
     expect(fake.skipped).toEqual([]);
@@ -1127,7 +1127,7 @@ describe('H. after the import — insertion is re-checked against the live edito
     const { fake, root } = await start([distinct('a.png', 1), distinct('bad.png', 2), distinct('c.pdf', 3, 'application/pdf')], { fails: (name) => name === 'bad.png' });
     await sleep(60);
 
-    expect(root.state.doc.toString()).toBe('Start![[Assets/a-1.png]]\n![[Assets/c-2.pdf]]');
+    expect(root.state.doc.toString()).toBe('Start\n![[Assets/a-1.png]]\n![[Assets/c-2.pdf]]');
     expect(fake.failed).toEqual([['bad.png']]);
     expect(fake.notInserted).toEqual([]);
   });
@@ -1140,7 +1140,7 @@ describe('H. after the import — insertion is re-checked against the live edito
     release();
     await sleep(60);
 
-    expect(root.state.doc.toString()).toBe('XX Start ![[Assets/shot-1.png]]end');
+    expect(root.state.doc.toString()).toBe('XX Start end\n![[Assets/shot-1.png]]');
     expect(fake.notInserted).toEqual([]);
   });
 });
