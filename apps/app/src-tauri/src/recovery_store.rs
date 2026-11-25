@@ -10,7 +10,7 @@
 //! that name is never followed), is synced, and is renamed over the record, so a failure at any point leaves the
 //! earlier record as it was. The temporary file keeps its fixed name because the journal reads an interrupted
 //! `.json.tmp` as recoverable work. A link at the record's own name is replaced, never written through, and a vault
-//! key folder that is a link is refused.
+//! key folder or recovery root that is a link is refused for writes and removals.
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -39,6 +39,13 @@ fn record_folder(root: &Path, key: &str) -> Result<PathBuf, String> {
     Ok(root.join(key))
 }
 
+fn check_plain_folder(path: &Path) -> std::io::Result<()> {
+    if !fs::symlink_metadata(path)?.is_dir() {
+        return Err(std::io::Error::other("the recovery folder is not a plain folder"));
+    }
+    Ok(())
+}
+
 /// A committed record (`.json`) or the temporary file of an interrupted write (`.json.tmp`).
 fn is_record_name(name: &str) -> bool {
     is_plain_component(name) && (name.ends_with(".json") || name.ends_with(".json.tmp"))
@@ -52,10 +59,9 @@ pub(crate) fn write_record(root: &Path, key: &str, name: &str, text: &str) -> Re
         return Err("the recovery record is too large".to_string());
     }
     let folder = record_folder(root, key)?;
-    fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
-    let kind = fs::symlink_metadata(&folder).map_err(|error| error.to_string())?;
-    if kind.file_type().is_symlink() || !kind.is_dir() {
-        return Err("the recovery folder is not a plain folder".to_string());
+    for directory in [root, folder.as_path()] {
+        fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+        check_plain_folder(directory).map_err(|error| error.to_string())?;
     }
 
     let temp = folder.join(format!("{name}.tmp"));
@@ -86,8 +92,15 @@ pub(crate) fn remove_record(root: &Path, key: &str, name: &str) -> Result<(), St
     if !is_record_name(name) {
         return Err("not a recovery record name".to_string());
     }
-    let path = record_folder(root, key)?.join(name);
-    match fs::remove_file(&path) {
+    let folder = record_folder(root, key)?;
+    for directory in [root, folder.as_path()] {
+        match check_plain_folder(directory) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    match fs::remove_file(folder.join(name)) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(error.to_string()),
@@ -219,6 +232,27 @@ mod tests {
         assert!(write_record(&root, "k", RECORD, "x").is_err());
 
         assert_eq!(fs::read_dir(&outside).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn recovery_never_crosses_a_link_at_the_root_or_vault_key() {
+        let scratch = Scratch::new("linked-directories");
+        let root = scratch.0.join("recovery");
+        let outside = scratch.0.join("outside");
+        fs::create_dir_all(outside.join("k")).unwrap();
+        fs::write(outside.join("k").join(RECORD), "keep the previous record").unwrap();
+        symlink(&outside, &root).unwrap();
+
+        assert!(write_record(&root, "k", RECORD, "replacement").is_err());
+        assert!(remove_record(&root, "k", RECORD).is_err());
+        assert_eq!(fs::read_to_string(outside.join("k").join(RECORD)).unwrap(), "keep the previous record");
+
+        fs::remove_file(&root).unwrap();
+        fs::create_dir(&root).unwrap();
+        symlink(outside.join("k"), root.join("k")).unwrap();
+
+        assert!(remove_record(&root, "k", RECORD).is_err());
+        assert_eq!(fs::read_to_string(outside.join("k").join(RECORD)).unwrap(), "keep the previous record");
     }
 
     #[test]

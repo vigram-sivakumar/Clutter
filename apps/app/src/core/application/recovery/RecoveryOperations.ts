@@ -283,15 +283,17 @@ export class RecoveryOperations {
     };
     const folderId = existing?.parentId ?? record.draft?.folderId ?? null;
 
+    let newPageId: string;
     try {
-      await this.pageOperations.create({ ...options, folderId });
+      newPageId = await this.pageOperations.create({ ...options, folderId });
     } catch (error) {
       if (folderId === null) throw error;
       // The folder is gone or no longer accepts notes: the vault's top level always does.
-      await this.pageOperations.create({ ...options, folderId: null });
+      newPageId = await this.pageOperations.create({ ...options, folderId: null });
     }
 
-    await this.removeAll(candidate);
+    // Create can return once the new note is visible even if its flush is still pending.
+    await this.journal.adopt(newPageId, [candidate.entry, ...candidate.duplicates]);
     this.drop(key);
   }
 

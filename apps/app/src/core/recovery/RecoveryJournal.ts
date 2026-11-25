@@ -346,12 +346,10 @@ export class RecoveryJournal {
   }
 
   /**
-   * Takes over responsibility for records an earlier session left for `pageId`, after a Restore put their content in the
-   * editor and this session's own record already protects it. They are kept, not removed, until the note has nothing
-   * unsaved (the vault save succeeded): the original stays the second copy through the window in which the new record
-   * is the only other one. They are removed together with this session's own record, by the same rule, and a failed
-   * removal is retried with it. If the process ends first, both survive and discovery offers them once (identical
-   * content) or as the distinct revisions they are.
+   * Takes over records from an earlier session after a Restore. For edits restored into an
+   * editor, this session has already protected them. For a restore as a new note, the new file
+   * has already been created. Cleanup follows the receiving page's dirty state and durability
+   * hold, and retries a failed removal. An interrupted restore can leave records for discovery.
    */
   public async adopt(pageId: string, entries: readonly RecoveryEntry[]): Promise<void> {
     this.adopted.set(pageId, [...(this.adopted.get(pageId) ?? []), ...entries]);

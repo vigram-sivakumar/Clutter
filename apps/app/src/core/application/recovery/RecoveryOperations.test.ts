@@ -85,13 +85,14 @@ describe('classifyRecord', () => {
   });
 });
 
-function setup(options: { pages?: Page[]; archived?: boolean } = {}) {
+function setup(options: { pages?: Page[]; archived?: boolean; holdRecord?: (pageId: string) => boolean } = {}) {
   const storage = new MemoryRecoveryStorage();
   const state = new Map<string, unknown>();
   const journal = new RecoveryJournal({
     storage,
     vaultKey: 'space-1',
     session: 'aaaaaaaa',
+    holdRecord: options.holdRecord,
     source: { recoverableState: () => null, unsavedPageIds: () => [], subscribeUnsaved: () => () => {} },
   });
   const pages = new Map((options.pages ?? []).map((page) => [page.id, page]));
@@ -313,6 +314,24 @@ describe('RecoveryOperations: restore, discard', () => {
     expect(pageOperations.commitEdit).not.toHaveBeenCalled();
     expect(calls).toEqual(['create:Note (recovered):folder-1']);
     expect(operations.candidates).toEqual([]);
+  });
+
+  it('keeps records restored as a new note until that note’s durability is settled', async () => {
+    let pending = true;
+    const { operations, put, storage, journal } = setup({
+      holdRecord: (id) => id === 'new-id' && pending,
+    });
+    put(recordFor(), 'bbbbbbbb');
+    put(recordFor(), 'cccccccc');
+    await operations.discover();
+
+    await operations.restoreAsNewNote(operations.candidates[0]!.key);
+
+    expect(storage.files.size).toBe(2);
+    expect(operations.candidates).toEqual([]);
+    pending = false;
+    await journal.snapshotNow('new-id'); // Same reconcile as the tracker’s durability-change callback.
+    expect(storage.files.size).toBe(0);
   });
 
   it('restores a draft as a note in its folder, falling back to the top level if that folder is gone', async () => {

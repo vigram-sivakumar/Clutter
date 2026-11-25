@@ -75,6 +75,29 @@ describe('downloadTextFile', () => {
     );
   });
 
+  it('leaves the destination alone when the code is no longer available after Save', async () => {
+    isTauriMock.mockReturnValue(true);
+    saveMock.mockResolvedValue(TICKET);
+    const { downloadTextFile } = await import('./downloadTextFile');
+
+    await expect(downloadTextFile(() => null, 'code.js')).rejects.toThrow(/code block is no longer available/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('exports an intentionally empty block', async () => {
+    isTauriMock.mockReturnValue(true);
+    saveMock.mockResolvedValue(TICKET);
+    const { downloadTextFile } = await import('./downloadTextFile');
+
+    await downloadTextFile(() => '', 'code.js');
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      'export_write_file',
+      new Uint8Array(0),
+      { headers: { ticket: String(TICKET) } }
+    );
+  });
+
   it('is a no-op in the non-Tauri (browser) runtime', async () => {
     isTauriMock.mockReturnValue(false);
     const getContent = vi.fn(() => 'const a = 1;');
