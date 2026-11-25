@@ -6,18 +6,19 @@ import { modelsEqual, readTable, TableEngineError, type ParseMarkdown, type Tabl
 export interface CellAddress { readonly row: number; readonly col: number }
 export interface EditableCell { readonly from: number; readonly to: number; readonly text: string }
 
-/** The mapped editor currently requires materialised cells with canonical padding. Reserve one
+/** Materialised canonical cells reserve one
  * padding space on either side; any additional spaces are editable content.
  * This allows typing a trailing space without losing it to model trimming.
  */
 export function editableCell(source: string, table: TableSnapshot, address: CellAddress): EditableCell {
   const cell = table.cells[address.row]?.[address.col];
-  if (!cell || cell.rawTo - cell.rawFrom < 2 ||
-    source[cell.rawFrom] !== ' ' || source[cell.rawTo - 1] !== ' ') {
-    throw new TableEngineError('Cell needs explicit formatting/materialisation before editing');
-  }
-  const from = cell.rawFrom + 1;
-  const to = cell.rawTo - 1;
+  if (!cell) throw new TableEngineError('Cell needs materialisation before editing');
+  // Canonical cells reserve one padding space at each side. Imported cells
+  // without that pair expose their full source span, preserving typed spaces.
+  const padded = cell.rawTo - cell.rawFrom >= 2 &&
+    source[cell.rawFrom] === ' ' && source[cell.rawTo - 1] === ' ';
+  const from = cell.rawFrom + (padded ? 1 : 0);
+  const to = cell.rawTo - (padded ? 1 : 0);
   return { from, to, text: source.slice(from, to) };
 }
 
@@ -33,12 +34,18 @@ export function createCellTransaction(
   changes: ChangeSet,
   parse: ParseMarkdown,
   userEvent = 'input.type',
-  effect?: StateEffect<unknown>
+  effect?: StateEffect<unknown>,
+  activeRange?: EditableCell
 ): Transaction | null {
   if (state.readOnly) throw new TableEngineError('Read-only document');
   const source = state.doc.toString();
   const before = readTable(source, tableFrom, parse);
-  const range = editableCell(source, before, address);
+  const range = activeRange ?? editableCell(source, before, address);
+  const bounds = before.cells[address.row]?.[address.col];
+  if (!bounds || range.from < bounds.rawFrom || range.to > bounds.rawTo || range.from > range.to) {
+    throw new TableEngineError('Stale editable cell bounds');
+  }
+  if (source.slice(range.from, range.to) !== previousCellText) throw new TableEngineError('Stale cell revision');
   if (range.text !== previousCellText || changes.length !== range.text.length) {
     throw new TableEngineError('Stale cell revision');
   }
@@ -54,7 +61,7 @@ export function createCellTransaction(
   const after = readTable(expectedDoc, tableFrom, parse);
   if (!modelsEqual(expectedModel, after.model) ||
     after.to !== before.to + changes.newLength - changes.length ||
-    editableCell(expectedDoc, after, address).text !== nextText) {
+    !after.cells[address.row]?.[address.col]) {
     throw new TableEngineError('Cell edit would alter table structure');
   }
   return validatedRootEdit(state, mapped, expectedDoc, userEvent, false, effect);

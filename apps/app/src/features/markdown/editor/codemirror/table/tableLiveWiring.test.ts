@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorState } from '@codemirror/state';
+import { history, undo, redo } from '@codemirror/commands';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
+import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
@@ -53,7 +55,7 @@ afterEach(() => {
   }
 });
 
-function mount(doc: string, readOnly: boolean, controller?: TableActiveCellController): EditorView {
+function mount(doc: string, readOnly: boolean, controller?: TableActiveCellController, engine = false): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -62,6 +64,7 @@ function mount(doc: string, readOnly: boolean, controller?: TableActiveCellContr
       extensions: buildEditorExtensions({
         ...REQUIRED,
         readOnly,
+        tableEngineCells: engine,
         hostPageId: 'test-page',
         getTableActiveCellController: controller ? () => controller : undefined,
       }),
@@ -150,6 +153,69 @@ describe('table live wiring — DOM structure', () => {
       expect(cell.children[0]?.classList.contains('cm-table-cell-wrapper')).toBe(true);
     }
     expect(findCell(view, 'Vik').querySelector('.cm-table-cell-wrapper')?.textContent).toBe('Vik');
+  });
+});
+
+describe('engine editable cell projection', () => {
+  it('reuses one nested editor across imported cells and preserves exact root history', () => {
+    const doc = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n\nAfter';
+    const view = mount(doc, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'one'));
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ changes: { from: 3, insert: '!' } });
+    expect(view.state.doc.toString()).toBe(doc.replace('one', 'one!'));
+    clickCell(findCell(view, 'two'));
+    expect(controller.nested).toBe(nested);
+    controller.close();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc.replace('one', 'one!'));
+  });
+
+  it('materialises a missing cell, edits it, and closes on an external replacement', () => {
+    const view = mount('| A | B |\n| --- | --- |\n| one |', false, undefined, true);
+    const host = view.dom.querySelector<HTMLElement>('tbody tr td:last-child .cm-table-cell-wrapper')!;
+    host.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ changes: { from: 0, insert: 'new' } });
+    expect(view.state.doc.toString()).toContain('| one | new |');
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: 'External' } });
+    expect(nested.dom.isConnected).toBe(false);
+    expect(view.state.doc.toString()).toBe('External');
+  });
+
+  it('maps an active imported cell across an external prefix edit and retains typed spaces', () => {
+    const doc = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n';
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'one'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    view.dispatch({ changes: { from: 0, insert: 'Prefix\n\n' } });
+    nested.dispatch({ changes: { from: 3, insert: ' ' } });
+    nested.dispatch({ changes: { from: 4, insert: 'more' } });
+    expect(nested.state.doc.toString()).toBe('one more');
+    expect(view.state.doc.toString()).toBe('Prefix\n\n' + doc.replace('one', 'one more'));
+  });
+
+  it('retains both documents when a production root filter refuses typing', () => {
+    const view = mount(TABLE, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    view.dispatch({ effects: StateEffect.appendConfig.of(EditorState.transactionFilter.of(tr => tr.docChanged ? [] : tr)) });
+    nested.dispatch({ changes: { from: 3, insert: '!' } });
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('refuses a structural cell edit before changing either view', () => {
+    const view = mount(TABLE, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ changes: { from: 0, insert: 'bad|cell' } });
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(view.state.doc.toString()).toBe(TABLE);
   });
 });
 

@@ -254,6 +254,7 @@ function buildTableDecorations(
   controller: TableActiveCellController | undefined,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
   readOnlyProjection: boolean,
+  editableProjection: boolean,
   reason: 'create' | 'transaction'
 ): DecorationSet {
   // This field owns block replacements for every table in the document, not just
@@ -272,13 +273,13 @@ function buildTableDecorations(
   const tables = findAllTables(state, tree);
 
   const ranges: Range<Decoration>[] = [];
-  const source = readOnlyProjection && tables.length ? state.doc.toString() : null;
+  const source = (readOnlyProjection || editableProjection) && tables.length ? state.doc.toString() : null;
   for (const table of tables) {
     if (source !== null) {
       try {
         const snapshot = snapshotFromTableNode(source, table.node);
         const selected = tableIntersectsSelectionRange(state.selection.main, table);
-        const widget = new TableProjection(snapshot, selected);
+        const widget = new TableProjection(snapshot, selected, editableProjection);
         ranges.push(Decoration.replace({ widget, block: true }).range(table.from, table.to));
         continue;
       } catch (error) {
@@ -347,11 +348,12 @@ function buildTableDecorations(
 export function tableWidgetDecoration(
   controller?: TableActiveCellController,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined,
-  readOnlyProjection = false
+  readOnlyProjection = false,
+  editableProjection = false
 ): Extension {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, readOnlyProjection, 'create');
+      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection, 'create');
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
@@ -372,7 +374,7 @@ export function tableWidgetDecoration(
         },
       });
       if (shouldRebuild) {
-        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, readOnlyProjection, 'transaction');
+        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection, 'transaction');
       }
       return value;
     },

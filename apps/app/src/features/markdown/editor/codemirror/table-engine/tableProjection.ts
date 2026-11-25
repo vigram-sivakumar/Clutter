@@ -1,3 +1,5 @@
+import { TableEngineError } from './tableModel';
+import { tableCellEditor } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from '../table/tableWidgetBreakoutWidth';
@@ -17,16 +19,16 @@ function container(parent: HTMLElement, className: string): HTMLDivElement {
  * a source refresh preserves the scrollport and mounted cells at surviving addresses.
  */
 export class TableProjection extends WidgetType {
-  constructor(readonly snapshot: TableSnapshot, readonly selected: boolean) {
+  constructor(readonly snapshot: TableSnapshot, readonly selected: boolean, readonly cellEditing = false) {
     super();
   }
 
   override eq(other: TableProjection): boolean {
     return other.snapshot.from === this.snapshot.from && other.snapshot.source === this.snapshot.source &&
-      other.selected === this.selected;
+      other.selected === this.selected && other.cellEditing === this.cellEditing;
   }
 
-  override toDOM(): HTMLElement {
+  override toDOM(view: EditorView): HTMLElement {
     const root = document.createElement('div');
     root.className = 'cm-table-widget';
     root.contentEditable = 'false';
@@ -39,7 +41,7 @@ export class TableProjection extends WidgetType {
     table.appendChild(document.createElement('colgroup'));
     table.createTHead();
     table.createTBody();
-    this.paint(root);
+    this.paint(root, view);
     return root;
   }
 
@@ -48,12 +50,12 @@ export class TableProjection extends WidgetType {
       root.dataset.tableFrom = String(this.snapshot.from);
       root.firstElementChild!.classList.toggle('cm-table-wrapper-selected', this.selected);
     } else {
-      this.paint(root, previous.snapshot);
+      this.paint(root, _view, previous.snapshot);
     }
     return true;
   }
 
-  private paint(root: HTMLElement, previous?: TableSnapshot): void {
+  private paint(root: HTMLElement, view: EditorView, previous?: TableSnapshot): void {
     const { model, from } = this.snapshot;
     root.dataset.tableFrom = String(from);
     const wrapper = root.firstElementChild as HTMLElement;
@@ -85,7 +87,21 @@ export class TableProjection extends WidgetType {
       values.forEach((markdown, column) => {
         const cell = row.cells[column] ?? row.appendChild(document.createElement(index === 0 ? 'th' : 'td'));
         const host = cell.firstElementChild ?? container(cell, 'cm-table-cell-wrapper');
-        if (markdown !== priorValues?.[column]) host.innerHTML = renderInlineMarkdown(markdown, { styled: true });
+        if (!view.plugin(tableCellEditor)?.owns(host) && markdown !== priorValues?.[column]) host.innerHTML = renderInlineMarkdown(markdown, { styled: true });
+        (host as HTMLElement).dataset.cell = index + ',' + column;
+        if (this.cellEditing) {
+          (host as HTMLElement).onmousedown = event => {
+            if (view.plugin(tableCellEditor)?.owns(host)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            try {
+              view.plugin(tableCellEditor)?.activate(Number(root.dataset.tableFrom),
+                { row: index, col: column }, host as HTMLElement, event);
+            } catch (error) {
+              if (!(error instanceof TableEngineError)) throw error;
+            }
+          };
+        }
         const alignment = model.alignments[column];
         cell.className = alignment === 'none' ? '' : 'cm-table-widget-align-' + alignment;
       });

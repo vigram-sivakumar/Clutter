@@ -84,6 +84,8 @@ import { tableSelectionField } from './table/tableSelection';
 import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
 import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
+import { tableCellEditor } from './table-engine/tableCellEditor';
+import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
@@ -179,6 +181,8 @@ export interface BuildEditorExtensionsOptions {
    * a note embed needs.
    */
   readonly readOnly: boolean;
+  /** Staged editable-cell validation while interaction and menu migration continues. */
+  readonly tableEngineCells?: boolean;
   /**
    * Cycle/depth-protection state for recursive note embeds
    * (`noteEmbedAncestry.ts`) — defaults to `ROOT_ANCESTRY` for the
@@ -340,8 +344,11 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     urlMouseHandlers(),
   ];
 
+  const engineCells = !readOnly && (options.tableEngineCells ??
+    (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')));
   const table: Extension[] = [
-    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly),
+    ...(engineCells ? [tableCellEditor, tableSelectionHistory] : []),
+    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
@@ -422,12 +429,12 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
-    tableActivationNormalization(),
+    ...(engineCells ? [] : [tableActivationNormalization()]),
     // The rectangular-table invariant's own ongoing (not just at-birth)
     // half — see that module's own top doc comment for why this is
     // deliberately a separate filter from `tableActivationNormalization()`
     // above, not an extension of it.
-    tableRectangularNormalization(),
+    ...(engineCells ? [] : [tableRectangularNormalization()]),
     // The one paste handler: classifies each paste once and runs exactly one strategy (table range, table creation, files, rich HTML) or leaves it to CodeMirror's own paste.
     // (A selected table range, a new table, files and rich HTML all go through it; the table rows it creates rely on `tableActivationNormalization()`'s terminal-table newline and `tableRootSelectionSnap()` for caret safety.)
     pasteRouting(getPasteAssets ?? (() => undefined)),
