@@ -100,15 +100,18 @@ pub(crate) fn authorize_asset_root(root: &str, in_fs_scope: &dyn Fn(&Path) -> bo
 /// tree can be served to the webview. Scoped at runtime because the vault path is user-selected, and only for a
 /// folder the fs scope already grants (see [`authorize_asset_root`]).
 #[tauri::command]
-pub fn allow_vault_asset_scope<R: Runtime>(app: AppHandle<R>, vault_root: String) -> Result<(), String> {
-    let fs_scope = app.fs_scope();
-    let path = authorize_asset_root(&vault_root, &|folder| fs_scope.is_allowed(folder))?;
+pub async fn allow_vault_asset_scope<R: Runtime>(app: AppHandle<R>, vault_root: String) -> Result<(), String> {
+    // Filesystem resolution can wait for macOS privacy consent; never do it on the UI thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let fs_scope = app.fs_scope();
+        let path = authorize_asset_root(&vault_root, &|folder| fs_scope.is_allowed(folder))?;
 
-    // Every opened Space passes through here: its folder is never one `delete_path` may remove.
-    crate::space_access::protect_folder(&app, &path);
-    app.asset_protocol_scope()
-        .allow_directory(&path, true)
-        .map_err(|error| error.to_string())
+        // Every opened Space passes through here: its folder is never one `delete_path` may remove.
+        crate::space_access::protect_folder(&app, &path);
+        app.asset_protocol_scope()
+            .allow_directory(&path, true)
+            .map_err(|error| error.to_string())
+    }).await.map_err(|error| error.to_string())?
 }
 
 #[cfg(test)]

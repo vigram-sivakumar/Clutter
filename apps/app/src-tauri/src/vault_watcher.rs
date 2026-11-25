@@ -12,7 +12,7 @@ use std::{
 use notify::event::ModifyKind;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager};
 
 // The window within which the "old path vanished" half of a rename must be
 // followed by a "new path appeared" half for the two to be paired into a
@@ -231,11 +231,14 @@ impl Default for VaultWatcherState {
 }
 
 #[tauri::command]
-pub fn start_vault_watcher(
-    app: AppHandle,
-    path: String,
-    state: State<'_, VaultWatcherState>,
-) -> Result<u64, String> {
+pub async fn start_vault_watcher(app: AppHandle, path: String) -> Result<u64, String> {
+    // Registering a recursive watch can touch privacy-protected directories.
+    tauri::async_runtime::spawn_blocking(move || start_watcher(app, path))
+        .await.map_err(|error| error.to_string())?
+}
+
+fn start_watcher(app: AppHandle, path: String) -> Result<u64, String> {
+    let state = app.state::<VaultWatcherState>();
     let mut watcher_guard = state
         .watcher
         .lock()
@@ -311,10 +314,14 @@ pub fn start_vault_watcher(
 /// watcher can stop it, regardless of what order start/stop calls from other
 /// instances arrive in.
 #[tauri::command]
-pub fn stop_vault_watcher(
-    state: State<'_, VaultWatcherState>,
-    token: Option<u64>,
-) -> Result<(), String> {
+pub async fn stop_vault_watcher(app: AppHandle, token: Option<u64>) -> Result<(), String> {
+    // The watcher mutex and dropping a watcher may block as well.
+    tauri::async_runtime::spawn_blocking(move || stop_watcher(app, token))
+        .await.map_err(|error| error.to_string())?
+}
+
+fn stop_watcher(app: AppHandle, token: Option<u64>) -> Result<(), String> {
+    let state = app.state::<VaultWatcherState>();
     let mut watcher_guard = state
         .watcher
         .lock()
