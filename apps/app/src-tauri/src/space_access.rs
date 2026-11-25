@@ -710,7 +710,26 @@ pub async fn restore_space_access<R: tauri::Runtime>(app: AppHandle<R>) -> Resul
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = handle.state::<SpaceAccessState>();
-        let Some(access) = state.0.as_ref() else { return Vec::new() };
+        let Some(access) = state.0.as_ref() else {
+            if !cfg!(feature = "sparkle-updates") || is_sandboxed() {
+                return Vec::new();
+            }
+            // A direct build can inherit the previously sandboxed app's registry.
+            // Restore its existing folder grants through the normal runtime scope.
+            let saved = handle.path().app_data_dir().ok()
+                .and_then(|dir| fs::read_to_string(dir.join(STORE_FILE)).ok())
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                .and_then(|value| parse_store_entries(&value))
+                .unwrap_or_default();
+            return saved.into_iter().filter_map(|(path, entry)| {
+                let folder = Path::new(&path);
+                if entry.role != BookmarkRole::Space || !folder.is_dir() {
+                    return None;
+                }
+                allow_folder(&handle, folder).ok()?;
+                Some(RestoredAccess { path, status: RestoreStatus::Restored })
+            }).collect();
+        };
         restore_scope_grants(&handle, access)
     })
     .await

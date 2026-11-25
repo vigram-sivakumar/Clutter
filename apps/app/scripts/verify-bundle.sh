@@ -2,7 +2,7 @@
 # Verifies a built Clutter .app. Packaging fails (exit 1) unless every check for the chosen mode passes.
 #
 # Every mode (one Clutter: the same checks for every distribution):
-#   * the App Sandbox entitlements are present, with user-selected folders and bookmarks;
+#   * App Store/local builds retain App Sandbox, while direct Sparkle builds use their separate entitlements;
 #   * none of the entitlements a shipped build must not have (temporary exceptions, all-files access, debugging, ...);
 #   * the native atomic writer and the sandbox-access commands are compiled into the executable. Atomic saves are the
 #     only saving system (ADR-063): an executable without them cannot save at all, so a package without them is
@@ -57,9 +57,15 @@ echo "verifying $APP as: $MODE"
 ENTITLEMENTS=$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | tr -d '\n')
 has_true() { echo "$ENTITLEMENTS" | grep -q "<key>$1</key><true/>"; }
 
-for REQUIRED in com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.security.network.client; do
-  has_true "$REQUIRED" && pass "entitlement $REQUIRED" || fail "missing entitlement $REQUIRED"
-done
+DIRECT=false
+if [ "$MODE" = sparkle-direct ] || [ "$MODE" = sparkle-beta ]; then DIRECT=true; fi
+if [ "$DIRECT" = true ]; then
+  has_true com.apple.security.app-sandbox && fail "direct build must be outside App Sandbox" || pass "direct build outside App Sandbox"
+else
+  for REQUIRED in com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.security.network.client; do
+    has_true "$REQUIRED" && pass "entitlement $REQUIRED" || fail "missing entitlement $REQUIRED"
+  done
+fi
 for FORBIDDEN in 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
   echo "$ENTITLEMENTS" | grep -q "$FORBIDDEN" && fail "forbidden entitlement matching '$FORBIDDEN'" || pass "no entitlement matching '$FORBIDDEN'"
 done
@@ -76,15 +82,17 @@ expected = {
     "com.vigram.clutter-spks", "com.vigram.clutter-spki"
   ]
 }
-sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == expected else 1)
-'; then
-    pass "exact Sparkle integration entitlements"
+sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == ({} if sys.argv[1] == "true" else expected) else 1)
+' "$DIRECT"; then
+    pass "exact distribution entitlements"
   else
     fail "unexpected Sparkle integration entitlements"
   fi
   SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
   [ -d "$SPARKLE/Versions/B/XPCServices/Installer.xpc" ] && pass "Sparkle Installer.xpc present" || fail "Sparkle installer missing"
-  [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = true ] && pass "Sparkle installer enabled" || fail "Sparkle installer disabled"
+  EXPECTED_INSTALLER=true
+  [ "$DIRECT" != true ] || EXPECTED_INSTALLER=false
+  [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = "$EXPECTED_INSTALLER" ] && pass "Sparkle installer mode matches distribution" || fail "Sparkle installer mode mismatch"
   codesign --verify --deep --strict "$SPARKLE" 2>/dev/null && pass "Sparkle framework signature valid" || fail "Sparkle framework signature invalid"
   if [ "$MODE" = "sparkle-beta" ] || [ "$MODE" = "sparkle-direct" ]; then
     if python3 -I - "$APP/Contents/Info.plist" "$HOME/.tauri/clutter-sparkle-beta.pub" <<'PY'

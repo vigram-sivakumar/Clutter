@@ -15,13 +15,15 @@ One local-first application, one Markdown vault and persistence architecture, tw
 | --- | --- | --- |
 | Source | Same React, TypeScript, Tauri and Rust source | Same |
 | Native executable | Universal | Universal |
-| Sandbox, bookmarks, atomic writer | Required | Required |
+| OS sandbox | Disabled for direct distribution | Required |
+| Atomic writer and native path authorization | Required | Required |
+| Persisted access | Existing runtime scope persistence | Security-scoped bookmarks |
 | Update engine | Sparkle 2.10.1 | Apple |
 | Distribution artifact | DMG for new installs; signed ZIP and optional delta for updates | Signed PKG |
 | Hosting | Cloudflare Worker + private R2 | App Store Connect |
 | Signing | Ed25519 archive signatures; ad-hoc for controlled tests, Developer ID + notarization for public direct releases | Apple distribution signing, provisioning profile and installer signature |
 
-The installed application does not use remotely hosted frontend code. It does not need the update service to open or edit a Space. Do not change the bundle identifier `com.vigram.clutter`, the vault format, the atomic writer, the existing safe-close UX, or the base entitlements as part of distribution work. Sparkle alone owns direct application replacement and relaunch. Never loosen sandbox rules to make updates work.
+The installed application does not use remotely hosted frontend code. It does not need the update service to open or edit a Space. Do not change the bundle identifier `com.vigram.clutter`, the vault format, the atomic writer, the existing safe-close UX, or the base entitlements as part of distribution work. Sparkle alone owns direct application replacement and relaunch. The owner-approved direct Create Space experience uses a separate unsandboxed direct build. The base App Store sandbox remains required.
 
 ## 2. Why Sparkle
 
@@ -127,7 +129,7 @@ The appcast is delivered over HTTPS and the archive signature is verified before
 
 The installed app's SUPublicEDKey is the trust anchor. Preserve the private signing key in Keychain and back it up securely outside the repository; key recovery must be tested. The local loopback integration key is separate. Tauri's former updater key is not a Sparkle key.
 
-Direct entitlements extend the base sandbox only by exact Mach lookups `com.vigram.clutter-spks` and `com.vigram.clutter-spki` for the installer services. The bundle verifier checks the complete entitlement dictionary. There is no broad temporary filesystem exception, inbound network entitlement, or disabled library validation.
+Direct builds use `Entitlements.direct.plist`, an empty entitlement dictionary. The bundle verifier requires that dictionary and requires the installer-launcher XPC service setting to be false. The sandboxed loopback integration fixture retains its existing Sparkle entitlements. Native scope checks and atomic saves remain common to both distributions.
 
 ### Ad-hoc vs Developer ID
 
@@ -302,3 +304,13 @@ These gates supersede the earlier progress notes where evidence has advanced. Pu
 - **Mac App Store.** Register the App ID and create the listing. Configure matching distribution and installer certificates, profile and App Store Connect upload access. Verify the independent Store build number, signed dry run, signed package, privacy manifest and Apple's validation. Test direct-to-Store migration and bookmark reauthorization. Complete App Privacy, age rating, export compliance, review notes and listing materials. [App Store gates](mac-app-store-release-checklist.md#current-submission-gates)
 
 Final release-branch review completed on 25 November 2026 against 81b63a0f and remote main 1768e470. See [final review and finding dispositions](release-architecture-security-audit.md#final-release-branch-review--25-november-2026). App Store listing materials, export-compliance work and Apple Developer enrolment are on hold.
+
+## Direct Create Space experience — 25 November 2026
+
+The owner approved a channel-specific experience. Direct DMG and Terminal installations use the same unsandboxed Sparkle app. Create Space creates and opens the named folder in Documents without invoking Clutter's Documents authorisation picker. macOS can still request its own first-access approval for protected folders or refuse access. The existing failure messages handle that refusal.
+
+The direct builder passes its entitlement override to Tauri and uses it for final signing. App Store and ordinary local builds keep the base sandbox configuration. Sparkle remains the updater and its installer-launcher XPC setting is disabled outside the sandbox.
+
+Before the direct app opens its WebView, it copies a previous sandbox installation's app-support and WebKit profiles into the direct app locations when those destinations do not already exist. Existing direct profiles take precedence. Copies are staged before rename, the original profile stays available, unsupported entries are refused, and the stale persisted-scope cache is excluded. Previously authorised Space entries restore runtime grants through the existing native scope mechanism. This transition does not move the user's vault folders or change their file format.
+
+The earlier decision to keep every distribution sandboxed is superseded for this explicitly approved UX change. Signing-identity and direct-to-App-Store migrations remain at their existing deferred gates.

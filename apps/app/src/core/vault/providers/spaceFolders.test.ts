@@ -84,6 +84,7 @@ describe('createSpaceFolder', () => {
     expect(invoke).toHaveBeenCalledWith('create_space_folder', {
       name: 'Personal',
     });
+    expect(invoke).not.toHaveBeenCalledWith('request_documents_access');
   });
 
   it.each([

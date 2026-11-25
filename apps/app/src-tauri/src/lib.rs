@@ -5,6 +5,8 @@ use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
 mod sparkle_update;
+#[cfg(all(target_os = "macos", feature = "sparkle-updates"))]
+mod direct_profile;
 mod dock_badge;
 mod launch_at_login;
 // The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
@@ -188,6 +190,12 @@ pub(crate) fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = app_context();
+    #[cfg(all(target_os = "macos", feature = "sparkle-updates"))]
+    if !space_access::is_sandboxed() {
+        let home = space_access::real_home().expect("find account home for direct profile");
+        direct_profile::prepare(&home, &context.config().identifier).expect("preserve previous Clutter profile");
+    }
     let builder = tauri::Builder::default()
         .on_page_load(|_, payload| {
             if let tauri::webview::PageLoadEvent::Started = payload.event() {
@@ -286,7 +294,7 @@ pub fn run() {
             spawn_startup_watchdog(app.handle().clone(), STARTUP_ATTEMPT.load(Ordering::SeqCst));
             Ok(())
         })
-        .build(app_context())
+        .build(context)
         .expect("error while building tauri application")
         .run(|_app, event| {
             // An alert owned by the system outlives the app unless cancelled.

@@ -88,11 +88,17 @@ fi
 # Use separate Cargo/bundle output so legacy release scripts cannot accidentally publish this app.
 export CARGO_TARGET_DIR="$CACHE/cargo"
 export CLUTTER_SPARKLE_FRAMEWORK="$FRAMEWORK"
+ENTITLEMENTS=src-tauri/Entitlements.sparkle.plist
+CONFIG_ARGS=()
+if [ "$MODE" = beta ]; then
+  ENTITLEMENTS=src-tauri/Entitlements.direct.plist
+  CONFIG_ARGS=(--config '{"bundle":{"macOS":{"entitlements":"Entitlements.direct.plist"}}}')
+fi
 # Tauri produces the intermediate bundle only. Sign/notarize the complete app below.
 (
   unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
   APPLE_SIGNING_IDENTITY=- VITE_CLUTTER_SPARKLE_UPDATES=1 \
-    ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates
+    ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates ${CONFIG_ARGS[@]+"${CONFIG_ARGS[@]}"}
 )
 APP="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos/Clutter.app"
 [ -d "$APP" ] || { echo "Missing Tauri application at $APP" >&2; exit 1; }
@@ -109,7 +115,7 @@ info.update({
     'CFBundleVersion': build,
     'SUFeedURL': feed,
     'SUPublicEDKey': public_key,
-    'SUEnableInstallerLauncherService': True,
+    'SUEnableInstallerLauncherService': mode == 'integration',
     'SUEnableDownloaderService': False,
     'SUEnableAutomaticChecks': True,
     'SUAutomaticallyUpdate': True,
@@ -139,7 +145,7 @@ if [ "$SIGNING" = developer-id ]; then
   sign "$V/Autoupdate"
   sign "$V/Updater.app"
   sign "$SPK"
-  sign --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
+  sign --entitlements "$ENTITLEMENTS" "$APP"
   codesign --verify --deep --strict "$APP"
   NOTARY=$(mktemp -d "$ROOT/notary.XXXXXX")
   ditto -c -k --sequesterRsrc --keepParent "$APP" "$NOTARY/Clutter.zip"
@@ -149,7 +155,7 @@ if [ "$SIGNING" = developer-id ]; then
   rm -rf "$NOTARY"
 else
   # Previously validated ad-hoc path. Preserve nested framework signatures.
-  codesign --force --sign - --timestamp=none --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
+  codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP"
 fi
 if [ "$MODE" = beta ]; then
   "$HERE/verify-bundle.sh" "$APP" --sparkle-direct

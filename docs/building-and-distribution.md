@@ -393,3 +393,7 @@ The identifier changed from `com.clutter.dev` (development) to `com.vigram.clutt
 
 **Identifiers (decided 2026-11-06).** Production: `com.vigram.clutter` (`tauri.conf.json`, the only identifier a release build accepts). Development: `com.vigram.clutter.dev` (`src-tauri/tauri.dev.conf.json`, which holds only the identifier). The retired `com.clutter.dev` is used by nothing. `npm run tauri dev` and `npm run desktop` go through `scripts/tauri.sh`, which adds the development override to `tauri dev` only; `tauri build` never gets it. `npm run dev:sandbox` builds and wraps its bundle with the development identifier. So a development run has its own container, app data and saved folder access, apart from the packaged app's. Spaces registered under `com.clutter.dev` in the old development app are not carried over and must be added again. The test harnesses keep their own identifiers (`com.clutter.sandboxtest`, `com.clutter.atomictest`, `com.clutter.nativeverify`), separate from both.
 
+
+## Direct Create Space permission flow — 25 November 2026
+
+Direct DMG and Terminal installations now use the unsandboxed direct Sparkle build. Create Space creates and opens a folder in Documents without Clutter’s folder-authorisation panel. macOS may still request first-access permission. The App Store build retains its base sandbox and bookmark flow. Existing sandbox profiles are copied forward without removing the originals. See the [distribution decision](sparkle-updater-and-beta-distribution-odr.md#direct-create-space-experience--25-november-2026).

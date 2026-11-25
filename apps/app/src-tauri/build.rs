@@ -49,8 +49,8 @@ const APP_COMMANDS: &[&str] = &[
 ];
 
 /// What a packaged Clutter must be, checked while it is compiled. A release build is the one that gets packaged, and it
-/// must not be able to come out unsandboxed or without the atomic writer: Clutter is one app with one saving system
-/// and one permission system, whether installed from a local `.dmg` or the Mac App Store. (A debug build may omit the
+/// must include the atomic writer. The base configuration retains the App Store sandbox;
+/// the direct builder supplies its own entitlements and verifies the final bundle. (A debug build may omit the
 /// native writer; the app then refuses to open a Space, which the build-matrix tests check.)
 fn require_what_every_packaged_build_needs() {
     println!("cargo:rerun-if-changed=tauri.conf.json");
@@ -65,7 +65,7 @@ fn require_what_every_packaged_build_needs() {
     let config = std::fs::read_to_string("tauri.conf.json").expect("read tauri.conf.json");
     assert!(
         config.contains("\"entitlements\": \"Entitlements.plist\""),
-        "tauri.conf.json must point bundle.macOS.entitlements at Entitlements.plist: every packaged Clutter is sandboxed."
+        "tauri.conf.json must point bundle.macOS.entitlements at Entitlements.plist: the base App Store configuration is sandboxed."
     );
     // The bundle identifier names the sandbox container, the saved folder access and the recovery records, and it is the
     // identifier registered with Apple. A packaged build must carry the production one, never the old development one.
@@ -84,7 +84,7 @@ fn require_what_every_packaged_build_needs() {
         "com.apple.security.files.bookmarks.app-scope",
         "com.apple.security.network.client",
     ] {
-        assert!(entitlements.contains(required), "Entitlements.plist is missing {required}: every packaged Clutter needs it.");
+        assert!(entitlements.contains(required), "Entitlements.plist is missing {required}: the base sandbox configuration needs it.");
     }
     for forbidden in ["temporary-exception", "files.all", "network.server", "get-task-allow"] {
         assert!(!entitlements.contains(forbidden), "Entitlements.plist must not contain {forbidden}.");
