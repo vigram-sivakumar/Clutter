@@ -1,12 +1,12 @@
 # Clutter Privacy Policy
 
-**Effective date:** [EFFECTIVE DATE — to be added before publication]
-
-_Draft for review. Set the effective date when publishing this revision._
+**Effective date:** 25 November 2026
 
 Clutter is a notes app for macOS developed by Vigram Sivakumar. Your notes, attachments and settings stay on your Mac. You choose where to store your files. Clutter does not require an account, host your files or sync them. If you choose a folder managed by a service like iCloud Drive or Dropbox, that provider may sync or copy your files under its own terms.
 
 Clutter also keeps information on your Mac to help recover unsaved work. Some of this information may contain parts of your notes.
+
+The protection of your local files depends on your Mac’s security settings. Clutter does not add its own file encryption.
 
 ## When Clutter connects to the internet
 
@@ -41,6 +41,8 @@ If you contact the developer, your email address and message are used to respond
 Clutter does not use analytics, advertising or crash reporting. It does not track you across apps or websites.
 
 ## Retention and deletion
+
+We may keep support emails after replying so we can follow up. To ask us to delete your correspondence, use the email address below. We may keep information when the law requires it.
 
 You can restore archived items in Clutter. Choosing **Delete Permanently** moves the item to the macOS Trash. You may still be able to restore it from Finder until the Trash is emptied. Automatic archive cleanup is off by default. If enabled, it can move items that have been archived for 30 days to the Trash.
 
