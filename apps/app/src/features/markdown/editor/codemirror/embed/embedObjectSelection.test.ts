@@ -417,3 +417,38 @@ describe('batch object selection', () => {
     expect(view.state.doc.toString()).toBe(gap);
   });
 });
+
+describe('standalone media boundary protection', () => {
+  const embed = '![[image.png]]';
+  it.each(['', '  ', '    ', '> '])('selects instead of merging at any boundary with prefix %j', (prefix) => {
+    const doc = 'above\n' + prefix + embed + '\nbelow';
+    const from = 6 + prefix.length;
+    const to = from + embed.length;
+    for (const [anchor, key] of [[5, 'Delete'], [6, 'Backspace'], [from, 'Backspace'], [to, 'Delete'], [to + 1, 'Backspace']] as const) {
+      const view = mount(doc, anchor);
+      addRenderedEmbedMarker(view, from);
+      press(view, key);
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(view.state.field(embedObjectSelectionField)).toEqual({ from, to });
+      press(view, key);
+      expect(view.state.doc.toString()).toBe('above\n' + prefix + '\nbelow');
+      view.destroy();
+    }
+  });
+
+  it('selects an embed at the beginning of the document on Backspace', () => {
+    const view = mount(embed);
+    addRenderedEmbedMarker(view, 0);
+    press(view, 'Backspace');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: embed.length });
+    expect(view.state.doc.toString()).toBe(embed);
+    view.destroy();
+  });
+
+  it('leaves ordinary text deletion alone', () => {
+    const view = mount('above\nbelow', 5);
+    press(view, 'Delete');
+    expect(view.state.doc.toString()).toBe('abovebelow');
+    view.destroy();
+  });
+});

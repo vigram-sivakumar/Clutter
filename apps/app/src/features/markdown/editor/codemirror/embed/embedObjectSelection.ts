@@ -3,6 +3,8 @@ import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '
 
 import { EditorView, keymap, ViewPlugin, type Command, type KeyBinding } from '@codemirror/view';
 
+import { isStandaloneEmbedLine } from './embedBlockLine';
+
 export interface EmbedObjectRange {
   readonly from: number;
   readonly to: number;
@@ -76,26 +78,23 @@ function findRenderedEmbedOnLine(view: EditorView, lineNumber: number): EmbedObj
   return candidate;
 }
 
+/** Protect both sides of a rendered block, including its continuation indentation. */
 function selectEmbedAtDeletionBoundary(direction: 'backspace' | 'delete'): Command {
   return (view) => {
-    if (view.state.readOnly || !view.state.selection.main.empty) return false;
+    if (view.state.readOnly || view.state.selection.ranges.length !== 1 || !view.state.selection.main.empty) return false;
     const position = view.state.selection.main.head;
     const line = view.state.doc.lineAt(position);
-    let adjacent: EmbedObjectSelection | null = null;
-
-    if (direction === 'backspace') {
-      if (position !== line.from || line.number <= 1) return false;
-      const previousLine = view.state.doc.line(line.number - 1);
-      adjacent = findRenderedEmbedOnLine(view, previousLine.number);
-      if (!adjacent || adjacent.from !== previousLine.from || adjacent.to !== previousLine.to) return false;
-    } else {
-      if (position !== line.to || line.number >= view.state.doc.lines) return false;
-      const nextLine = view.state.doc.line(line.number + 1);
-      adjacent = findRenderedEmbedOnLine(view, nextLine.number);
-      if (!adjacent || adjacent.from !== nextLine.from || adjacent.to !== nextLine.to) return false;
-    }
-
-    selectEmbedObject(view, adjacent.from, adjacent.to);
+    const standaloneOn = (number: number) => {
+      const embed = findRenderedEmbedOnLine(view, number);
+      return embed && isStandaloneEmbedLine(view.state, embed) ? embed : null;
+    };
+    const current = standaloneOn(line.number);
+    let target = current && (direction === 'backspace' ? position <= current.from : position >= current.to)
+      ? current : null;
+    if (!target && direction === 'backspace' && position === line.from) target = standaloneOn(line.number - 1);
+    if (!target && direction === 'delete' && position === line.to) target = standaloneOn(line.number + 1);
+    if (!target) return false;
+    selectEmbedObject(view, target.from, target.to);
     return true;
   };
 }
