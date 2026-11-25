@@ -201,6 +201,17 @@ describe('tableWidget.css — width architecture source', () => {
     expect(overrideScrollRule).not.toContain('margin-inline');
   });
 
+  it('explicit-width layout contributes the table and quick-add track to the scrollport intrinsic width without a percentage cycle', () => {
+    const base = ruleIndex(css, '.cm-editor .cm-table-layout');
+    const override = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-layout');
+    expect(base).toBeGreaterThan(-1);
+    expect(override).toBeGreaterThan(base);
+    const rule = css.slice(override, css.indexOf('}', override));
+    expect(rule).toContain('width: max-content');
+    expect(rule).toContain('min-width: 0');
+    expect(rule).not.toContain('100%');
+  });
+
   it('.cm-table-inner keeps its intrinsic width without stretching into the quick-add column track or introducing clipping', () => {
     const innerIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner');
     expect(innerIndex).toBeGreaterThan(-1);

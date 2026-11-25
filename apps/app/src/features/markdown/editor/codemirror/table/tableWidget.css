@@ -506,6 +506,14 @@
   stroke-width: 1.8;
   stroke-linecap: round;
 }
+/* The explicit-width scrollport sizes itself to this complete track.
+ * The automatic table's calc(100% + 30px) creates a percentage dependency
+ * on that same scrollport and forces overflow even when the page has room.
+ * Intrinsic sizing includes the table, gap and quick-add button exactly once. */
+.cm-editor .cm-table-wrapper--explicit-widths .cm-table-layout {
+  width: max-content;
+  min-width: 0;
+}
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner {
   width: max-content;
   /* Explicit-width tables must keep their intrinsic width. Do not give
