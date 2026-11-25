@@ -1,12 +1,12 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "0.0.10"
 description = "Clutter: a local-first Markdown notes app for macOS"
 authors = ["Vigram Sivakumar"]
 # No `license` on purpose: which licence (if any) Clutter is released under has not been decided. Not published to crates.io.
 publish = false
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.89"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,9 +25,7 @@ tauri = { version = "2.11.3", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
-# Saves the filesystem/asset scope the native folder picker grants at runtime and restores it at launch, so a
-# space the user picked outside the static `$HOME/**` scope (an external drive, /Volumes, another user's
-# shared folder) can be reopened after a restart. Must be registered after the fs plugin (see lib.rs).
+# Saves runtime picker grants outside the App Sandbox. Sandboxed Spaces restore grants from bookmarks.
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-http = "2"
 notify = "6"
@@ -49,8 +47,6 @@ tauri-plugin-opener = "2"
 # Only for the atomic-writes feature: matching a path against the runtime scope's forbidden patterns (src/atomic_commands.rs).
 # Already in the graph through tauri.
 glob = { version = "0.3", optional = true }
-tauri-plugin-updater = { version = "=2.10.1", optional = true }
-tauri-plugin-process = { version = "=2.3.1", optional = true }
 
 # The startup-recovery alert (src/startup_notice.rs) holds its own
 # CFUserNotification handle so it can be cancelled. Already in the graph via
@@ -79,5 +75,5 @@ tauri = { version = "2.11.3", features = ["test"] }
 default = ["atomic-writes"]
 atomic-writes = ["dep:glob"]
 automation = ["dep:tauri-plugin-wdio-webdriver"]
-direct-updates = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process"]
-tauri-plugin-process = ["dep:tauri-plugin-process"]
+# Native direct-distribution updater; never enabled for App Store builds.
+sparkle-updates = []

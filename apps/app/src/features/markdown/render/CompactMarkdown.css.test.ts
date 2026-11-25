@@ -49,10 +49,10 @@ describe('CompactMarkdown.css — styling-parity tokens', () => {
     );
   });
 
-  it(".compact-markdown-date uses the editor's own date foreground token, not `inherit`", () => {
-    const body = rule('.compact-markdown-date');
-    expect(body).toMatch(/color:\s*var\(--md-date-foreground\)/);
-    expect(body).not.toMatch(/color:\s*inherit/);
+  it('.compact-markdown-date inherits the surrounding foreground', () => {
+    const body = rule('.compact-markdown-date').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(body).toMatch(/color:\s*inherit\s*;/);
+    expect(body).not.toMatch(/color:\s*var\(--md-date-foreground\)/);
   });
 
   it(".compact-markdown-tag carries the editor's own badge chrome tokens alongside its existing foreground color", () => {

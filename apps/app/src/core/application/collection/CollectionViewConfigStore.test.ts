@@ -46,7 +46,7 @@ describe('CollectionViewConfigStore — load()', () => {
   it('ignores malformed grouping while keeping existing valid choices', async () => {
     const store = await loadWith({ 'view:tasks': { groupBy: 'source', layout: 'table' } });
     expect(store.get('view:tasks')).toEqual({ layout: 'table' });
-    expect(resolveCollectionView(TASKS_COLLECTION, store.get('view:tasks')).groupBy).toBe('none');
+    expect(resolveCollectionView(TASKS_COLLECTION, store.get('view:tasks')).groupBy).toBe('dueDate');
   });
 
   it('a vault with no workspace.json at all starts with no persisted collection view configuration', async () => {
@@ -510,7 +510,9 @@ describe('CollectionViewConfigStore — the Task Collection (one shared key, vie
 
       expect(view.layout, kind).toBe('list');
       expect(restarted.get(viewKey)?.layout).toBe('table');
-      expect(view.visible, kind).toEqual(['name', 'dueDate']);
+      expect(view.visible, kind).toEqual(['name']);
+      expect(view.groupBy, kind).toBe('dueDate');
+      expect(resolveCollectionView(TASKS_COLLECTION, { ...toCollectionViewConfig(TASKS_COLLECTION, restarted.get(viewKey)), groupBy: 'none' }).visible, kind).toEqual(['name', 'dueDate']);
       expect(view.sort, kind).toEqual({ property: 'dueDate', direction: 'up' });
     }
   });

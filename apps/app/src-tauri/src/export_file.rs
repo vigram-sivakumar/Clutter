@@ -277,10 +277,12 @@ mod tests {
         let dir = Scratch::new("copy-self");
         fs::write(dir.path("note.png"), b"original").unwrap();
         std::os::unix::fs::symlink(dir.path("note.png"), dir.path("alias.png")).unwrap();
+        fs::hard_link(dir.path("note.png"), dir.path("hard-link.png")).unwrap();
 
         assert!(copy_export(&dir.path("note.png"), &dir.path("note.png")).is_err());
         assert!(copy_export(&dir.path("note.png"), &dir.path("alias.png")).is_err(), "a link to the source is the source");
 
+        assert!(copy_export(&dir.path("note.png"), &dir.path("hard-link.png")).is_err());
         assert_eq!(fs::read(dir.path("note.png")).unwrap(), b"original");
     }
 

@@ -71,15 +71,15 @@ export function resolveFencedCodeInfoRange(
  * same "one contiguous `CodeText` node, no fence, no info string, no
  * trailing newline before the closing fence" fact that closure's own doc
  * comment already established), factored out here so "Download code"
- * doesn't duplicate that resolution a second time. Returns `''` for a
- * `FencedCode` node with no `CodeText` child at all (a genuinely empty
- * block, or one whose fence is never closed) — never `null`; unlike the
- * info range, there is no meaningful "block not found" distinction a
- * caller needs to react to differently than "no content."
+ * doesn't duplicate that resolution a second time. Returns `''` for a block without code and
+ * `null` if the block is gone, so the export can leave the selected destination alone.
  */
-export function resolveFencedCodeText(state: EditorState, fencedCodeFrom: number): string {
+export function resolveFencedCodeText(state: EditorState, fencedCodeFrom: number): string | null {
   const node = resolveFencedCodeNode(state, fencedCodeFrom);
-  const codeText = node?.getChild('CodeText');
+  if (!node) {
+    return null;
+  }
+  const codeText = node.getChild('CodeText');
   return codeText ? state.sliceDoc(codeText.from, codeText.to) : '';
 }
 

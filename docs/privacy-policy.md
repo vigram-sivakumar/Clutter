@@ -1,92 +1,59 @@
 # Clutter Privacy Policy
 
-**Effective date:** [EFFECTIVE DATE — to be added before publication]
+**Effective date:** 25 November 2026
 
-_Draft for review. Not yet reviewed by legal counsel._
+Clutter is a notes app for macOS developed by Vigram Sivakumar. Your notes, attachments and settings stay on your Mac. You choose where to store your files. Clutter does not require an account, host your files or sync them. If you choose a folder managed by a service like iCloud Drive or Dropbox, that provider may sync or copy your files under its own terms.
 
-Clutter is a local-first notes app for macOS, developed by Vigram Sivakumar.
+Clutter also keeps information on your Mac to help recover unsaved work. Some of this information may contain parts of your notes.
 
-You choose where your content is stored. Your notes and attachments are stored locally on your Mac, in locations you choose. Clutter does not operate cloud storage for your content, does not require an account and does not synchronize your content. If you choose a location managed by another service, such as iCloud Drive or Dropbox, that provider may synchronize or copy your files under its own terms.
+The protection of your local files depends on your Mac’s security settings. Clutter does not add its own file encryption.
 
-Some features involve third-party online services. This policy explains what Clutter processes on your Mac, what may be sent to external services, and what those services may do with it.
+## When Clutter connects to the internet
 
-## 1. Data Stored on Your Mac
+### Images in notes and covers
 
-Clutter stores your content in the locations you choose, together with your settings and preferences. Your content may include personal information, and it stays on your Mac.
+Web images load automatically when displayed. The site hosting an image may receive and keep your IP address and standard request details. This also applies to Unsplash images in the welcome notes, including on first launch. You can limit requests by avoiding web images in your notes. Clutter currently has no setting to turn off automatic image loading.
 
-Clutter also keeps supporting information on your Mac to help the app work reliably. Some of it may contain portions of your note content. It is not sent to Clutter.
+### Unsplash cover photos
 
-## 2. Online Features and Third-Party Services
+When you browse or search for Unsplash photos, or choose, save or download one, Clutter shares relevant activity, such as your search terms and photo identifiers, with Unsplash. Cloudflare helps provide this feature and may receive those details, your IP address and standard request information. Clutter does not keep a history of your searches or send your notes or attachments to these providers for this feature.
 
-Clutter processes your notes on your Mac. The features below are the ways information may be sent to, or requested from, external services. Once information reaches them, those services process and retain it under their own policies, not Clutter's.
+### Updates
 
-### Remote images load automatically
+If you installed Clutter directly, it checks for updates automatically while running and may download an available update. You can also check manually. Cloudflare supports the update service and may receive your IP address, app version and standard request details. Update checks do not send your notes, attachments, account information or a profile of your Mac. Apple handles updates for the Mac App Store version.
 
-Cover images and images in your notes can use web addresses. When such an image is displayed, your Mac connects directly to the website hosting it, which may receive and keep your IP address and standard request information.
+### Downloads and links
 
-**This happens automatically whenever the image is displayed, without you choosing to use an online feature. Clutter currently has no setting to turn off loading of web images.**
+When you choose to download a file, Clutter requests it from the relevant website. External links open in your browser. Those sites may receive your IP address and standard request details.
 
-The welcome notes included with Clutter use an Unsplash image as a cover. When they are displayed, including on first launch, your Mac requests that image from Unsplash without any action from you.
+### Provider privacy policies
 
-### Unsplash image search and cover photos
-
-When you browse, search for or choose cover photos from Unsplash, information about that activity is sent to Unsplash and to service providers that support the feature, including Cloudflare. This can include your search terms and photo identifiers, including when you choose, save or download a photo. These providers may also receive your IP address and standard request information. Your notes and attachments are not sent.
-
-Clutter does not maintain a history of your image searches. Cloudflare and Unsplash may independently process or retain information under their respective privacy policies, and Clutter does not control their practices.
-
-### Downloads and external links
-
-If you choose to save or download a file from the internet, Clutter retrieves it from that website. External links open in your web browser, where the destination site's own practices apply.
-
-### Third-party privacy policies
+Third-party providers may process and keep information under their own policies.
 
 - [Unsplash Privacy Policy](https://unsplash.com/privacy)
 - [Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/)
+- [Apple Privacy Policy](https://www.apple.com/legal/privacy/)
 
-## 3. Information You Choose to Share With Us
+## Information you share with the developer
 
-If you contact the developer for support, feedback or a privacy request, you provide your email address and whatever your message contains. It will be used to respond to you and may be handled by the email service used to receive it.
+If you contact the developer, your email address and message are used to respond to you. The email provider may also process that information.
 
-## 4. Analytics and Tracking
+Clutter does not use analytics, advertising or crash reporting. It does not track you across apps or websites.
 
-Clutter includes no analytics, advertising, user-tracking or crash-reporting services, and does not track you across other apps or websites.
+## Retention and deletion
 
-## 5. Security
+We may keep support emails after replying so we can follow up. To ask us to delete your correspondence, use the email address below. We may keep information when the law requires it.
 
-Storing your content on your Mac does not mean it is encrypted. Clutter does not add its own encryption to your notes, attachments or supporting information, and does not provide end-to-end encryption. Their protection depends on your Mac and its security settings, such as your Mac's login password and disk encryption.
+You can restore archived items in Clutter. Choosing **Delete Permanently** moves the item to the macOS Trash. You may still be able to restore it from Finder until the Trash is emptied. Automatic archive cleanup is off by default. If enabled, it can move items that have been archived for 30 days to the Trash.
 
-Clutter's requests to its image provider use secure connections, which protect data in transit but not stored files. For other websites, connection security depends on the site. The developer has no remote access to your notes through Clutter. No system can guarantee absolute security.
+Removing a Space leaves its files on your Mac. Related information may also remain on your Mac and may still contain parts of your notes. Backups and sync services may keep copies. Clutter holds no server copies of your notes or attachments.
 
-## 6. Data Retention and Deletion
+## Your privacy rights
 
-Clutter does not hold your notes or attachments on its own servers, so there are no server-side copies for it to retain or delete.
+Depending on where you live, you may have rights to access, correct or delete personal information. Contact the developer about information you shared directly. You control your local files. For data held by another provider, contact that provider directly.
 
-- **Archive.** Deleted items go to the archive, where you can restore them until they are permanently deleted.
-- **Permanent deletion.** Permanently deleting an item removes it from Clutter's storage and cannot be undone through the app. Copies may remain in backups, synchronized storage or other places outside Clutter's control.
-- **Automatic cleanup.** This is optional and off by default. If you turn it on, items archived for 30 days are permanently deleted.
-- **Removing a Space.** Removing a Space from Clutter does not delete its notes or files. Supporting information associated with removed content may remain on your Mac and could still contain portions of your notes.
-- **Third parties.** Providers keep information under their own policies, and Clutter cannot delete it on their behalf.
+Clutter is not directed at children and does not knowingly collect their personal information. Changes to this policy will be posted here with the updated effective date.
 
-## 7. Your Choices and Privacy Rights
+## Contact
 
-You decide where your notes are stored and whether to use cover photo search, downloads and links. You can reduce remote image requests by avoiding remote images in your content. However, images already included in your notes and the welcome content may still generate requests whenever they are displayed. Clutter currently has no setting to disable automatic remote image loading.
-
-Because Clutter does not host your notes, the developer generally cannot retrieve, correct or delete your note content for you. You can ask about personal information you gave the developer through correspondence by writing to the address below.
-
-Depending on where you live, you may have rights over your personal information, such as access, correction or deletion. For information held by Cloudflare, Unsplash or other third parties, you may need to contact them directly.
-
-## 8. Children's Privacy
-
-Clutter is not directed at children and does not knowingly collect personal information from them.
-
-## 9. Changes to This Policy
-
-When this policy changes, the updated version and its effective date will be published.
-
---- Questions? We're happy to help ---
-
-### Contact
-
-For privacy questions or requests, contact:
-
-**[PRIVACY CONTACT EMAIL — to be added before publication]**
+For privacy questions or requests, email [support.clutter@gmail.com](mailto:support.clutter@gmail.com?subject=Clutter%20Privacy%20Request).

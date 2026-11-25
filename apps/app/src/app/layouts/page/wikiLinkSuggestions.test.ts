@@ -361,13 +361,14 @@ describe('createWikiLinkSuggester', () => {
       },
       create: (createOptions: CreatePageOptions) => {
         const title = createOptions.title ?? 'Untitled';
-        const path = `/vault/${title}.md`;
+        const parent = createOptions.folderId ? vault.getFolder(createOptions.folderId)!.path : vault.root;
+        const path = `${parent}/${title}.md`;
         const id = `page:${path}`;
         vault.addPage(makePage({ id, path, name: title }));
         return Promise.resolve(id);
       },
     } as unknown as PageOperations;
-    const suggest = createWikiLinkSuggester(vault, pageOperations, fakeFolderOperations());
+    const suggest = createWikiLinkSuggester(vault, pageOperations, persistingFolderOperations(vault));
 
     const [suggestion] = suggest('New note');
     expect(suggestion?.kind).toBe('create');
@@ -377,7 +378,7 @@ describe('createWikiLinkSuggester', () => {
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(vault.getPageByPath('/vault/New note.md')).toBeDefined();
+    expect(vault.getPageByPath('/vault/Inbox/New note.md')).toBeDefined();
     expect(open).not.toHaveBeenCalled();
   });
 });

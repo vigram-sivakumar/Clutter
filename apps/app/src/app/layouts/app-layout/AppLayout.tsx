@@ -93,9 +93,17 @@ interface AppLayoutProps {
    */
   narrowSidebarOverride?: NarrowSidebarOverride;
   onNarrowSidebarOverrideChange?: (override: NarrowSidebarOverride) => void;
+  updateVersion?: string;
+  onRestartUpdate?: () => void;
 }
 
-export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarOverrideChange }: AppLayoutProps) {
+export function AppLayout({
+  application,
+  narrowSidebarOverride,
+  onNarrowSidebarOverrideChange,
+  updateVersion,
+  onRestartUpdate,
+}: AppLayoutProps) {
   const toast = useToast();
   // Single vault subscription for sibling Sidebar + PageHost re-renders.
   useVault(application.vault);
@@ -374,11 +382,13 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
 
   // "Download" of a remote image: reported to Unsplash (when it is a photo picked from there) only once the file was written.
   function downloadRemote(url: string): void {
-    void downloadRemoteImage(url).then((saved) => {
-      if (saved) {
-        application.reportUnsplashDownload(url);
-      }
-    });
+    void downloadRemoteImage(url)
+      .then((saved) => {
+        if (saved) {
+          application.reportUnsplashDownload(url);
+        }
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t download the image', error));
   }
 
   function startSaveToVault(url: string): void {
@@ -520,6 +530,8 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               tasksViewConfig={tasksViewConfig}
               onRequestReveal={setPendingReveal}
               onOpenSearch={openSearch}
+              updateVersion={updateVersion}
+              onRestartUpdate={onRestartUpdate}
             />
           }
         </aside>

@@ -21,7 +21,7 @@ All verified from the code.
 
 | Traffic | Destination | What is sent | Evidence |
 | --- | --- | --- | --- |
-| Cover image search and pick | Clutter's own Cloudflare Worker, `clutter-unsplash-proxy.vigram-sivakumar.workers.dev`, which forwards to `api.unsplash.com` with a server-side key | The search text the user typed (or a built-in default term), page, orientation; or a photo id; or a download-tracking call | `UnsplashApi.ts`: plain GETs, no credentials, no key in the app |
+| Cover image search and pick | Clutter's own Cloudflare Worker, `unsplash-proxy.clutterapp.workers.dev`, which forwards to `api.unsplash.com` with a server-side key | The search text the user typed (or a built-in default term), page, orientation; or a photo id; or a download-tracking call | `UnsplashApi.ts`: plain GETs, no credentials, no key in the app |
 | Cover and card images | `images.unsplash.com`, loaded directly by the WebView | An ordinary image request (so Unsplash's CDN sees the device's IP address) | CSP `img-src … https:` |
 | Remote image or file download | Whatever address the user pastes or drops | A GET, started by the user | `fetchRemoteAsset.ts` and `downloadRemoteImage.ts`, through Tauri's HTTP plugin |
 | Links the user clicks | The default browser | The URL | `tauri-plugin-opener` |

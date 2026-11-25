@@ -94,9 +94,9 @@ describe('resolveFencedCodeText', () => {
     expect(text).toBe('');
   });
 
-  it('returns an empty string when the given position does not start a FencedCode block', () => {
+  it('returns null when the given position does not start a FencedCode block', () => {
     const view = mountView(jsFence);
-    expect(resolveFencedCodeText(view.state, 9999)).toBe('');
+    expect(resolveFencedCodeText(view.state, 9999)).toBeNull();
   });
 });
 

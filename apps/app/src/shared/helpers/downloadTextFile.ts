@@ -28,7 +28,7 @@ import { exportWriteBytes, pickExportDestination } from './nativeExport';
  * anywhere in this app today.
  */
 export async function downloadTextFile(
-  getContent: () => string,
+  getContent: () => string | null,
   defaultFileName: string
 ): Promise<void> {
   if (!isTauri()) {
@@ -40,5 +40,9 @@ export async function downloadTextFile(
     return;
   }
 
-  await exportWriteBytes(destination, new TextEncoder().encode(getContent()));
+  const content = getContent();
+  if (content === null) {
+    throw new Error('The code block is no longer available.');
+  }
+  await exportWriteBytes(destination, new TextEncoder().encode(content));
 }

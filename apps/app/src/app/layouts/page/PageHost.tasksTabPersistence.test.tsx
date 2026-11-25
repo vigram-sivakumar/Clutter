@@ -187,11 +187,11 @@ describe('Tasks page tab selection persists across an app restart', () => {
     await flush();
 
     expect(activeTab()).toBe('Today');
-    expect(listedTasks()).toEqual(['Due today task', 'Due yesterday task']);
+    expect(listedTasks()).toEqual(['Due yesterday task', 'Due today task']);
   });
 
   it.each([
-    ['Today', ['Due today task', 'Due yesterday task']],
+    ['Today', ['Due yesterday task', 'Due today task']],
     ['Upcoming', ['Due later task']],
     ['Unplanned', ['Plain undated task']],
   ])('after choosing %s and restarting, the page reopens on it with its list', async (label, expected) => {

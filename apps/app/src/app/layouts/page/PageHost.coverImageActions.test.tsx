@@ -208,6 +208,17 @@ describe('PageHost: cover image file actions', () => {
       expect(screen.getByText('Download')).toBeInTheDocument();
     });
 
+    it('shows a download failure without reporting the photo', async () => {
+      const application = await openCoverMenu(photo, credit);
+      const report = vi.spyOn(application, 'reportUnsplashDownload');
+
+      downloadRemoteImage.mockRejectedValueOnce(new Error('Could not download image (404).'));
+      fireEvent.click(screen.getByText('Download'));
+
+      expect(await screen.findByText('Couldn’t download the image')).toBeInTheDocument();
+      expect(report).not.toHaveBeenCalled();
+    });
+
     it('Download reports the photo to Unsplash once the file was written — and not when it was cancelled', async () => {
       const application = await openCoverMenu(photo, credit);
       const report = vi.spyOn(application, 'reportUnsplashDownload');

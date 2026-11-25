@@ -1,6 +1,6 @@
 # ADR-065: Unsplash requests go through a Cloudflare Worker that holds the Access Key
 
-**Status: Accepted** (implemented and deployed to `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev`; deployment and release steps are in `workers/unsplash-proxy/README.md`)
+**Status: Accepted** (implemented and deployed to `https://unsplash-proxy.clutterapp.workers.dev`; deployment and release steps are in `workers/unsplash-proxy/README.md`)
 
 ## Context
 
@@ -38,3 +38,8 @@ The deployed Worker now also answers `http://localhost:1421` (`tauri dev`), `htt
 ## Update (2026-11-07): the Worker's hostname changed
 
 The Cloudflare account's `workers.dev` subdomain was renamed from `vigram-work` to `vigram-sivakumar`, so the Worker is now served at `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev` (it was `https://clutter-unsplash-proxy.vigram-work.workers.dev`, which no longer resolves). The Worker, its secret and its configuration are unchanged; the app's default URL and `connect-src` follow the new hostname. Builds made before this change keep calling the old hostname and lose Unsplash until updated.
+
+
+## Update (2026-11-24): Worker renamed
+
+The account subdomain is now `clutterapp` and the Worker is `unsplash-proxy`. The current endpoint is `https://unsplash-proxy.clutterapp.workers.dev`. The app and CSP use the new hostname; older builds require an update. Live deployment verification is pending.

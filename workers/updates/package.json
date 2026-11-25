@@ -8,11 +8,15 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "build:check": "wrangler deploy --dry-run --outdir dist"
+    "build:check": "wrangler deploy --dry-run --outdir dist",
+    "test": "../../node_modules/.bin/tsx --test tests/*.test.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261023.1",
     "typescript": "^5.6.0",
     "wrangler": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

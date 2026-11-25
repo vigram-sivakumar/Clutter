@@ -1122,8 +1122,8 @@ export const MarkdownEditor = forwardRef<
     const extension = resolveFileExtension(info?.rawInfo ?? '');
     void downloadTextFile(() => {
       const currentView = viewRef.current;
-      return currentView ? resolveFencedCodeText(currentView.state, nodeFrom) : '';
-    }, `code${extension}`);
+      return currentView === view ? resolveFencedCodeText(currentView.state, nodeFrom) : null;
+    }, `code${extension}`).catch((error: unknown) => toast.fail('Couldn’t download the code', error));
   };
 
   // "Format code" — moved from its own dedicated, persistent button

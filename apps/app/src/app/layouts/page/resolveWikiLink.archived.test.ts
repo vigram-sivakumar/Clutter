@@ -65,7 +65,14 @@ function operations(vault: Vault) {
   } as unknown as PageOperations;
   const folderOperations = {
     open: vi.fn(() => Promise.resolve()),
-    create: (name: string) => { createFolder(name); return Promise.resolve('f'); },
+    create: (name: string, parentId: string | null) => {
+      createFolder(name);
+      const parent = parentId ? vault.getFolder(parentId) : undefined;
+      const relative = parent ? `${parent.path.slice(ROOT.length + 1)}/${name}` : name;
+      const created = folder(relative, null, parentId);
+      vault.addFolder(created);
+      return Promise.resolve(created.id);
+    },
   } as unknown as FolderOperations;
   const openFolder = vi.fn();
   const openResource = vi.fn();

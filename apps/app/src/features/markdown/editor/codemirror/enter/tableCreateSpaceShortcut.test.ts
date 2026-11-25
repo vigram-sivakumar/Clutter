@@ -274,7 +274,7 @@ describe('|-\\| table shortcut — Tab navigation via nested editor', () => {
     expect(controller.activeAnchor).toEqual(anchorBefore);
   });
 
-  it('Enter in the last body cell creates a new row and activates the same column', () => {
+  it('Enter in the last body cell leaves the table and active column unchanged', () => {
     const { root, controller } = mountTableAtShortcut(`${buildTableShortcutMarkdown()}\n`);
     const table = findAllTables(root.state)[0]!;
     const bodyRow = getNavigableRows(table.node)[1]!;
@@ -289,7 +289,7 @@ describe('|-\\| table shortcut — Tab navigation via nested editor', () => {
     key(controller.nestedView!, 'Enter');
 
     const tableAfter = findAllTables(root.state)[0]!;
-    expect(getNavigableRows(tableAfter.node).length).toBe(rowsBefore + 1);
+    expect(getNavigableRows(tableAfter.node).length).toBe(rowsBefore);
     const active = resolveLogicalCell(root.state, controller.activeAnchor!.from);
     expect(active?.row.name).toBe('TableRow');
     expect(active?.columnIndex).toBe(lastCol);

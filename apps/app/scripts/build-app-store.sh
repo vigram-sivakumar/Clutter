@@ -82,11 +82,20 @@ fi
 "$HERE/check-atomic-default.sh"
 "$HERE/check-legal-links.sh"
 python3 -I "$HERE/check-privacy-manifest.py" src-tauri/PrivacyInfo.xcprivacy
-../../node_modules/.bin/tauri build --config "$CONFIG" --bundles app
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/src-tauri/target/appstore}"
+VITE_CLUTTER_SPARKLE_UPDATES=0 ../../node_modules/.bin/tauri build --config "$CONFIG" --bundles app --target universal-apple-darwin
 TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
-BUNDLE=$(ls -d "$TARGET"/release/bundle/macos/*.app | head -1)
+BUNDLE="$TARGET/universal-apple-darwin/release/bundle/macos/Clutter.app"
 "$HERE/verify-bundle.sh" "$BUNDLE" --submission
-PKG="$TARGET/release/bundle/Clutter-AppStore.pkg"
+PKG="$TARGET/universal-apple-darwin/release/bundle/Clutter-AppStore.pkg"
+rm -f "$PKG"
 xcrun productbuild --component "$BUNDLE" /Applications --sign "$APPLE_INSTALLER_IDENTITY" "$PKG"
 pkgutil --check-signature "$PKG"
 echo "ready to upload (Transporter or xcrun altool): $PKG"
+if [ "${APP_STORE_UPLOAD:-0}" = 1 ]; then
+  : "${APP_STORE_API_KEY:?Set App Store Connect API key ID}"
+  : "${APP_STORE_API_ISSUER:?Set App Store Connect API issuer ID}"
+  xcrun altool --validate-app -f "$PKG" -t macos --apiKey "$APP_STORE_API_KEY" --apiIssuer "$APP_STORE_API_ISSUER"
+  xcrun altool --upload-app -f "$PKG" -t macos --apiKey "$APP_STORE_API_KEY" --apiIssuer "$APP_STORE_API_ISSUER"
+fi

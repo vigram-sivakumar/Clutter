@@ -2905,6 +2905,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     function renameSucceeds() {
       tauri.invoke.mockImplementation(
         async (command: string, args: { path: string; newName: string }) => {
+          if (command === 'check_rename_parent_access') return { status: 'granted' };
           if (command !== RENAME) return undefined;
           const renamed = `${args.path.slice(0, args.path.lastIndexOf('/'))}/${args.newName}`;
           const profile = profileFiles.get(args.path);
@@ -2918,6 +2919,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     }
     function renameFails(reason: string) {
       tauri.invoke.mockImplementation(async (command: string) => {
+        if (command === 'check_rename_parent_access') return { status: 'granted' };
         if (command === RENAME) throw reason;
         return undefined;
       });
@@ -4143,5 +4145,67 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
       await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(EXFAT));
       expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
     });
+  });
+});
+
+describe('AppShell: Sparkle restart', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  async function openWithUpdater() {
+    vi.stubEnv('VITE_CLUTTER_SPARKLE_UPDATES', '1');
+    tauri.isTauri = true;
+    let phase = 'ready';
+    tauri.invoke.mockImplementation(async (command, args) => {
+      if (command !== 'sparkle_update') return undefined;
+      if (args.action === 'cancel_restart') phase = 'ready';
+      if (args.action === 'commit_restart') phase = 'installing';
+      return { phase, version: '0.0.2', error: '' };
+    });
+    seed(['/Users/me/Active'], '/Users/me/Active');
+    render(<ToastProvider><AppShell /></ToastProvider>);
+    await screen.findByTestId('open-root');
+    return {
+      app: created[0]!,
+      setPhase: (next: string) => { phase = next; },
+      commits: () => tauri.invoke.mock.calls.filter(([command, args]) =>
+        command === 'sparkle_update' && args.action === 'commit_restart'
+      ),
+    };
+  }
+
+  it('offers an explicit retry after closing the Space once', async () => {
+    const { app, setPhase, commits } = await openWithUpdater();
+    const closing = deferred<void>();
+    app.close.mockReturnValueOnce(closing.promise);
+    setPhase('restart_requested');
+
+    await waitFor(() => expect(app.close).toHaveBeenCalledOnce(), { timeout: 3000 });
+    expect(commits()).toHaveLength(0);
+    await act(async () => closing.resolve());
+    await screen.findByText('Restarting Clutter…', {}, { timeout: 3000 });
+    expect(commits()).toHaveLength(1);
+
+    setPhase('restart_retry');
+    const retry = await screen.findByRole('button', { name: 'Retry restart' }, { timeout: 3000 });
+    expect(commits()).toHaveLength(1);
+    expect(screen.queryByTestId('open-root')).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    expect(commits()).toHaveLength(2);
+    expect(app.close).toHaveBeenCalledOnce();
+    expect(app.checkUnsavedBeforeClose).toHaveBeenCalledOnce();
+  });
+
+  it('snapshots unsaved work and cancels the restart when the user keeps editing', async () => {
+    const { app, setPhase, commits } = await openWithUpdater();
+    app.checkUnsavedBeforeClose.mockResolvedValue(1);
+    setPhase('restart_requested');
+
+    const keepEditing = await screen.findByRole('button', { name: 'Keep editing' }, { timeout: 3000 });
+    expect(app.snapshotUnsavedWork).toHaveBeenCalledOnce();
+    await act(async () => keepEditing.click());
+    expect(tauri.invoke).toHaveBeenCalledWith('sparkle_update', { action: 'cancel_restart' });
+    expect(commits()).toHaveLength(0);
+    expect(app.close).not.toHaveBeenCalled();
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Active');
   });
 });

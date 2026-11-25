@@ -355,7 +355,7 @@ describe('createWikiLinkResolver', () => {
   // PageOperations.create()/FolderOperations.create() flows only.
   describe('activate() on an unresolved WikiLink — full-path create-then-open', () => {
     // 1. Root-level unresolved note.
-    it('creates a root-level note when the referenced path has no directory component', async () => {
+    it('creates a note in Inbox when the referenced path has no directory component', async () => {
       const vault = makeVault([]);
       const createPage = vi.fn();
       const createFolder = vi.fn();
@@ -368,9 +368,9 @@ describe('createWikiLinkResolver', () => {
       resolve('Does Not Exist', null).activate();
       await flushAsync();
 
-      expect(createFolder).not.toHaveBeenCalled();
-      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist', activate: true });
-      expect(vault.getPageByPath('/vault/Does Not Exist.md')).toBeDefined();
+      expect(createFolder).toHaveBeenCalledExactlyOnceWith('Inbox', null);
+      expect(createPage).toHaveBeenCalledWith({ folderId: 'folder:/vault/Inbox', title: 'Does Not Exist', activate: true });
+      expect(vault.getPageByPath('/vault/Inbox/Does Not Exist.md')).toBeDefined();
     });
 
     // 2. Existing parent folder + missing note.
@@ -570,7 +570,7 @@ describe('createWikiLinkResolver', () => {
       resolve('Does Not Exist', 'A Friendly Alias').activate();
       await flushAsync();
 
-      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist', activate: true });
+      expect(createPage).toHaveBeenCalledWith({ folderId: 'folder:/vault/Inbox', title: 'Does Not Exist', activate: true });
     });
   });
 });

@@ -20,7 +20,7 @@ import { ActiveSpaceSettingsDialog } from './ActiveSpaceSettingsDialog';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 
 // The desktop runtime and its per-Space file system: "Reset settings to defaults" reaches every other Space through them.
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: vi.fn(() => false), invoke: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({ isTauri: vi.fn(() => false), invoke: vi.fn(async (command: string) => { if (command === 'get_launch_at_login_status') return 'not-registered'; throw new Error(`Unexpected native command: ${command}`); }) }));
 // The filesystem a Space's own folder is reached through (atomic saves, ADR-063): the test stands in at this seam.
 vi.mock('@core/vault/providers/openVaultFileSystem', () => ({ openVaultFileSystem: vi.fn() }));
 

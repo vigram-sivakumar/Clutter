@@ -10,6 +10,14 @@ Companion docs: [building-and-distribution.md](./building-and-distribution.md) (
 
 Effort key: **S** under 1 hour, **M** a few hours, **L** a day or more, **Ext** depends on Apple or another outside party.
 
+## Current submission gates
+
+This status supersedes older checkboxes where evidence has advanced. Builds on this branch are universal. Apple Silicon runtime has been exercised, and Intel runtime remains deferred.
+
+**Before accounts or signing.** Prepare final screenshots, listing copy and review notes. Confirm the applicable export-compliance answers for the Rustls-based network stack before setting ITSAppUsesNonExemptEncryption. The production dependency licence inventory and bundled acknowledgements are complete for the current locks. The common bundle now maps the three shipped fonts' OFL notices and PDF.js license. The consolidated ad-hoc preflight passed both architecture, App Sandbox, updater exclusion, privacy manifest, icon and signature checks on 25 November 2026 against 9b677ed3. Its bundle had no quarantine attribute, and the font and PDF.js licence notices matched their source files. The revised privacy policy was published and verified on 25 November 2026. Account-level Cloudflare logging and retention remain unverified. [Apple export compliance](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/) · [Apple upload and quarantine requirements](https://developer.apple.com/news/upcoming-requirements/)
+
+**After enrolment.** Confirm app-name availability, register com.vigram.clutter and create the App Store Connect record. Set up distribution and installer certificates, matching profile and upload credentials. Verify both signing identities, the embedded profile, the monotonic build number and Apple's validation of the package and privacy manifest. Complete App Privacy, age rating, export compliance and review notes for folder access and Unsplash. Exercise signed sandbox behavior, bookmark and signing/channel migration, and install/update on supported Macs. Upload and submission are separate operator actions. [Apple upload workflow](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+
 ## 0. Decisions (no dependencies, do first)
 
 - [ ] **Final app name.** Preliminary availability check completed by Vigram (2026-11-07, reported, not observed by Claude; result not recorded). Apple only reserves a name when the app record is created (3.3), so this stays open until then. Check "Clutter" is available in App Store Connect. Blocks 3.2 and 3.3. Effort: S
@@ -42,7 +50,7 @@ Effort key: **S** under 1 hour, **M** a few hours, **L** a day or more, **Ext** 
 - [ ] **2.4 App preview video.** Optional. 1920×1080, 15–30 seconds, up to 3. Effort: M
 - [ ] **2.5 Store metadata.** Name, subtitle, description, keywords, primary category (currently Productivity in config), optional secondary category, "What's New". None of this can be derived from the repo. Effort: M
 - [ ] **2.6 Age rating questionnaire.** Answer in App Store Connect. Effort: S
-- [ ] **2.7 Third-party notices.** Add a notices file or in-app acknowledgements: Inter, EB Garamond and Hanken Grotesk (SIL OFL, `OFL.txt` per folder in `src/assets/fonts/`), pdfjs-dist (Apache-2.0), `ring`, and other Rust and npm licenses that need attribution. Run `cargo license` or `cargo deny` and a bundle-level npm license check first. Effort: M
+- [x] **2.7 Third-party notices.** Completed 25 November 2026. Inventoried 284 Rust versions across both macOS targets, 54 production npm versions and three fonts. The common bundle includes full licence and attribution texts and MPL source links. The direct build also includes the Sparkle SDK licence. See [inventory review](third-party-dependency-licenses.md). Refresh after dependency changes.
 - [ ] **2.8 Icon artwork check.** `icon.icns` contains the 1024px size; look at it for quality. Effort: S
 
 ## 3. Medium: App Store configuration and build preparation
@@ -61,7 +69,7 @@ Effort key: **S** under 1 hour, **M** a few hours, **L** a day or more, **Ext** 
   - `lib.rs` has no navigation guard.
 
   Effort: M
-- [ ] **3.10 Unsplash proxy hosting.** The URL is on a personal `*.vigram-sivakumar.workers.dev` host baked into the app and CSP (the account subdomain was `vigram-work` until 2026-11-07; builds made before then still point at the old, now-dead host). Verified live on the new host 2026-11-07: health, search, feed, lookup, CORS for the Tauri origin, and the download route (404 on a nonexistent id, so no real download was registered; the success reply was not exercised). Repository references moved (uncommitted at the time of writing). Still open: move to a stable domain, or accept and document the dependency. Confirm the deployed Worker matches `workers/unsplash-proxy` and that no account-level logging records requests. Effort: M. Ext
+- [ ] **3.10 Unsplash proxy hosting.** The current URL is `https://unsplash-proxy.clutterapp.workers.dev`, baked into the app and CSP (renamed 2026-11-24; live verification pending). Older builds reference previous hostnames. Verified on the previous host 2026-11-07: health, search, feed, lookup, CORS for the Tauri origin, and the download route (404 on a nonexistent id, so no real download was registered; the success reply was not exercised). Repository references moved (uncommitted at the time of writing). Still open: move to a stable domain, or accept and document the dependency. Confirm the deployed Worker matches `workers/unsplash-proxy` and that no account-level logging records requests. Effort: M. Ext
 - [ ] **3.11 First-launch network behavior.** The welcome notes carry Unsplash cover URLs. Disclose in the policy, or bundle the images. Effort: S to M
 - [ ] **3.12 Dry run.** `APP_STORE_DRY_RUN=1 npm run build:appstore` with the four environment variables. Depends on 3.4, 3.5. Effort: S
 

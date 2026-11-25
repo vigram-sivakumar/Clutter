@@ -4,6 +4,32 @@ The working record of Clutter's privacy readiness for the Mac App Store, as of 2
 
 Where something could not be verified from the repository or this machine, it says so. Nothing here is legal advice.
 
+## Current Cloudflare verification — 25 November 2026
+
+This section supersedes the historical settings and publication statements below. Read-only API checks used the account selected by the existing Wrangler login. No service configuration or policy was changed.
+
+| Surface | Verified deployed state |
+| --- | --- |
+| Updates Worker | Logpush false, observability null, no tail consumers. Only the release R2 bucket is bound. The deployed JavaScript matches the repository dry-run bundle byte-for-byte. |
+| Unsplash proxy Worker | Logpush false, observability null, no tail consumers. Bindings are the allowed origins, per-client rate limiter and the Unsplash secret. The deployed JavaScript matches the repository dry-run bundle byte-for-byte. |
+| Privacy Pages project | Web Analytics tag absent and analytics token unconfigured. No Analytics Engine datasets or service bindings are configured for production or preview. Production remains the approved 25 November deployment. |
+| Public website | Homepage, privacy and contact returned successfully through curl and contain no script tags or analytics markers. The privacy page matches the committed HTML byte-for-byte. |
+| Account-wide Logpush jobs | The API returned HTTP 403, code 10000. The existing login cannot enumerate account jobs. Both reviewed Workers independently report Logpush false. Dashboard confirmation completed below; API enumeration remains unverified. |
+
+The update Worker writes no application request logs. The Unsplash proxy emits event names and upstream status only, uses the client IP for rate limiting, and does not persist search history. The deployed script comparison confirms that the reviewed behavior is live.
+
+Cloudflare documents Workers Logs as an opt-in persistent log facility. Neither deployed Worker enables it. The absence of Workers Logs does not establish a zero-retention guarantee for Cloudflare's independent operational or security processing. Its privacy policy uses purpose-dependent retention, and the rate-limit binding documentation specifies its counting window without establishing a retention period for client keys. The published Clutter policy already explains provider receipt of IP/request information and processing and retention under provider policies. This review found no disclosure change needed.
+
+### Owner dashboard confirmation — 25 November 2026
+
+The owner signed in and supplied dashboard screenshots between 16:57 and 17:00 IST. Production Settings → Observability for both `updates` and `unsplash-proxy` show Logs, Traces and Issues disabled and no export destinations. The Unsplash dashboard separately reports Observability disabled and shows the encrypted API secret and rate-limiter binding. The account-level Observability → Export → Logpush page shows a subscription invitation, not a configured job list. Together with the earlier per-Worker API results (Logpush false and no tail consumers), this is accepted as sufficient dashboard evidence for the current release gate; the account-wide API enumeration still returned HTTP 403 and was not independently completed.
+
+The owner confirmed standard free self-service account registration. Cloudflare states that its standard DPA is incorporated by reference in the Self-Serve Subscription Agreement; the published DPA is version 6.4, effective 3 April 2026. Applicability is recorded on that basis, not as an independently verified historical acceptance record. See [Cloudflare Customer DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) and [Cloudflare GDPR FAQ](https://www.cloudflare.com/en-in/trust-hub/gdpr/).
+
+**Disposition: Cloudflare account verification closed for the current release scope.** No configuration changes, subscription purchase or deployment were made or required by the check. Provider-side operational retention and rate-limit key retention remain without a verified fixed period. The conservative App Privacy answer sheet and published policy remain unchanged. Dashboard screenshots were reviewed in the conversation and are not committed to the public repository.
+
+[Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) · [Workers Logpush](https://developers.cloudflare.com/workers/observability/logs/logpush/) · [Rate limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) · [Cloudflare privacy and retention](https://www.cloudflare.com/privacypolicy/)
+
 ## Final privacy position
 
 Clutter has no accounts, analytics, telemetry, tracking, advertising or sync, and keeps notes and attachments in folders the user chooses. Notes are never transmitted. What leaves the device is:
@@ -18,7 +44,7 @@ The policy states all of this and does not claim that nothing leaves the device.
 
 | Service | Role | Receives | Verified |
 | --- | --- | --- | --- |
-| Cloudflare Workers (`clutter-unsplash-proxy.vigram-sivakumar.workers.dev`) | Hosts the proxy | Request URL (search text, page, photo id), client IP, headers, while serving | Deployment, settings and bundle checked below |
+| Cloudflare Workers (`unsplash-proxy.clutterapp.workers.dev`) | Hosts the proxy | Request URL (search text, page, photo id), client IP, headers, while serving | Deployment, settings and bundle checked below |
 | Unsplash API (`api.unsplash.com`) | Photo search and download tracking | Query, page, orientation, photo id, `ixid`, from the proxy's address with Clutter's key | Request flow in code; live search returns results |
 | Unsplash image servers (`images.unsplash.com`, `plus.unsplash.com`) | Photo display | Image GET from the device (IP, user agent); view tracking by `ixid` | In code; live traffic not captured |
 | Any other host in a note or cover, or one the user saves from | Image display or download | Image GET from the device | In code |
@@ -105,7 +131,7 @@ Changed in the repository (not deployed: the settings are identical in effect): 
 ### External account actions for Cloudflare
 
 1. **Accept the Customer DPA** on the Cloudflare account that hosts the Worker (Cloudflare dashboard, Account home, Configurations or Legal; the DPA is at <https://www.cloudflare.com/cloudflare-customer-dpa/>, version 6.4 at the time of writing). Its status could not be read through the API token available here (`workers` scopes only). Confirm it is in force, and keep a copy.
-2. **Dashboard check (once):** Workers & Pages, `clutter-unsplash-proxy`, Settings, Observability: confirm Workers Logs shows Disabled, and Logpush shows no jobs. The API already reports this; the dashboard is the owner's confirmation.
+2. **Dashboard check (once):** Workers & Pages, `unsplash-proxy`, Settings, Observability: confirm Workers Logs shows Disabled, and Logpush shows no jobs. The API already reports this; the dashboard is the owner's confirmation.
 3. **Optional:** put the Worker on a custom domain (above).
 
 ## Unsplash production configuration

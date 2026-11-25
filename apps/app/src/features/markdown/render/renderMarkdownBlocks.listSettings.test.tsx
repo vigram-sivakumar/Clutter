@@ -95,7 +95,7 @@ describe('read-only rendering — Preserve bullet style', () => {
       expect(css).not.toContain("[data-bullet-marker='*']");
       expect(css).toContain('content: attr(data-bullet-marker)');
       const block = css.slice(css.indexOf(":root:not([data-markdown-bullet-style='dot'])"));
-      expect(block.slice(0, block.indexOf('}'))).toContain(':not(.markdown-blocks__list-item--task)');
+      expect(block.slice(0, block.indexOf('}'))).toMatch(/:not\(\s*\.markdown-blocks__list-item--task\s*\)/);
       expect(block.slice(0, block.indexOf('}'))).toContain(':not(.markdown-blocks__list--emoji)');
     });
   });

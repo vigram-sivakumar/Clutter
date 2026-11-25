@@ -333,29 +333,29 @@ describe('FolderTree drag: ghost', () => {
     expect(g.closest('.drag-visuals')!.parentElement).toBe(document.body);
   });
 
-  it('is centred under the cursor on both axes, wherever the row is and however the pointer moves', () => {
+  it('keeps the original grab offset as the pointer moves outside the sidebar', () => {
     renderTree(env);
-    // The ghost is the row's own 236px wide and 28px tall: its centre is (118, 14).
+    // Press at (40,114) on a row at (12,100): grab offset (28,14).
     press(rowFor('Alpha'), 40, 114);
     move(40, 140);
-    expect(ghost()!.style.transform).toBe('translate3d(-78px, 126px, 0)'); // 40 − 118, 140 − 14
+    expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform).toBe('translate3d(12px, 126px, 0)'); // 40 − 28, 140 − 14
 
     move(90, 200);
-    expect(ghost()!.style.transform).toBe('translate3d(-28px, 186px, 0)');
+    expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform).toBe('translate3d(62px, 186px, 0)');
 
-    move(700, 650); // far outside the sidebar, over the page: still centred on the cursor
-    expect(ghost()!.style.transform).toBe('translate3d(582px, 636px, 0)');
+    move(700, 650); // far outside the sidebar, over the page: still keeps the original grip
+    expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform).toBe('translate3d(672px, 636px, 0)');
     expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`); 
   });
 
-  it('is centred regardless of where in the row it was grabbed', () => {
+  it('keeps an off-center grip rather than snapping to the center', () => {
     renderTree(env);
     press(rowFor('Alpha'), 20, 102); // near the row's top-left corner
     move(300, 400);
-    expect(ghost()!.style.transform).toBe('translate3d(182px, 386px, 0)'); // 300 − 118, 400 − 14
+    expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform).toBe('translate3d(292px, 398px, 0)'); // 300 − 8, 400 − 2
   });
 
-  it('is as wide as the row, whatever width the sidebar has been resized to', () => {
+  it('captures the row width at drag start and keeps the snapshot stable during resize', () => {
     renderTree(env);
     press(rowFor('Alpha'));
     move(40, 140);
@@ -364,7 +364,8 @@ describe('FolderTree drag: ghost', () => {
     ROW_RECT.width = 300;
     try {
       move(40, 150);
-      expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`);
+      expect(ghost()!.style.width).toBe('236px');
+      expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.width).toBe('236px');
     } finally {
       ROW_RECT.width = 236;
     }

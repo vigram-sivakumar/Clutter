@@ -628,7 +628,7 @@ describe('embedLivePreview — controls: copyUrl threading', () => {
     expect(captured!.copyUrl).toBeUndefined();
   });
 
-  it("clicking the image (opening ImageOverlay) also receives copyUrl as its own image-click callback's third argument — what ImageOverlay's own resource resolution resolves against", () => {
+  it("double-clicking the image (opening ImageOverlay) also receives copyUrl as its own image-click callback's third argument — what ImageOverlay's own resource resolution resolves against", () => {
     const calls: Array<[string, string, string | undefined]> = [];
     const view = mountView(
       'x ![[Projects/A/hero.png]]',
@@ -642,6 +642,8 @@ describe('embedLivePreview — controls: copyUrl threading', () => {
     const button = view.dom.querySelector<HTMLButtonElement>('button.cm-image-button')!;
     button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(calls).toEqual([]); // A single click selects the embed, not the overlay.
+    button.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
 
     expect(calls).toEqual([
       ['app://vault/Projects/A/hero.png', 'hero.png', 'Projects/A/hero.png'],

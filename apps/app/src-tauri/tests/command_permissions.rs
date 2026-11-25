@@ -70,10 +70,9 @@ fn there_is_no_broad_static_scope_in_any_build() {
     assert!(!std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/app-store.json")).exists());
 }
 
-/// One sandbox entitlement set for every packaged build: the local build and the App Store build are the same app with
-/// the same sandboxed filesystem behavior; only signing and the identifiers Apple adds differ.
+/// Local and App Store builds retain the base sandbox permission set.
 #[test]
-fn every_packaged_build_is_sandboxed_with_the_same_entitlements() {
+fn local_and_app_store_builds_keep_the_base_sandbox_entitlements() {
     let config = include_str!("../tauri.conf.json");
     let entitlements = include_str!("../Entitlements.plist");
     assert!(config.contains("\"entitlements\": \"Entitlements.plist\""));
@@ -146,4 +145,15 @@ fn the_packaged_policy_allows_no_eval_and_no_inline_script_and_only_development_
     assert_eq!(text(csp, "base-uri"), "'self'");
     // The development policy is where the permissive keywords live, and the only place.
     assert!(text(dev, "default-src").contains("'unsafe-eval'"));
+}
+
+#[test]
+fn direct_distribution_uses_its_own_entitlements_without_changing_the_store_base() {
+    let direct = include_str!("../Entitlements.direct.plist");
+    assert!(direct.contains("<dict/>"));
+    assert!(!direct.contains("com.apple.security"));
+    let builder = include_str!("../../scripts/build-sparkle-integration.sh");
+    assert!(builder.contains("ENTITLEMENTS=src-tauri/Entitlements.direct.plist"));
+    assert!(builder.contains("'SUEnableInstallerLauncherService': mode == 'integration'"));
+    assert!(builder.contains("--entitlements \"$ENTITLEMENTS\""));
 }

@@ -1,6 +1,6 @@
 {
   "name": "@clutter/app",
-  "version": "0.1.0",
+  "version": "0.0.10",
   "private": true,
   "type": "module",
   "description": "Clutter 2.0 - Core editor implementation with segmented architecture",
@@ -10,7 +10,7 @@
     "dev:tauri": "VITE_PORT=1421 vite",
     "build": "tsc && vite build",
     "tauri": "scripts/tauri.sh",
-    "desktop": "VITE_CLUTTER_DIRECT_UPDATES=1 scripts/tauri.sh dev --features direct-updates --config src-tauri/tauri.direct-updates.conf.json",
+    "desktop": "scripts/tauri.sh dev",
     "preview": "vite preview",
     "test": "vitest",
     "build:appstore": "scripts/build-app-store.sh",
@@ -25,7 +25,11 @@
     "check:legal-links": "scripts/check-legal-links.sh",
     "dev:sandbox": "scripts/dev-sandboxed.sh",
     "build:beta": "bash scripts/build-beta.sh",
-    "release:beta": "bash scripts/release.sh beta"
+    "release:beta": "bash scripts/release.sh beta",
+    "release:direct": "bash scripts/release-channel.sh direct",
+    "release:appstore": "bash scripts/release-channel.sh appstore",
+    "check:release": "bash scripts/check-release.sh",
+    "check:appstore": "bash scripts/check-appstore.sh"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -54,8 +58,6 @@
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-http": "~2.7.0",
     "@tauri-apps/plugin-opener": "^2.5.4",
-    "@tauri-apps/plugin-process": "2.3.1",
-    "@tauri-apps/plugin-updater": "2.10.1",
     "emojibase-data": "^17.0.0",
     "pdfjs-dist": "^4.8.69",
     "prettier": "^3.2.5",
@@ -71,8 +73,8 @@
     "jsdom": "^29.0.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3",
+    "vite": "6.4.5",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^4.0.17"
+    "vitest": "4.1.12"
   }
 }

@@ -2,7 +2,7 @@
 # Verifies a built Clutter .app. Packaging fails (exit 1) unless every check for the chosen mode passes.
 #
 # Every mode (one Clutter: the same checks for every distribution):
-#   * the App Sandbox entitlements are present, with user-selected folders and bookmarks;
+#   * App Store/local builds retain App Sandbox, while direct Sparkle builds use their separate entitlements;
 #   * none of the entitlements a shipped build must not have (temporary exceptions, all-files access, debugging, ...);
 #   * the native atomic writer and the sandbox-access commands are compiled into the executable. Atomic saves are the
 #     only saving system (ADR-063): an executable without them cannot save at all, so a package without them is
@@ -16,15 +16,16 @@
 # --local (default)  an installable build for this Mac: an ad-hoc signature is fine.
 # --beta             an Apple Silicon beta build: production bundle identifier, arm64-only executable and a valid
 #                    ad-hoc signature. Gatekeeper may block downloads on other Macs; no notarization is implied.
+# --sparkle-integration isolated local Sparkle validation; exact two installer Mach lookups are permitted.
 # --share            a build to give to testers: must carry a Developer ID signature with the hardened runtime, and be
 #                    notarized with the ticket stapled, or Gatekeeper blocks it on other Macs.
 # --submission       a Mac App Store candidate: a distribution signature, the embedded provisioning profile, and the
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--appstore-preflight|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--appstore-preflight|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
@@ -32,6 +33,10 @@ for ARG in "$@"; do
   case "$ARG" in
     --local) MODE=local ;;
     --beta) MODE=beta ;;
+    --sparkle-integration) MODE=sparkle-integration ;;
+    --sparkle-beta) MODE=sparkle-beta ;;
+    --sparkle-direct) MODE=sparkle-direct ;;
+    --appstore-preflight) MODE=appstore-preflight ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -52,12 +57,71 @@ echo "verifying $APP as: $MODE"
 ENTITLEMENTS=$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | tr -d '\n')
 has_true() { echo "$ENTITLEMENTS" | grep -q "<key>$1</key><true/>"; }
 
-for REQUIRED in com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.security.network.client; do
-  has_true "$REQUIRED" && pass "entitlement $REQUIRED" || fail "missing entitlement $REQUIRED"
-done
-for FORBIDDEN in 'temporary-exception' 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
+DIRECT=false
+if [ "$MODE" = sparkle-direct ] || [ "$MODE" = sparkle-beta ]; then DIRECT=true; fi
+if [ "$DIRECT" = true ]; then
+  has_true com.apple.security.app-sandbox && fail "direct build must be outside App Sandbox" || pass "direct build outside App Sandbox"
+else
+  for REQUIRED in com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.security.network.client; do
+    has_true "$REQUIRED" && pass "entitlement $REQUIRED" || fail "missing entitlement $REQUIRED"
+  done
+fi
+for FORBIDDEN in 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
   echo "$ENTITLEMENTS" | grep -q "$FORBIDDEN" && fail "forbidden entitlement matching '$FORBIDDEN'" || pass "no entitlement matching '$FORBIDDEN'"
 done
+if [ "$MODE" = "sparkle-integration" ] || [ "$MODE" = "sparkle-beta" ] || [ "$MODE" = "sparkle-direct" ]; then
+  # No additional exceptions are allowed: compare the complete entitlement dictionary.
+  if printf '%s' "$ENTITLEMENTS" | python3 -I -c '
+import plistlib, sys
+expected = {
+  "com.apple.security.app-sandbox": True,
+  "com.apple.security.files.user-selected.read-write": True,
+  "com.apple.security.files.bookmarks.app-scope": True,
+  "com.apple.security.network.client": True,
+  "com.apple.security.temporary-exception.mach-lookup.global-name": [
+    "com.vigram.clutter-spks", "com.vigram.clutter-spki"
+  ]
+}
+sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == ({} if sys.argv[1] == "true" else expected) else 1)
+' "$DIRECT"; then
+    pass "exact distribution entitlements"
+  else
+    fail "unexpected Sparkle integration entitlements"
+  fi
+  SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+  [ -d "$SPARKLE/Versions/B/XPCServices/Installer.xpc" ] && pass "Sparkle Installer.xpc present" || fail "Sparkle installer missing"
+  EXPECTED_INSTALLER=true
+  [ "$DIRECT" != true ] || EXPECTED_INSTALLER=false
+  [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = "$EXPECTED_INSTALLER" ] && pass "Sparkle installer mode matches distribution" || fail "Sparkle installer mode mismatch"
+  codesign --verify --deep --strict "$SPARKLE" 2>/dev/null && pass "Sparkle framework signature valid" || fail "Sparkle framework signature invalid"
+  if [ "$MODE" = "sparkle-beta" ] || [ "$MODE" = "sparkle-direct" ]; then
+    if python3 -I - "$APP/Contents/Info.plist" "$HOME/.tauri/clutter-sparkle-beta.pub" <<'PY'
+import plistlib, sys, re
+with open(sys.argv[1], 'rb') as f: info = plistlib.load(f)
+with open(sys.argv[2]) as f: key = f.read().strip()
+ats = info.get('NSAppTransportSecurity', {})
+version = info['CFBundleShortVersionString']
+major, minor, patch = map(int, version.split('.'))
+assert info.get('SUFeedURL') == 'https://updates.clutterapp.workers.dev/appcast.xml'
+assert re.fullmatch(r'[A-Za-z0-9+/]{43}=', key) and info.get('SUPublicEDKey') == key
+assert info.get('SUVerifyUpdateBeforeExtraction') is True
+assert info.get('SUEnableAutomaticChecks') is True
+assert info.get('SUAutomaticallyUpdate') is True
+assert info.get('CFBundleVersion') == str(major * 1000000 + minor * 1000 + patch + 1)
+assert not ats.get('NSAllowsArbitraryLoads') and not ats.get('NSAllowsLocalNetworking')
+PY
+    then pass "beta HTTPS feed, pinned key and build number verified"
+    else fail "invalid Sparkle beta feed, signing key or build number"
+    fi
+  fi
+else
+  echo "$ENTITLEMENTS" | grep -q 'temporary-exception' && fail "forbidden temporary exception" || pass "no temporary exceptions"
+  [ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ] || fail "unexpected Sparkle framework in non-Sparkle build"
+  if [ "$MODE" = submission ] || [ "$MODE" = appstore-preflight ]; then
+    /usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$APP/Contents/Info.plist" >/dev/null 2>&1 && fail "App Store build contains a Sparkle feed" || true
+    /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$APP/Contents/Info.plist" >/dev/null 2>&1 && fail "App Store build contains a Sparkle key" || true
+  fi
+fi
 if echo "$ENTITLEMENTS" | grep -q "network.server"; then
   $ALLOW_HARNESS && pass "network.server allowed for the test harness" || fail "network.server is not allowed"
 else
@@ -134,16 +198,61 @@ IDENTIFIER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Conten
 ADHOC=false
 echo "$SIGNATURE" | grep -q "Signature=adhoc" && ADHOC=true
 
+# Check every Mach-O, including bundled native helpers, not only the main executable.
+verify_universal() {
+  if python3 -I - "$APP" <<'PY'
+import os, subprocess, sys
+magic = {bytes.fromhex(x) for x in ('feedface','cefaedfe','feedfacf','cffaedfe','cafebabe','bebafeca','cafebabf','bfbafeca')}
+bad = []
+count = 0
+for root, _, files in os.walk(sys.argv[1]):
+    for name in files:
+        path = os.path.join(root, name)
+        if os.path.islink(path): continue
+        with open(path, 'rb') as f:
+            if f.read(4) not in magic: continue
+        arch = subprocess.run(['lipo','-archs',path], capture_output=True, text=True)
+        count += 1
+        if arch.returncode or set(arch.stdout.split()) != {'arm64','x86_64'}:
+            bad.append(path + ': ' + arch.stdout.strip())
+if not count or bad:
+    print('Non-universal Mach-O files:', *bad, sep='\n')
+    sys.exit(1)
+print('Verified', count, 'universal Mach-O files')
+PY
+  then pass "all native executables are universal"
+  else fail "universal architecture verification failed"
+  fi
+}
+
 case "$MODE" in
+  appstore-preflight)
+    $ADHOC && pass "ad-hoc preflight signature" || fail "preflight must be ad-hoc signed"
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "production bundle identifier" || fail "incorrect bundle identifier"
+    verify_universal
+    ;;
   local)
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
     ;;
-  beta)
+  beta|sparkle-integration|sparkle-beta|sparkle-direct)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
-    $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
+    if $ADHOC; then
+      warn "ad-hoc signature: intended for controlled testing, macOS may block downloads"
+    elif [ "$MODE" = sparkle-direct ]; then
+      echo "$SIGNATURE" | grep -q "Authority=Developer ID Application" && pass "Developer ID signature" || fail "unexpected direct signing identity"
+      echo "$SIGNATURE" | grep -q "flags=.*runtime" && pass "hardened runtime" || fail "hardened runtime missing"
+      xcrun stapler validate "$APP" >/dev/null 2>&1 && pass "app notarization ticket stapled" || fail "app notarization ticket missing"
+      spctl --assess --type execute "$APP" >/dev/null 2>&1 && pass "Gatekeeper accepts direct app" || fail "Gatekeeper rejects direct app"
+    else
+      fail "integration/legacy build must be ad-hoc signed"
+    fi
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
-    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple Silicon)" || fail "architectures '$ARCHS', expected arm64 only"
+    if [ "$MODE" = sparkle-direct ] || [ "$MODE" = sparkle-integration ]; then
+      verify_universal
+    else
+      [ "$ARCHS" = "arm64" ] && pass "architecture arm64" || fail "expected arm64 only"
+    fi
     ;;
   share)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
@@ -168,7 +277,7 @@ case "$MODE" in
     MINIMUM_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$APP/Contents/Info.plist" 2>/dev/null)
     [ -n "$MINIMUM_SYSTEM" ] && [ "$(printf '%s\n%s\n' 13.3 "$MINIMUM_SYSTEM" | sort -V | head -1)" = "13.3" ] && pass "minimum macOS $MINIMUM_SYSTEM (13.3 or later)" || fail "LSMinimumSystemVersion '$MINIMUM_SYSTEM' is below 13.3 (the web code needs WebKit 16.4)"
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
-    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple silicon only, as decided for 1.0)" || fail "architectures '$ARCHS', expected arm64 only"
+    verify_universal
     /usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$APP/Contents/Info.plist" >/dev/null 2>&1 && pass "App Store category set" || fail "no LSApplicationCategoryType"
     ;;
 esac

@@ -1,33 +1,47 @@
-# Clutter update distribution
+# Clutter direct distribution
 
-A public, read-only Worker serves Tauri's signed update manifest and release artifacts from the private `clutter-releases` R2 bucket. The bucket itself stays private.
+The public, read-only Worker serves the Sparkle feed, versioned universal releases and the optional Terminal installer from or alongside the private R2 bucket `clutter-releases`.
 
-Production URL: `https://clutter-updates.vigram-sivakumar.workers.dev`
+Production URL: `https://updates.clutterapp.workers.dev`
 
-- `GET /latest.json` serves the current manifest with no-store caching.
-- `GET /releases/<filename>.app.tar.gz` serves a signed Tauri updater archive.
-- `GET /releases/<filename>.dmg` serves the notarized installer.
-- Only GET and HEAD are accepted. Other paths and file types return 404.
-- The Worker never accepts uploads or writes to R2.
+- `GET /appcast.xml`: current Sparkle appcast, no-store.
+- `GET /releases/Clutter_X.Y.Z_universal.zip`: signed full update archive.
+- `GET /releases/Clutter_X.Y.Z_universal.dmg`: manual installer (ad-hoc signed for controlled beta; Developer ID signed and notarized for production).
+- `GET /releases/Clutter_N_to_M_universal.delta`: signed differential archive.
+- `GET /install.sh`: reviewable macOS shell installer embedded in the Worker.
+- Legacy Tauri and Apple Silicon beta routes remain available for compatibility.
+- Only GET and HEAD are accepted. Unapproved paths return 404. The Worker never writes to R2.
 
-Tauri verifies the archive signature against the public key embedded in the direct-download build. The Worker only distributes the manifest and bytes.
+## Terminal installation
 
-## One-time setup
+Starting with 0.0.9, users can run:
 
-1. Create the private R2 bucket named `clutter-releases`.
-2. From this directory, run `npm install` and `npx wrangler login`.
-3. Run `npm run typecheck` and `npm run build:check`.
-4. Deploy with `npx wrangler deploy`.
-5. Verify `curl -i https://clutter-updates.vigram-sivakumar.workers.dev/latest.json` returns 404 while the bucket is empty.
+```sh
+curl -fsS https://updates.clutterapp.workers.dev/install.sh | bash
+```
 
-Wrangler creates the `RELEASES` binding from `wrangler.toml`. Do not enable public bucket access and do not put API tokens, bucket credentials or the Tauri signing key in this Worker.
+Review-before-execution alternative (choose a new temporary file):
 
-## Publishing
+```sh
+installer=$(mktemp -t clutter-installer) &&
+curl -fsS https://updates.clutterapp.workers.dev/install.sh -o "$installer" &&
+less "$installer" &&
+bash "$installer"
+rm -f "$installer"
+```
 
-After a signed and notarized share build, run `npm run publish:update` from `apps/app`. It uploads the updater archive and DMG to `releases/`, then uploads `latest.json` last so clients cannot see a release before its archive exists.
+Quit less with q to execute the reviewed installer. Running the installation command is consent to install; there is no extra confirmation prompt. The script uses the same universal ZIP as Sparkle, checks the platform, feed URL, SHA-256 and size, bundle signature, bundle identifier, version, pinned public updater key and embedded feed URL, then stages the app in /Applications before a no-clobber move. No sudo, no Homebrew, no change to system security settings or quarantine, and automatic launch after successful installation. The installer shows one installation status, a concise success message, and a version/location summary using the same accent color for both values. Verification details stay internal unless an error occurs. Redirected output, TERM=dumb and a nonempty NO_COLOR environment variable disable ANSI colors. A launch failure is reported separately, without undoing the verified installation. Existing Clutter installations in /Applications or ~/Applications must be updated through Sparkle or handled manually.
 
-The Tauri updater private key stays on the release machine. Never put it in Cloudflare, GitHub, this repository or chat.
+The bootstrap and its checksum metadata are trusted through HTTPS. The installer does not independently verify Sparkle's Ed25519 signature; the publisher verifies it before upload, and installed Sparkle clients verify their updates. Ad-hoc beta signatures do not authenticate a developer. Beta distribution instructions must disclose that Apple has not notarized the app; macOS may still require approval. The installer reports this limitation if the launch command fails. Developer ID releases additionally require a Developer ID signature and successful Gatekeeper assessment. Pin the production signing team before public release. Native installation on both architectures remains to be validated.
+
+## Deployment and publication
+
+From this directory install dependencies, run `npm run typecheck && npm test && npm run deploy`. Keep the existing Worker name `updates`, private bucket, and binding `RELEASES`. Do not recreate or expose the bucket.
+
+From the repository root, prepare with `npm run release:direct -- X.Y.Z --prepare`, validate the local artifacts, then publish the exact prepared bytes with `npm run release:direct -- X.Y.Z`. The publisher verifies the archive signature and checksum, uploads immutable artifacts first, and updates the appcast last. The Terminal installer automatically follows that feed without a separate build or publication command.
+
+The Sparkle private key stays on the release machine. Never put it in Cloudflare, GitHub, the repository or chat.
 
 ## Local development
 
-Run `npm install` and `npm run dev`. Wrangler uses the R2 binding in `wrangler.toml`; local development can use Wrangler's local R2 simulation.
+Run `npm install && npm run dev`. Wrangler can use local R2 simulation.

@@ -25,6 +25,8 @@ import { toDate } from '@shared/helpers/time/helpers/toDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
+import { Alert } from '@components/alert/Alert';
+import { Button } from '@components/button/Button';
 import type { SystemIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
@@ -73,6 +75,8 @@ interface SidebarProps {
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Search is an overlay owned by `AppLayout`: its tab opens that overlay instead of showing a panel. */
   readonly onOpenSearch: () => void;
+  readonly updateVersion?: string;
+  readonly onRestartUpdate?: () => void;
 }
 
 export function Sidebar({
@@ -81,6 +85,8 @@ export function Sidebar({
   tasksViewConfig,
   onRequestReveal,
   onOpenSearch,
+  updateVersion,
+  onRestartUpdate,
 }: SidebarProps) {
   const toast = useToast();
   const {
@@ -461,6 +467,20 @@ export function Sidebar({
         </div>
       </RowContextMenuEnabled>
       <div className="sidebar__footer">
+        {updateVersion && (
+          <div className="sidebar__update-alert">
+            <Alert
+              title="New update available"
+              description={`Version ${updateVersion}`}
+              isCollapsed
+              actionsSlot={
+                <Button variant="primary" size="medium" onClick={onRestartUpdate}>
+                  Restart now
+                </Button>
+              }
+            />
+          </div>
+        )}
         <Footer
           vaultFolderName={VaultPath.filename(vault.root)}
           spaces={spaces?.spaces}

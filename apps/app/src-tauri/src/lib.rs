@@ -4,6 +4,9 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
+mod sparkle_update;
+#[cfg(all(target_os = "macos", feature = "sparkle-updates"))]
+mod direct_profile;
 mod dock_badge;
 mod launch_at_login;
 // The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
@@ -187,6 +190,12 @@ pub(crate) fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = app_context();
+    #[cfg(all(target_os = "macos", feature = "sparkle-updates"))]
+    if !space_access::is_sandboxed() {
+        let home = space_access::real_home().expect("find account home for direct profile");
+        direct_profile::prepare(&home, &context.config().identifier).expect("preserve previous Clutter profile");
+    }
     let builder = tauri::Builder::default()
         .on_page_load(|_, payload| {
             if let tauri::webview::PageLoadEvent::Started = payload.event() {
@@ -198,6 +207,7 @@ pub fn run() {
         .manage(app_menu::ZoomState::default())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            sparkle_update::sparkle_update,
             frontend_failed,
             dock_badge::set_dock_badge,
             launch_at_login::get_launch_at_login_status,
@@ -248,17 +258,10 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        // After fs: it restores the saved scope into the fs plugin's scope at startup. Only folders the user
-        // chose in the native picker are ever added to that scope (JS cannot grant itself access), so only
-        // those are persisted.
-        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(space_access::runtime_scope_plugin(space_access::is_sandboxed()))
+        .plugin(vault_asset_scope::asset_exclusions())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init());
-
-    #[cfg(feature = "direct-updates")]
-    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
-    #[cfg(feature = "direct-updates")]
-    let builder = builder.plugin(tauri_plugin_process::init());
 
     builder.setup(|app| {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
@@ -291,7 +294,7 @@ pub fn run() {
             spawn_startup_watchdog(app.handle().clone(), STARTUP_ATTEMPT.load(Ordering::SeqCst));
             Ok(())
         })
-        .build(app_context())
+        .build(context)
         .expect("error while building tauri application")
         .run(|_app, event| {
             // An alert owned by the system outlives the app unless cancelled.

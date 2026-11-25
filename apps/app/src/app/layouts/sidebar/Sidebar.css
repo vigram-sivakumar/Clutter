@@ -45,3 +45,27 @@
   width: 100%;
 }
 
+.sidebar__update-alert {
+  align-self: stretch;
+  margin-inline: var(--sidebar-padding-inline);
+  animation: sidebar-update-alert-enter var(--duration-interaction) var(--easing-interaction) both;
+}
+
+/* Match the toaster's slide-up and fade-in, without its fixed-position centering. */
+@keyframes sidebar-update-alert-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-8));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__update-alert {
+    animation: none;
+  }
+}

@@ -36,13 +36,13 @@
         "object-src": "'none'",
         "base-uri": "'self'",
         "img-src": "'self' asset: http://asset.localhost https: data: blob:",
-        "connect-src": "'self' ipc: http://ipc.localhost https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev asset: http://asset.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost https://unsplash-proxy.clutterapp.workers.dev asset: http://asset.localhost",
         "style-src": "'self' 'unsafe-inline'"
       },
       "devCsp": {
         "default-src": "'self' 'unsafe-inline' 'unsafe-eval' ipc: http://ipc.localhost http://asset.localhost",
         "img-src": "'self' asset: http://asset.localhost https: data: blob:",
-        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://localhost:1421 ws://localhost:1421 https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev asset: http://asset.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://localhost:1421 ws://localhost:1421 https://unsplash-proxy.clutterapp.workers.dev asset: http://asset.localhost",
         "style-src": "'self' 'unsafe-inline'"
       },
       "assetProtocol": {
@@ -53,6 +53,9 @@
     }
   },
   "plugins": {
+    "http": {
+      "scopeRedirects": true
+    },
     "fs": {
       "requireLiteralLeadingDot": false
     }
@@ -79,7 +82,12 @@
       "entitlements": "Entitlements.plist",
       "signingIdentity": "-",
       "files": {
-        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy"
+        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy",
+        "Resources/Licenses/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+        "Resources/Licenses/Inter-OFL.txt": "../src/assets/fonts/inter/OFL.txt",
+        "Resources/Licenses/EB-Garamond-OFL.txt": "../src/assets/fonts/eb-garamond/OFL.txt",
+        "Resources/Licenses/Hanken-Grotesk-OFL.txt": "../src/assets/fonts/hanken-grotesk/OFL.txt",
+        "Resources/Licenses/PDF.js-LICENSE.txt": "../../../node_modules/pdfjs-dist/LICENSE"
       }
     }
   }

@@ -9,7 +9,7 @@ It is deployed **separately** from the app and is not part of the app's npm work
 
 | | |
 | --- | --- |
-| Worker URL | `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev` |
+| Worker URL | `https://unsplash-proxy.clutterapp.workers.dev` |
 | App setting | `VITE_UNSPLASH_PROXY_URL`. Unset, the app uses the URL above (`DEFAULT_UNSPLASH_PROXY_URL` in `UnsplashApi.ts`); set and empty, Unsplash is off; otherwise an `https` origin with no path |
 | App security policy | the Worker's origin in `connect-src` in `apps/app/src-tauri/tauri.conf.json`; change it together with the URL |
 | Access Key | the Worker secret `UNSPLASH_ACCESS_KEY` **only**. Never a `VITE_*` variable, never in the app, this repository or a chat |
@@ -81,8 +81,8 @@ You need a Cloudflare account and an Unsplash **Access Key** (from your applicat
    npm test && npm run typecheck && npm run build:check
    ```
 3. **Deploy.** `wrangler.toml` is the source of truth for `ALLOWED_ORIGINS`, `preview_urls` and the rate limiter, so a
-   deploy sets them. The Worker name in `wrangler.toml` (`clutter-unsplash-proxy`) is the name of the placeholder you created,
-   so this replaces it and keeps the URL `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev`.
+   deploy sets them. The Worker name in `wrangler.toml` (`unsplash-proxy`) is the name of the placeholder you created,
+   so this replaces it and keeps the URL `https://unsplash-proxy.clutterapp.workers.dev`.
    ```bash
    npx wrangler deploy
    ```
@@ -92,13 +92,13 @@ You need a Cloudflare account and an Unsplash **Access Key** (from your applicat
    ```bash
    npx wrangler secret put UNSPLASH_ACCESS_KEY
    ```
-   Or in the dashboard: **Workers & Pages → clutter-unsplash-proxy → Settings → Variables and Secrets → Add**, type
+   Or in the dashboard: **Workers & Pages → unsplash-proxy → Settings → Variables and Secrets → Add**, type
    **Secret**, name `UNSPLASH_ACCESS_KEY`, paste the key, **Deploy**. (Do not use the plain **Text** type: it is visible.)
 5. **Verify.**
    ```bash
-   curl https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev/health
+   curl https://unsplash-proxy.clutterapp.workers.dev/health
    # {"ok":true}
-   curl "https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev/search/photos?query=architecture&orientation=landscape"
+   curl "https://unsplash-proxy.clutterapp.workers.dev/search/photos?query=architecture&orientation=landscape"
    # {"results":[{"id":"…","urls":{…},"user":{…},"links":{"download_location":"https://api.unsplash.com/photos/…"}}]}
    ```
    A `500 {"error":"not_configured"}` means the secret is not set yet. Watch live events with `npx wrangler tail`.
@@ -127,7 +127,7 @@ Set `VITE_UNSPLASH_PROXY_URL` for the app build, **and** change the origin in `c
 ### History: the account subdomain changed on 2026-11-07
 
 The Cloudflare account's `workers.dev` subdomain was renamed from `vigram-work` to `vigram-sivakumar`, so the Worker
-moved from `clutter-unsplash-proxy.vigram-work.workers.dev` to the URL above. The old hostname stopped resolving at
+moved from `clutter-unsplash-proxy.vigram-work.workers.dev` to `clutter-unsplash-proxy.vigram-sivakumar.workers.dev`. The old hostname stopped resolving at
 once. The Worker itself, its secret and `wrangler.toml` were not touched. App builds made before the move still call
 the old hostname, so Unsplash is unavailable in them until the user updates.
 
@@ -182,3 +182,6 @@ to 23) tracks their status.
   written confirmation about proxying, so it is left as a decision for you.
 - Not exercised against the live Unsplash API in development (no key is available there): the tests use realistic
   fixtures. Do step 5 after deploying.
+
+
+On 2026-11-24 the Worker was renamed to `unsplash-proxy` under the `clutterapp` account subdomain. The current URL is `https://unsplash-proxy.clutterapp.workers.dev`; redeployment and live checks are pending.

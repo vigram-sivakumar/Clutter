@@ -2250,12 +2250,14 @@ describe('ImageWidget.css — display mode rules', () => {
     expect(fitContainerBody).not.toMatch(/overflow\s*:/);
   });
 
-  it('.cm-image-container--fill is a full-width, fixed 400px-tall box (minus the same 1px caret-overflow reserve --broken uses), clipping overflow so object-fit: cover has a real box to crop into', () => {
+  it('.cm-image-container--fill is a full-width, fixed 400px-tall box (minus the same 1px caret-overflow reserve --broken uses), with clipping on the image button so the selection outline stays visible', () => {
     const css = readFileSync(join(__dirname, 'ImageWidget.css'), 'utf8');
     const body = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fill\s*\{([^}]*)\}/);
     expect(body).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
     expect(body).toMatch(/height\s*:\s*400px\s*;/);
-    expect(body).toMatch(/overflow\s*:\s*hidden\s*;/);
+    expect(body).not.toMatch(/overflow\s*:\s*hidden\s*;/);
+    const button = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fill\s+\.cm-image-button\s*\{([^}]*)\}/);
+    expect(button).toMatch(/overflow\s*:\s*hidden\s*;/);
   });
 
   it("alignment (resize milestone) centers/right-aligns the widget container itself via position:relative + translateX, keyed off data-align — never the containing .cm-line's own text-align (raw Markdown must never move)", () => {

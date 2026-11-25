@@ -1,5 +1,9 @@
 # Building and distributing Clutter
 
+> **Current release runbook (2026-11-24):** [Application updates and direct distribution — ODR](sparkle-updater-and-beta-distribution-odr.md) supersedes the older distribution commands and Apple Silicon-only assumptions below. The historical sandbox/durability audit evidence is retained. The new universal pipeline is implemented but not yet runtime-verified; the last verified remote release is 0.0.7.
+>
+> From the repository root: `npm run release:direct -- X.Y.Z` builds and publishes the Sparkle-enabled universal direct release; `npm run release:appstore -- X.Y.Z BUILD_NUMBER` builds and uploads the separate universal App Store package once credentials are configured. Before Apple enrollment, `npm run check:release` and `npm run check:appstore` provide credential-independent validation. For the first universal migration, `npm run release:direct -- 0.0.8 --prepare` builds without publishing. See the ODR for Worker deployment, delta selection, signing, installation and audit gates.
+
 **One Clutter. One saving system. One sandbox and permission system. Different packaging only.**
 
 Sandboxing, the folder permissions, security-scoped bookmarks and atomic saves ([ADR-063](./adr/063-atomic-vault-saves.md)) are Clutter's own functionality, not Mac App Store features. A `.dmg` you build and install locally behaves exactly like the app downloaded from the Mac App Store: App Sandbox on; Create Space makes `~/Documents/<name>` after the user clicks Create, asking once for Documents authorization; Open Existing Space uses the native picker for any folder macOS permits and keeps access across restarts through bookmarks; atomic saves always, with the old writer disabled and no fallback. None of it is behind a distribution flag. The entitlements live in `src-tauri/Entitlements.plist` and `tauri.conf.json`, and every packaged build is signed with them. The distribution variants differ only in signing and packaging.
@@ -389,3 +393,7 @@ The identifier changed from `com.clutter.dev` (development) to `com.vigram.clutt
 
 **Identifiers (decided 2026-11-06).** Production: `com.vigram.clutter` (`tauri.conf.json`, the only identifier a release build accepts). Development: `com.vigram.clutter.dev` (`src-tauri/tauri.dev.conf.json`, which holds only the identifier). The retired `com.clutter.dev` is used by nothing. `npm run tauri dev` and `npm run desktop` go through `scripts/tauri.sh`, which adds the development override to `tauri dev` only; `tauri build` never gets it. `npm run dev:sandbox` builds and wraps its bundle with the development identifier. So a development run has its own container, app data and saved folder access, apart from the packaged app's. Spaces registered under `com.clutter.dev` in the old development app are not carried over and must be added again. The test harnesses keep their own identifiers (`com.clutter.sandboxtest`, `com.clutter.atomictest`, `com.clutter.nativeverify`), separate from both.
 
+
+## Direct Create Space permission flow — 25 November 2026
+
+Direct DMG and Terminal installations now use the unsandboxed direct Sparkle build. Create Space creates and opens a folder in Documents without Clutter’s folder-authorisation panel. macOS may still request first-access permission. The App Store build retains its base sandbox and bookmark flow. Existing sandbox profiles are copied forward without removing the originals. See the [distribution decision](sparkle-updater-and-beta-distribution-odr.md#direct-create-space-experience--25-november-2026).
