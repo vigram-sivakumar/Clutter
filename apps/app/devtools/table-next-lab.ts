@@ -1,4 +1,4 @@
-import { defaultKeymap, history, historyKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { parser } from '@lezer/markdown';
 import { ChangeSet, EditorState, StateField, Transaction, type Range } from '@codemirror/state';
@@ -8,6 +8,7 @@ import { readTable, type TableSnapshot } from '../src/features/markdown/editor/c
 import { createCellTransaction, diffCellText, editableCell, type CellAddress } from '../src/features/markdown/editor/codemirror/table-next/tableCellTransaction';
 import { executeTableCommand } from '../src/features/markdown/editor/codemirror/table-next/tableTransaction';
 import type { TableCommand } from '../src/features/markdown/editor/codemirror/table-next/tableCommands';
+import { arrowInteraction, clampInteraction, extendInteraction, focusCell, isSelected, noInteraction, selectionBounds, tabInteraction, type Direction, type TableInteraction } from '../src/features/markdown/editor/codemirror/table-next/tableInteraction';
 
 const grammar = markdownGrammarFor(false);
 const configured = parser.configure(grammar);
@@ -28,6 +29,8 @@ class LabTable {
   private mount: HTMLElement | null = null;
   private table: HTMLTableElement | null = null;
   private active: Active | null = null;
+  private interaction: TableInteraction = noInteraction;
+  private get shape() { return { rows: (this.snapshot?.model.rows.length ?? -1) + 1, cols: this.snapshot?.model.header.length ?? 0 }; }
   private updates = 0;
   private reconciling = false;
 
@@ -38,6 +41,16 @@ class LabTable {
     const scroll = document.createElement('div');
     scroll.className = 'table-scroll';
     this.table = document.createElement('table');
+    this.table.setAttribute('role', 'grid');
+    this.table.setAttribute('aria-label', 'Editable Markdown table');
+    this.table.setAttribute('aria-multiselectable', 'true');
+    dom.addEventListener('focusout', () => queueMicrotask(() => {
+      if (this.mount === dom && !dom.contains(dom.ownerDocument.activeElement)) {
+        this.close();
+        this.interaction = noInteraction;
+        this.paint();
+      }
+    }));
     scroll.append(this.table);
     dom.append(scroll);
     this.sync(dom, snapshot);
@@ -54,6 +67,7 @@ class LabTable {
     const shapeChanged = this.table.rows.length !== rows.length || this.table.rows[0]?.cells.length !== cols;
     if (shapeChanged) {
       this.close();
+      this.interaction = noInteraction;
       this.table.replaceChildren();
       const head = this.table.createTHead();
       const body = this.table.createTBody();
@@ -61,14 +75,26 @@ class LabTable {
         const tr = (r === 0 ? head : body).insertRow();
         for (let c = 0; c < cols; c++) {
           const td = document.createElement(r === 0 ? 'th' : 'td');
-          td.tabIndex = 0;
+          td.tabIndex = -1;
+          td.setAttribute('role', r === 0 ? 'columnheader' : 'gridcell');
           td.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1));
-          td.addEventListener('click', () => this.open({ row: r, col: c }, td));
-          td.addEventListener('keydown', event => {
-            if (event.target === td && (event.key === 'Enter' || event.key === 'F2')) {
-              event.preventDefault();
-              this.open({ row: r, col: c }, td);
+          td.addEventListener('mousedown', event => {
+            if (event.shiftKey) event.preventDefault();
+          });
+          td.addEventListener('click', event => {
+            if (this.active?.host === td) return;
+            const at = { row: r, col: c };
+            if (event.shiftKey) this.select(extendInteraction(this.interaction, this.shape, at));
+            else this.open(at, td);
+          });
+          td.addEventListener('focus', () => {
+            if (this.interaction.kind === 'none') {
+              this.interaction = { kind: 'cell', cell: { row: r, col: c } };
+              this.paint();
             }
+          });
+          td.addEventListener('keydown', event => {
+            if (event.target === td) this.onSelectedKey(event, { row: r, col: c }, td);
           });
           tr.append(td);
         }
@@ -79,11 +105,104 @@ class LabTable {
       td.style.width = (snapshot.model.columnWidths?.[c] ?? 180) + 'px';
       if (td !== this.active?.host && td.textContent !== text) td.textContent = text;
     }));
+    this.interaction = clampInteraction(this.interaction, this.shape);
+    this.paint();
     this.updates++;
     // A nested dispatch can be the source of this root update. Reconcile
     // only after both views have finished applying their transactions.
     queueMicrotask(() => this.reconcile());
     return true;
+  }
+
+  private paint() {
+    if (!this.table) return;
+    const focus = focusCell(this.interaction);
+    for (let r = 0; r < this.table.rows.length; r++) {
+      const row = this.table.rows[r]!;
+      for (let c = 0; c < row.cells.length; c++) {
+        const td = row.cells[c]!;
+        const selected = isSelected(this.interaction, { row: r, col: c }, this.shape);
+        const current = focus ? focus.row === r && focus.col === c : r === 0 && c === 0;
+        const editing = current && this.interaction.kind === 'editing';
+        td.tabIndex = current && !editing ? 0 : -1;
+        td.classList.toggle('cell-selected', selected);
+        td.classList.toggle('cell-editing', editing);
+        td.setAttribute('aria-selected', String(selected));
+      }
+    }
+    if (this.mount) this.mount.dataset.interaction = this.interaction.kind;
+  }
+
+  private select(next: TableInteraction) {
+    this.close();
+    this.interaction = next;
+    this.paint();
+    const at = focusCell(next);
+    if (at) this.table?.rows[at.row]?.cells[at.col]?.focus();
+  }
+
+  private navigateTab(backwards: boolean): boolean {
+    const next = tabInteraction(this.interaction, this.shape, backwards);
+    if (next.kind !== 'none') {
+      this.select(next);
+    } else {
+      // Leave the table at its edges. Never focus a position within the
+      // replaced Markdown range. Lab fixture has surrounding text.
+      this.finish();
+      if (this.root && this.snapshot) {
+        const anchor = backwards ? Math.max(0, this.snapshot.from - 1) : Math.min(this.root.state.doc.length, this.snapshot.to + 1);
+        this.root.dispatch({ selection: { anchor } });
+      }
+    }
+    return true;
+  }
+
+  private exitEdit(): boolean {
+    const at = focusCell(this.interaction);
+    if (at) this.select({ kind: 'cell', cell: at });
+    return true;
+  }
+
+  private onSelectedKey(event: KeyboardEvent, at: CellAddress, host: HTMLTableCellElement) {
+    if (event.isComposing || event.defaultPrevented) return;
+    const consume = () => { event.preventDefault(); event.stopPropagation(); };
+    if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
+    if (event.key === 'Escape') { consume(); this.finish(); return; }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+      consume(); this.stepHistory(event.shiftKey); return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+      consume(); this.select({ kind: 'table', cell: at }); return;
+    }
+    if (event.key === 'Enter' || event.key === 'F2') { consume(); this.open(at, host); return; }
+    const directions: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const direction = directions[event.key];
+    if (direction) { consume(); this.select(arrowInteraction(this.interaction, this.shape, direction, event.shiftKey)); return; }
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      consume();
+      const bounds = selectionBounds(this.interaction, this.shape);
+      if (!bounds || !this.root || !this.snapshot) return;
+      try {
+        const grid = Array.from({ length: bounds.bottom - bounds.top + 1 }, () => Array<string>(bounds.right - bounds.left + 1).fill(''));
+        executeTableCommand(this.root, this.snapshot.from, { kind: 'paste', row: bounds.top, col: bounds.left, grid }, parse);
+        this.paint();
+      } catch (error) { report(String(error)); }
+      return;
+    }
+    if (!event.metaKey && !event.ctrlKey && !event.altKey && [...event.key].length === 1) {
+      consume();
+      // A printable key replaces the focused cell, not the whole range.
+      try {
+        const before = this.currentCell(at).text;
+        this.root?.dispatch({ annotations: isolateHistory.of('full') });
+        if (this.apply(at, before, diffCellText(before, event.key), 'input.type')) this.open(at, host);
+      } catch (error) { report(String(error)); }
+    }
+  }
+
+  selectAxis(kind: 'row' | 'column' | 'table') {
+    const at = focusCell(this.interaction) ?? { row: 0, col: 0 };
+    this.select({ kind, cell: at });
   }
 
   private currentCell(address: CellAddress) {
@@ -109,6 +228,9 @@ class LabTable {
     this.close();
     let text: string;
     try { text = this.currentCell(address).text; } catch (error) { report(String(error)); return; }
+    this.root.dispatch({ annotations: isolateHistory.of('full') });
+    this.interaction = { kind: 'editing', cell: address };
+    this.paint();
     host.replaceChildren();
     const active: Active = { address, host };
     this.active = active;
@@ -123,7 +245,9 @@ class LabTable {
         if (!this.apply(address, previous, diffCellText(previous, input.value), 'input.type')) input.value = previous;
       });
       input.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { event.preventDefault(); this.finish(); }
+        if (event.isComposing) return;
+        if (event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); this.navigateTab(event.shiftKey); }
+        else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.exitEdit(); }
         else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
           event.preventDefault();
           this.stepHistory(event.shiftKey);
@@ -141,7 +265,9 @@ class LabTable {
             keymap.of([
               { key: 'Mod-z', run: () => this.stepHistory(false) },
               { key: 'Mod-Shift-z', run: () => this.stepHistory(true) },
-              { key: 'Escape', run: () => { this.finish(); return true; } },
+              { key: 'Tab', run: () => this.navigateTab(false) },
+              { key: 'Shift-Tab', run: () => this.navigateTab(true) },
+              { key: 'Escape', run: () => this.exitEdit() },
               ...defaultKeymap,
             ]),
           ],
@@ -179,12 +305,18 @@ class LabTable {
     const active = this.active;
     this.active = null;
     if (!active) return;
+    this.interaction = { kind: 'cell', cell: active.address };
     active.nested?.destroy();
     const row = active.address.row === 0 ? this.snapshot?.model.header : this.snapshot?.model.rows[active.address.row - 1];
     active.host.textContent = row?.[active.address.col] ?? '';
   }
 
-  private finish() { this.close(); this.root?.focus(); }
+  private finish() {
+    this.close();
+    this.interaction = noInteraction;
+    this.paint();
+    this.root?.focus();
+  }
 
   stepHistory(forward: boolean): boolean {
     if (!this.root) return false;
@@ -215,6 +347,7 @@ class LabTable {
     this.mount = null;
     this.table = null;
     this.snapshot = null;
+    this.interaction = noInteraction;
   }
   get updateCount() { return this.updates; }
 }
@@ -277,5 +410,10 @@ document.querySelector('#add-column')!.addEventListener('click', () => controlle
 document.querySelector('#resize')!.addEventListener('click', () => controller.resize());
 document.querySelector('#undo')!.addEventListener('click', () => controller.stepHistory(false));
 document.querySelector('#redo')!.addEventListener('click', () => controller.stepHistory(true));
+for (const kind of ['row', 'column', 'table'] as const) {
+  const button = document.querySelector<HTMLButtonElement>('#select-' + kind)!;
+  button.addEventListener('mousedown', event => event.preventDefault());
+  button.addEventListener('click', () => controller.selectAxis(kind));
+}
 document.querySelector('#reset')!.addEventListener('click', () => location.reload());
 window.addEventListener('pagehide', () => root.destroy(), { once: true });

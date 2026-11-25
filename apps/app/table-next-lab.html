@@ -14,7 +14,7 @@ a{color:#a9c7ff} button{font:inherit;padding:7px 12px} .toolbar{display:flex;fle
 .table-scroll table{border-collapse:collapse;table-layout:fixed;width:max-content}
 .table-scroll td,.table-scroll th{border:1px solid #62666e;padding:8px;min-width:90px;max-width:320px;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-weight:normal}
 .table-scroll th{font-weight:600;background:#383b43}
-.table-scroll td:focus,.table-scroll th:focus{outline:2px solid #8eb6ff;outline-offset:-2px}
+.table-scroll .cell-selected{background:#334a6a;box-shadow:inset 0 0 0 1px #8eb6ff}.table-scroll .cell-selected:focus{outline:2px solid #8eb6ff;outline-offset:-2px}.table-scroll .cell-editing{outline:1px solid #8eb6ff;outline-offset:-1px}
 .table-scroll .cm-editor,.table-scroll textarea{width:100%;box-sizing:border-box;font:inherit;background:transparent;color:inherit;border:0;padding:0;resize:none}
 .table-scroll .cm-content{padding:0} .table-scroll .cm-line{padding:0}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#17181c;padding:16px;border-radius:6px}
@@ -25,8 +25,8 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#17181c;padding:16px;
 <h1>Table editing lab</h1>
 <p>Disposable fixture. No vault, autosave or production table extensions. Active editor: <strong id="mode"></strong>.</p>
 <p><a href="?cell=codemirror">Nested CodeMirror</a> · <a href="?cell=textarea">Lightweight textarea</a></p>
-<div class="toolbar"><button id="add-row">Add row</button><button id="add-column">Add column</button><button id="resize">Resize first column</button><button id="undo">Undo</button><button id="redo">Redo</button><button id="reset">Reset</button></div>
-<p id="status" role="status">Click a cell to edit. Escape exits the cell.</p>
+<div class="toolbar"><button id="add-row">Add row</button><button id="add-column">Add column</button><button id="resize">Resize first column</button><button id="undo">Undo</button><button id="redo">Redo</button><button id="select-row">Select row</button><button id="select-column">Select column</button><button id="select-table">Select table</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Click to edit. Tab / Shift+Tab select cells. Shift+arrows extend selection. Enter edits; Escape exits editing.</p>
 <div id="editor"></div>
 <p id="stats"></p>
 <h2>Exact root Markdown</h2><pre id="source"></pre>
