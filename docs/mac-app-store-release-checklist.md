@@ -10,6 +10,14 @@ Companion docs: [building-and-distribution.md](./building-and-distribution.md) (
 
 Effort key: **S** under 1 hour, **M** a few hours, **L** a day or more, **Ext** depends on Apple or another outside party.
 
+## Current submission gates
+
+This status supersedes older checkboxes where evidence has advanced. Builds on this branch are universal. Apple Silicon runtime has been exercised, and Intel runtime remains deferred.
+
+**Before accounts or signing.** Prepare final screenshots, listing copy and review notes. Confirm the applicable export-compliance answers for the Rustls-based network stack before setting ITSAppUsesNonExemptEncryption. Complete the dependency-license inventory. The common bundle now maps the three shipped fonts' OFL notices and PDF.js license. The prior ad-hoc preflight passed both architecture, App Sandbox, updater exclusion, privacy manifest, icon and signature checks. Its bundle had no quarantine attribute. Retest these on the consolidated preflight, including the new notices. The revised privacy policy remains to be deployed at the existing URL. [Apple export compliance](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/) · [Apple upload and quarantine requirements](https://developer.apple.com/news/upcoming-requirements/)
+
+**After enrolment.** Confirm app-name availability, register com.vigram.clutter and create the App Store Connect record. Set up distribution and installer certificates, matching profile and upload credentials. Verify both signing identities, the embedded profile, the monotonic build number and Apple's validation of the package and privacy manifest. Complete App Privacy, age rating, export compliance and review notes for folder access and Unsplash. Exercise signed sandbox behavior, bookmark and signing/channel migration, and install/update on supported Macs. Upload and submission are separate operator actions. [Apple upload workflow](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+
 ## 0. Decisions (no dependencies, do first)
 
 - [ ] **Final app name.** Preliminary availability check completed by Vigram (2026-11-07, reported, not observed by Claude; result not recorded). Apple only reserves a name when the app record is created (3.3), so this stays open until then. Check "Clutter" is available in App Store Connect. Blocks 3.2 and 3.3. Effort: S

@@ -6,7 +6,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 [ "$(uname -s)" = Darwin ] || { echo 'macOS required' >&2; exit 1; }
 ROOT="$PWD/src-tauri/target/sparkle"
-SDK="$PWD/src-tauri/target/sparkle-integration/sdk-2.10.1"
+CACHE="$PWD/src-tauri/target/sparkle-integration"
 ACCOUNT=com.vigram.clutter.sparkle.fallback-test
 BASE=http://localhost:18767
 OLD="$ROOT/builds/0.0.9/Clutter.app"
@@ -20,12 +20,13 @@ for APP in "$OLD" "$NEW"; do
 done
 (cd "$RELEASE" && shasum -a 256 -c SHA256SUMS)
 [ -f "$RELEASE/$DELTA" ] || { echo 'Missing prepared delta' >&2; exit 1; }
-KEY_TOOL=$(find "$SDK" -type f -name generate_keys -print -quit)
-SIGN_TOOL=$(find "$SDK" -type f -name sign_update -print -quit)
-BINARY_DELTA=$(find "$SDK" -type f -name BinaryDelta -print -quit)
-for TOOL in "$KEY_TOOL" "$SIGN_TOOL" "$BINARY_DELTA"; do
-  [ -x "$TOOL" ] || { echo 'Missing Sparkle SDK tool' >&2; exit 1; }
-done
+SDK_WORK=$(mktemp -d)
+trap 'rm -rf -- "$SDK_WORK"' EXIT
+SDK="$SDK_WORK/sdk"
+bash "$HERE/prepare-sparkle-sdk.sh" "$CACHE" "$SDK"
+KEY_TOOL="$SDK/bin/generate_keys"
+SIGN_TOOL="$SDK/bin/sign_update"
+BINARY_DELTA="$SDK/bin/BinaryDelta"
 "$KEY_TOOL" --account "$ACCOUNT"
 KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
 [[ "$KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid test public key' >&2; exit 1; }

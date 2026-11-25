@@ -7,11 +7,9 @@ cd "$HERE/.."
 [ "$(uname -s)" = Darwin ] || { echo "macOS required" >&2; exit 1; }
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 xcrun --find clang >/dev/null
-SPARKLE_VERSION=2.10.1
 MODE="${1:-integration}"
 PORT=18766
 CACHE="$PWD/src-tauri/target/sparkle-integration"
-SDK="$CACHE/sdk-$SPARKLE_VERSION"
 case "$MODE" in
   integration)
     ACCOUNT=com.vigram.clutter.sparkle.integration
@@ -58,23 +56,13 @@ print(major * 1000000 + minor * 1000 + patch + 1)
 PY
 )
 
-if [ ! -f "$SDK/Sparkle.framework/Headers/Sparkle.h" ]; then
-  STAGING=$(mktemp -d "$CACHE/sdk-download.XXXXXX")
-  curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
-    "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" \
-    -o "$STAGING/Sparkle.tar.xz"
-  mkdir "$STAGING/extracted"
-  tar -xf "$STAGING/Sparkle.tar.xz" -C "$STAGING/extracted"
-  [ -f "$STAGING/extracted/Sparkle.framework/Headers/Sparkle.h" ] || { echo 'Sparkle SDK headers missing' >&2; exit 1; }
-  [ ! -e "$SDK" ] || { echo "Incomplete SDK already exists at $SDK; inspect it before retrying" >&2; exit 1; }
-  mv "$STAGING/extracted" "$SDK"
-  rm -rf "$STAGING"
-fi
+SDK_WORK=$(mktemp -d "$CACHE/sdk-work.XXXXXX")
+trap 'rm -rf -- "$SDK_WORK"' EXIT
+SDK="$SDK_WORK/sdk"
+bash "$HERE/prepare-sparkle-sdk.sh" "$CACHE" "$SDK"
 FRAMEWORK="$SDK/Sparkle.framework"
-KEY_TOOL=$(find "$SDK" -type f -name generate_keys -print -quit)
-SIGN_TOOL=$(find "$SDK" -type f -name sign_update -print -quit)
-[ -x "$KEY_TOOL" ] && [ -x "$SIGN_TOOL" ] || { echo 'Sparkle signing tools missing' >&2; exit 1; }
-codesign --verify --deep --strict "$FRAMEWORK"
+KEY_TOOL="$SDK/bin/generate_keys"
+SIGN_TOOL="$SDK/bin/sign_update"
 # Beta uses a separate, persistent signing identity. Never silently rotate a key.
 if [ "$MODE" = beta ]; then
   PIN="$HOME/.tauri/clutter-sparkle-beta.pub"
@@ -111,6 +99,8 @@ APP="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos/Clutter.app"
 mkdir -p "$APP/Contents/Frameworks"
 [ ! -e "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo 'Unexpected pre-existing Sparkle framework' >&2; exit 1; }
 ditto "$FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
+mkdir -p "$APP/Contents/Resources/Licenses"
+cp "$SDK/LICENSE" "$APP/Contents/Resources/Licenses/Sparkle-LICENSE.txt"
 python3 - "$APP/Contents/Info.plist" "$BUILD_NUMBER" "$PUBLIC_KEY" "$BASE_URL/appcast.xml" "$MODE" <<'PY'
 import plistlib, sys
 path, build, public_key, feed, mode = sys.argv[1:]

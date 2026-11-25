@@ -34,6 +34,10 @@ When you browse, search for or choose cover photos from Unsplash, information ab
 
 Clutter does not maintain a history of your image searches. Cloudflare and Unsplash may independently process or retain information under their respective privacy policies, and Clutter does not control their practices.
 
+### Automatic update checks
+
+If you installed Clutter directly, the app automatically checks for updates while it is running and may download an available update. Choosing Check for Updates makes the same kind of request. Clutter uses Sparkle to contact its update service over HTTPS, hosted by Cloudflare. The service may receive your IP address and standard request information, including the app version sent with the request. These checks send no notes, attachments, account information or system profile. For the Mac App Store version, Apple handles updates through the App Store.
+
 ### Downloads and external links
 
 If you choose to save or download a file from the internet, Clutter retrieves it from that website. External links open in your web browser, where the destination site's own practices apply.

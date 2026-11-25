@@ -82,7 +82,11 @@
       "entitlements": "Entitlements.plist",
       "signingIdentity": "-",
       "files": {
-        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy"
+        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy",
+        "Resources/Licenses/Inter-OFL.txt": "../src/assets/fonts/inter/OFL.txt",
+        "Resources/Licenses/EB-Garamond-OFL.txt": "../src/assets/fonts/eb-garamond/OFL.txt",
+        "Resources/Licenses/Hanken-Grotesk-OFL.txt": "../src/assets/fonts/hanken-grotesk/OFL.txt",
+        "Resources/Licenses/PDF.js-LICENSE.txt": "../../../node_modules/pdfjs-dist/LICENSE"
       }
     }
   }

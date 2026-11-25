@@ -21,9 +21,6 @@ def tag(name):
 def run(*args):
     return subprocess.check_output([str(a) for a in args], text=True).strip()
 
-def tool(sdk, name):
-    return next(p for p in sdk.rglob(name) if p.is_file())
-
 def download(url, path):
     subprocess.run(["curl", "--fail", "--silent", "--show-error", "--max-time", "180",
                     "--proto", "=https", url, "-o", str(path)], check=True)
@@ -69,8 +66,8 @@ def main():
     if not re.fullmatch(re.escape(base) + r"/releases/Clutter_[0-9]+\.[0-9]+\.[0-9]+_universal\.zip", url):
         print("Previous release is not universal; full migration archive only.")
         return
-    signer = tool(sdk, "sign_update")
-    binary_delta = tool(sdk, "BinaryDelta")
+    signer = sdk / "bin" / "sign_update"
+    binary_delta = sdk / "bin" / "BinaryDelta"
     with tempfile.TemporaryDirectory(prefix="clutter-delta-") as temp:
         temp = pathlib.Path(temp)
         archive = temp / "previous.zip"
