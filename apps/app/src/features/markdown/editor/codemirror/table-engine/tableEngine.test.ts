@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { parser } from '@lezer/markdown';
 import { history, redo, undo, undoDepth } from '@codemirror/commands';
-import { EditorState, type Transaction } from '@codemirror/state';
+import { Annotation, EditorState, Transaction } from '@codemirror/state';
 import { markdownGrammarFor } from '@core/vault/ingest/grammar/markdownGrammarExtensions';
 import { readTable, TableEngineError, validateModel } from './tableModel';
 import { applyTableCommand, planTableEdit, type TableCommand } from './tableCommands';
-import { createTableTransaction } from './tableTransaction';
+import { tableRootSelectionSnap } from '../table/tableRootSelectionSnap';
+import { markdownLanguageExtension } from '../markdownLanguage';
+import { validatedRootEdit, createTableTransaction } from './tableTransaction';
 
 const configured = parser.configure(markdownGrammarFor(false));
 const parse = (source: string) => configured.parse(source);
@@ -112,6 +114,35 @@ describe('table engine root history', () => {
     expect(target.state.doc.toString()).toBe(prefix + original + suffix);
     expect(redo(target)).toBe(true);
     expect(target.state.doc.toString()).toBe(prefix + suffix);
+  });
+
+  it('retains root history identity when the production caret filter corrects a validated edit', () => {
+    let state = EditorState.create({ doc, extensions: [markdownLanguageExtension(), tableRootSelectionSnap(), history()] });
+    const target = { get state() { return state; }, dispatch(tr: Transaction) { state = tr.state; } };
+    const expected = doc.replace('one', 'ONE');
+    const at = doc.indexOf('one');
+    const tr = validatedRootEdit(state, { from: at, to: at + 3, insert: 'ONE' }, expected,
+      'input.table', true, undefined, { selection: { anchor: at + 1 } });
+    target.dispatch(tr);
+    expect(state.doc.toString()).toBe(expected);
+    expect(state.selection.main.head < start || state.selection.main.head >= start + table.length).toBe(true);
+    expect(undoDepth(state)).toBe(1);
+    expect(undo(target)).toBe(true);
+    expect(state.doc.toString()).toBe(doc);
+    expect(redo(target)).toBe(true);
+    expect(state.doc.toString()).toBe(expected);
+  });
+
+  it('preserves caller annotations and history exclusion through caret correction', () => {
+    const external = Annotation.define<string>();
+    const state = EditorState.create({ doc, extensions: [markdownLanguageExtension(), tableRootSelectionSnap(), history()] });
+    const tr = state.update({
+      selection: { anchor: start + 2 },
+      annotations: [external.of('disk-refresh'), Transaction.addToHistory.of(false)],
+    });
+    expect(tr.annotation(external)).toBe('disk-refresh');
+    expect(tr.annotation(Transaction.addToHistory)).toBe(false);
+    expect(undoDepth(tr.state)).toBe(0);
   });
 
   it('adds 100 rows, undoes each exact source revision, then redoes each', () => {

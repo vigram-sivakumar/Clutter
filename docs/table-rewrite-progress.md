@@ -1,5 +1,7 @@
 # Production table rewrite progress
 
+Last updated 25 November 2026 (Asia/Kolkata).
+
 Resume on `feature/production-table-engine` in `vigram-sivakumar/Clutter`. The engine serves supported read-only tables. Whole-table deletion is the first editable command migrated. The remaining editable UI uses the legacy implementation.
 
 This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Every verified milestone updates this file in its implementation commit and is pushed to the development branch. Merging into `main` requires owner approval.
@@ -37,7 +39,9 @@ This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-tab
 | Prototype reference | `e99a5e40` · fix(prototype): constrain table overflow and hit-test visible drag-scroll client area | See `origin/prototype/table-engine:apps/app/devtools/table-next-lab.ts` and `docs/table-next-editing-lab.md` on that branch. Use it for behavioral comparison. |
 | Prerequisite · complete | `c2b6ff8b` · Narrow the stored avatar before reading its image source | Isolated an inherited TypeScript error in `SpaceProfileStore.ts`. TypeScript and 111 profile tests passed. |
 | M1 · complete | `18797076` · Introduce the table engine and stable read-only Markdown projection | Added `codemirror/table-engine/` model, commands, projection, mapped edits, clipboard, interaction and history. Wired read-only through `buildEditorExtensions.ts` and `tableWidgetField.ts`. Shared grammar reserves GFM delimiters from labelled dividers. TypeScript and 1,842 tests in 62 files passed. |
-| M2 · complete | Route editable whole-table deletion through root history | `tableDeletionSelection.ts` and `tableSelectionDeletion.ts` share the removal transaction in `table-engine/tableTransaction.ts`. Adjusted transaction placement in `tableCreatePaste.ts`. Width lines count toward the visible bottom edge. Confirmed malformed metadata survives deletion. Regression files are `tableDeletionSelection.test.ts` and `tableLiveWiring.test.ts`. |
+| M2 · complete | `7c5c63de` · Route editable whole-table deletion through root history | `tableDeletionSelection.ts` and `tableSelectionDeletion.ts` share the removal transaction in `table-engine/tableTransaction.ts`. Adjusted transaction placement in `tableCreatePaste.ts`. Width lines count toward the visible bottom edge. Confirmed malformed metadata survives deletion. Regression files are `tableDeletionSelection.test.ts` and `tableLiveWiring.test.ts`. |
+
+| M3 · complete | Preserve table transaction annotations during caret correction | `tableRootSelectionSnap.ts` composes the selection correction with the original transaction. Engine regression tests exercise the actual root filter with validated structural edits, undo/redo and caller annotations. TypeScript and all 1,849 tests in 62 files passed. |
 
 For M2, tests first reproduced orphaned widths from above, failure to arm from below a valid width line, and a filter rewrite being applied. The focused deletion run passed 100 tests; the live-wiring run passed 33. These runs overlap the broader suite. The final TypeScript check passed. The broader regression run passed all 1,847 tests in 62 files.
 
@@ -60,6 +64,6 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 
 **Architecture status.** The implementation adds no persistence or history owner. Editable controls still use several legacy selection fields during migration to the agreed single interaction state.
 
-**Migration gaps.** Structural engine commands currently serialize the addressed table, so an edit can canonicalize source padding. Ordinary mapped typing requires canonical cell padding. The compatibility renderer handles source outside the engine's supported shape. Unsupported clipboard structures include merged cells and oversized grids. Full application regression, native IME and production manual acceptance are outstanding.
+**Migration gaps.** Imported cell padding support is still pending. Review found the root caret filter discarded annotations, so M3 addresses that prerequisite first. Structural engine commands currently serialize the addressed table, so an edit can canonicalize source padding. Ordinary mapped typing requires canonical cell padding. The compatibility renderer handles source outside the engine's supported shape. Unsupported clipboard structures include merged cells and oversized grids. Full application regression, native IME and production manual acceptance are outstanding.
 
 **Legacy inventory.** The new projection replaces static rendering for supported read-only tables. M2 replaces whole-table deletion dispatch while retaining its existing keyboard and menu entry points. Keep `tableWidget.ts`, `tableWidgetField.ts`, `tableActiveCellController.ts`, legacy selection fields, keymaps, structural commands, overlays and tests through the gates above. Inline rendering, shared grammar, width syntax, CSS and breakout measurement remain shared dependencies. No legacy subsystem has been removed.

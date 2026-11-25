@@ -167,22 +167,9 @@ export function tableRootSelectionSnap(): Extension {
       return tr;
     }
 
-    // `changes` must be carried over explicitly here (unlike
-    // `tokenSelectionSnap`'s equivalent return, which can omit it): that
-    // one only ever replaces a non-doc-changing transaction, where an
-    // omitted `changes` defaults to a no-op over `tr.startState`'s own
-    // (unchanged) length regardless. This filter also replaces
-    // doc-changing transactions (paste) — omitting `changes` here would
-    // default to a no-op sized against `tr.startState`'s *pre-paste*
-    // length, which the corrected, *post-paste* selection position can
-    // easily exceed (`RangeError: Selection points outside of document`,
-    // confirmed directly).
-    return {
-      changes: tr.changes,
-      selection: EditorSelection.single(anchor, head),
-      effects: tr.effects,
-      scrollIntoView: tr.scrollIntoView,
-    };
+    // Compose with the original transaction to retain history isolation,
+    // user-event identity, external-sync annotations and forwarded effects.
+    return [tr, { selection: EditorSelection.single(anchor, head), sequential: true }];
   });
 }
 
