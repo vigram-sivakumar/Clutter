@@ -47,6 +47,23 @@ export class DestinationExistsError extends Error {
 /** How many destinations a caller that chose its own name tries before giving up on a name that keeps being taken. */
 export const MAX_DESTINATION_ATTEMPTS = 8;
 
+/** Shared no-clobber retry boundary for callers that choose a destination name themselves.
+ * Each attempt must recompute the destination and use an exclusive filesystem write.
+ * Explicit user-chosen names and restore conflicts must not be retried as automatic renames.
+ */
+export async function retryDestinationCollision<T>(
+  attempt: () => Promise<T>,
+  maxAttempts = MAX_DESTINATION_ATTEMPTS
+): Promise<T> {
+  for (let tried = 1; ; tried += 1) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (!(error instanceof DestinationExistsError) || tried >= maxAttempts) throw error;
+    }
+  }
+}
+
 export interface CreateDirectoryOptions {
   /**
    * Create exactly this one directory, and only if nothing is at that name — decided by the filesystem when it is

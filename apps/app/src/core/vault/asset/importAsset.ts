@@ -2,7 +2,7 @@ import { resolveCollisionFreeName } from '../../shared/naming/resolveCollisionFr
 import { VaultPath } from '../ingest/VaultPath';
 import { classifySupportedResourceFile } from '../ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME, ensureAssetsDirectory } from '../initialize/ensureAssetsDirectory';
-import { DestinationExistsError, MAX_DESTINATION_ATTEMPTS, type VaultFileSystem } from '../providers/VaultFileSystem';
+import { retryDestinationCollision, type VaultFileSystem } from '../providers/VaultFileSystem';
 
 /**
  * Copies an external file into `{vaultRoot}/Assets/` and returns the
@@ -50,18 +50,11 @@ export async function writeToFreeAssetName(
   destinationFolderPath: string | undefined,
   write: (destinationAbsolutePath: string) => Promise<void>
 ): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
-  for (let attempt = 1; ; attempt += 1) {
+  return retryDestinationCollision(async () => {
     const destination = await resolveAssetDestination(fileSystem, vaultRoot, fileName, destinationFolderPath);
-
-    try {
-      await write(destination.destinationAbsolutePath);
-      return destination;
-    } catch (error) {
-      if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
-        throw error;
-      }
-    }
-  }
+    await write(destination.destinationAbsolutePath);
+    return destination;
+  });
 }
 
 /**

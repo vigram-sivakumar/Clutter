@@ -7,7 +7,7 @@ import type { Folder } from '../models/Folder';
 import type { FolderMetadata } from '../models/FolderMetadata';
 import type { VaultResource } from '../models/VaultResource';
 import { Vault } from '../models/Vault';
-import { DestinationExistsError, trashThrough, type VaultFileSystem } from '../providers/VaultFileSystem';
+import { DestinationExistsError, retryDestinationCollision, trashThrough, type VaultFileSystem } from '../providers/VaultFileSystem';
 import { InFlightPaths } from '../providers/InFlightPaths';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
@@ -1003,7 +1003,7 @@ export class PagePersistenceCoordinator {
     const refused = new Set<string>();
     const MAX_ATTEMPTS = 50;
 
-    for (let tried = 1; ; tried += 1) {
+    return retryDestinationCollision(async () => {
       const destination = resolve(
         (path) => this.claimedArchiveDestinations.has(path.toLowerCase()) || refused.has(path.toLowerCase())
       );
@@ -1014,16 +1014,13 @@ export class PagePersistenceCoordinator {
       try {
         return await attempt(destination);
       } catch (error) {
-        if (error instanceof DestinationExistsError && tried < MAX_ATTEMPTS) {
-          refused.add(key);
-          continue;
-        }
+        if (error instanceof DestinationExistsError) refused.add(key);
         throw error;
       } finally {
         this.claimedArchiveDestinations.delete(key);
         endInFlight();
       }
-    }
+    }, MAX_ATTEMPTS);
   }
 
   private async runArchive(current: Page): Promise<PersistenceResult> {

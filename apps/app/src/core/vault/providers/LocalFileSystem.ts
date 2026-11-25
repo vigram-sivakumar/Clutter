@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import {
   type CreateDirectoryOptions,
   DestinationExistsError,
-  MAX_DESTINATION_ATTEMPTS,
+  retryDestinationCollision,
   type MoveFileOptions,
   type VaultEntry,
   type VaultFileStat,
@@ -193,34 +193,14 @@ export class LocalVaultProvider implements VaultFileSystem {
     this.assertWritable();
     const resolvedSource = this.resolvePath(sourcePath);
 
-    if (kind === 'directory') {
-      // Created exclusively, so a folder that appears at the chosen name first is never entered or merged into:
-      // the next free name is tried instead.
-      for (let attempt = 1; ; attempt += 1) {
-        const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
-        try {
-          await this.createDirectory(destinationPath, { exclusive: true });
-          return destinationPath;
-        } catch (error) {
-          if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
-            throw error;
-          }
-        }
-      }
-    }
-
-    // The name was free when it was chosen; a file that appears before the copy lands is never replaced. The copy is
-    // refused instead and the next free name is tried.
-    for (let attempt = 1; ; attempt += 1) {
+    return retryDestinationCollision(async () => {
       const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
-      try {
+      if (kind === 'directory') {
+        await this.createDirectory(destinationPath, { exclusive: true });
+      } else {
         await this.copyFile(resolvedSource, destinationPath);
-        return destinationPath;
-      } catch (error) {
-        if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
-          throw error;
-        }
       }
-    }
+      return destinationPath;
+    });
   }
 }
