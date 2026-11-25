@@ -8,7 +8,10 @@ import { readTable, type TableSnapshot } from '../src/features/markdown/editor/c
 import { createCellTransaction, diffCellText, editableCell, type CellAddress } from '../src/features/markdown/editor/codemirror/table-next/tableCellTransaction';
 import { executeTableCommand } from '../src/features/markdown/editor/codemirror/table-next/tableTransaction';
 import type { TableCommand } from '../src/features/markdown/editor/codemirror/table-next/tableCommands';
-import { arrowInteraction, clampInteraction, extendInteraction, focusCell, isSelected, noInteraction, selectionBounds, tabInteraction, type Direction, type TableInteraction } from '../src/features/markdown/editor/codemirror/table-next/tableInteraction';
+import { arrowInteraction, clampInteraction, extendInteraction, focusCell, isSelected, noInteraction, tabInteraction, type Direction, type TableInteraction } from '../src/features/markdown/editor/codemirror/table-next/tableInteraction';
+
+import { clearSelectedCommand, pasteSelectedCommand, readGrid, selectedGrid, writeGrid } from '../src/features/markdown/editor/codemirror/table-next/tableClipboard';
+import { renderInlineMarkdown } from '../src/features/markdown/editor/codemirror/table/renderInlineMarkdown';
 
 const grammar = markdownGrammarFor(false);
 const configured = parser.configure(grammar);
@@ -30,6 +33,8 @@ class LabTable {
   private table: HTMLTableElement | null = null;
   private active: Active | null = null;
   private interaction: TableInteraction = noInteraction;
+  private drag: AbortController | null = null;
+  private suppressClick = false;
   private get shape() { return { rows: (this.snapshot?.model.rows.length ?? -1) + 1, cols: this.snapshot?.model.header.length ?? 0 }; }
   private updates = 0;
   private reconciling = false;
@@ -44,6 +49,9 @@ class LabTable {
     this.table.setAttribute('role', 'grid');
     this.table.setAttribute('aria-label', 'Editable Markdown table');
     this.table.setAttribute('aria-multiselectable', 'true');
+    dom.addEventListener('copy', event => this.onClipboard(event, false));
+    dom.addEventListener('cut', event => this.onClipboard(event, true));
+    dom.addEventListener('paste', event => this.onPaste(event), true);
     dom.addEventListener('focusout', () => queueMicrotask(() => {
       if (this.mount === dom && !dom.contains(dom.ownerDocument.activeElement)) {
         this.close();
@@ -66,6 +74,8 @@ class LabTable {
     const cols = snapshot.model.header.length;
     const shapeChanged = this.table.rows.length !== rows.length || this.table.rows[0]?.cells.length !== cols;
     if (shapeChanged) {
+      this.drag?.abort();
+      this.drag = null;
       this.close();
       this.interaction = noInteraction;
       this.table.replaceChildren();
@@ -78,10 +88,12 @@ class LabTable {
           td.tabIndex = -1;
           td.setAttribute('role', r === 0 ? 'columnheader' : 'gridcell');
           td.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1));
+          td.addEventListener('pointerdown', event => this.beginDrag(event, { row: r, col: c }, td));
           td.addEventListener('mousedown', event => {
-            if (event.shiftKey) event.preventDefault();
+            if (event.shiftKey || this.drag) event.preventDefault();
           });
           td.addEventListener('click', event => {
+            if (this.suppressClick) { this.suppressClick = false; return; }
             if (this.active?.host === td) return;
             const at = { row: r, col: c };
             if (event.shiftKey) this.select(extendInteraction(this.interaction, this.shape, at));
@@ -141,6 +153,93 @@ class LabTable {
     if (at) this.table?.rows[at.row]?.cells[at.col]?.focus();
   }
 
+  /** Click is still click-to-edit. Crossing into another cell while held
+   * converts the gesture into range selection and suppresses the click.
+   * Existing active text editors keep native text drag behaviour.
+   */
+  private beginDrag(event: PointerEvent, anchor: CellAddress, host: HTMLTableCellElement) {
+    this.suppressClick = false;
+    this.drag?.abort();
+    this.drag = null;
+    if (event.button !== 0 || !event.isPrimary || event.shiftKey || event.pointerType === 'touch' || this.active?.host === host) return;
+    const abort = new AbortController();
+    this.drag = abort;
+    const doc = host.ownerDocument;
+    let moved = false;
+    const pointer = event.pointerId;
+    const finish = (next: PointerEvent) => {
+      if (next.pointerId !== pointer) return;
+      abort.abort();
+      if (this.drag === abort) this.drag = null;
+    };
+    doc.addEventListener('pointermove', next => {
+      if (next.pointerId !== pointer) return;
+      if (!(next.buttons & 1)) { finish(next); return; }
+      const td = doc.elementFromPoint(next.clientX, next.clientY)?.closest('td,th');
+      if (!(td instanceof HTMLTableCellElement) || td.closest('table') !== this.table) return;
+      const tr = td.parentElement;
+      if (!(tr instanceof HTMLTableRowElement)) return;
+      const head = { row: tr.rowIndex, col: td.cellIndex };
+      if (!moved && head.row === anchor.row && head.col === anchor.col) return;
+      moved = true;
+      this.suppressClick = true;
+      next.preventDefault();
+      this.select({ kind: 'range', anchor, head });
+    }, { signal: abort.signal });
+    doc.addEventListener('pointerup', finish, { signal: abort.signal });
+    doc.addEventListener('pointercancel', finish, { signal: abort.signal });
+    doc.defaultView?.addEventListener('blur', () => {
+      abort.abort();
+      if (this.drag === abort) this.drag = null;
+    }, { signal: abort.signal });
+  }
+
+  private clearSelected(): boolean {
+    if (!this.root || !this.snapshot) return false;
+    const command = clearSelectedCommand(this.snapshot.model, this.interaction);
+    if (!command) return false;
+    return executeTableCommand(this.root, this.snapshot.from, command, parse);
+  }
+
+  private onClipboard(event: ClipboardEvent, cut: boolean) {
+    if (this.interaction.kind === 'editing' || !this.root || !this.snapshot || !event.clipboardData) return;
+    const grid = selectedGrid(this.snapshot.model, this.interaction);
+    if (!grid) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      // Write all formats before mutating the root. A thrown write never cuts.
+      writeGrid(event.clipboardData, grid, renderInlineMarkdown);
+      if (cut) this.clearSelected();
+      report(cut ? 'Cut selected cells' : 'Copied selected cells');
+    } catch (error) { report('Clipboard rejected: ' + String(error)); }
+  }
+
+  private onPaste(event: ClipboardEvent) {
+    if (!this.root || !this.snapshot || !event.clipboardData || this.interaction.kind === 'none') return;
+    const previous = this.interaction;
+    let handled = false;
+    try {
+      const grid = readGrid(event.clipboardData, previous.kind !== 'editing');
+      if (!grid) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handled = true;
+      const command = pasteSelectedCommand(this.snapshot.model, previous, grid);
+      if (!command || command.kind !== 'paste') return;
+      // Closing editing before a structural update avoids reusing a stale
+      // nested cell. Shape updates can clear selection; restore explicitly.
+      this.close();
+      executeTableCommand(this.root, this.snapshot.from, command, parse);
+      const at = { row: command.row, col: command.col };
+      this.select(previous.kind === 'editing' ? { kind: 'cell', cell: at } : clampInteraction(previous, this.shape));
+      report('Pasted ' + grid.length + ' × ' + grid[0]!.length + ' cells');
+    } catch (error) {
+      if (!handled) { event.preventDefault(); event.stopPropagation(); }
+      report('Paste rejected: ' + String(error));
+    }
+  }
+
   private navigateTab(backwards: boolean): boolean {
     const next = tabInteraction(this.interaction, this.shape, backwards);
     if (next.kind !== 'none') {
@@ -180,13 +279,7 @@ class LabTable {
     if (direction) { consume(); this.select(arrowInteraction(this.interaction, this.shape, direction, event.shiftKey)); return; }
     if (event.key === 'Backspace' || event.key === 'Delete') {
       consume();
-      const bounds = selectionBounds(this.interaction, this.shape);
-      if (!bounds || !this.root || !this.snapshot) return;
-      try {
-        const grid = Array.from({ length: bounds.bottom - bounds.top + 1 }, () => Array<string>(bounds.right - bounds.left + 1).fill(''));
-        executeTableCommand(this.root, this.snapshot.from, { kind: 'paste', row: bounds.top, col: bounds.left, grid }, parse);
-        this.paint();
-      } catch (error) { report(String(error)); }
+      try { this.clearSelected(); this.paint(); } catch (error) { report(String(error)); }
       return;
     }
     if (!event.metaKey && !event.ctrlKey && !event.altKey && [...event.key].length === 1) {
@@ -353,6 +446,9 @@ class LabTable {
   resize() { this.command({ kind: 'resizeColumn', col: 0, width: 260 }); }
   dispose(dom?: HTMLElement) {
     if (dom && dom !== this.mount) return;
+    this.drag?.abort();
+    this.drag = null;
+    this.suppressClick = false;
     this.close();
     this.root = null;
     this.mount = null;
