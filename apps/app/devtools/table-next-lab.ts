@@ -13,6 +13,10 @@ import { arrowInteraction, clampInteraction, extendInteraction, focusCell, isSel
 import { clearSelectedCommand, pasteSelectedCommand, readGrid, selectedGrid, writeGrid } from '../src/features/markdown/editor/codemirror/table-next/tableClipboard';
 import { renderInlineMarkdown } from '../src/features/markdown/editor/codemirror/table/renderInlineMarkdown';
 
+import { bookmark, restoredSelection, tableSelectionHistory, tableSelectionTransition, type SelectionBookmark } from '../src/features/markdown/editor/codemirror/table-next/tableSelectionHistory';
+import { createPastedTable } from '../src/features/markdown/editor/codemirror/table-next/tableCreatePaste';
+import { edgeScroll } from '../src/features/markdown/editor/codemirror/table-next/tableDragScroll';
+
 const grammar = markdownGrammarFor(false);
 const configured = parser.configure(grammar);
 const parse = (text: string) => configured.parse(text);
@@ -23,6 +27,9 @@ const source = document.querySelector<HTMLElement>('#source')!;
 const stats = document.querySelector<HTMLElement>('#stats')!;
 document.querySelector<HTMLElement>('#mode')!.textContent = mode;
 const report = (message: string) => { status.textContent = message; };
+
+const controllers = new Map<HTMLElement, LabTable>();
+let current: LabTable | null = null;
 
 interface Active { address: CellAddress; host: HTMLTableCellElement; nested?: EditorView; textarea?: HTMLTextAreaElement }
 
@@ -43,6 +50,9 @@ class LabTable {
     this.dispose();
     this.root = view;
     this.mount = dom;
+    controllers.set(dom, this);
+    current ??= this;
+    dom.addEventListener('focusin', () => { current = this; });
     const scroll = document.createElement('div');
     scroll.className = 'table-scroll';
     this.table = document.createElement('table');
@@ -148,11 +158,12 @@ class LabTable {
   }
 
   private select(next: TableInteraction) {
+    current = this;
     this.close();
     this.interaction = next;
     this.paint();
     const at = focusCell(next);
-    if (at) this.table?.rows[at.row]?.cells[at.col]?.focus();
+    if (at) this.table?.rows[at.row]?.cells[at.col]?.focus({ preventScroll: true });
   }
 
   /** Click is still click-to-edit. Crossing into another cell while held
@@ -171,15 +182,12 @@ class LabTable {
     let moved = false;
     const startedEditing = this.active?.host === host;
     const pointer = event.pointerId;
-    const finish = (next: PointerEvent) => {
-      if (next.pointerId !== pointer) return;
-      abort.abort();
-      if (this.drag === abort) this.drag = null;
-    };
-    doc.addEventListener('pointermove', next => {
-      if (next.pointerId !== pointer) return;
-      if (!(next.buttons & 1)) { finish(next); return; }
-      const td = doc.elementFromPoint(next.clientX, next.clientY)?.closest('td,th');
+    let x = event.clientX, y = event.clientY;
+    let frame = 0;
+    const win = doc.defaultView;
+    const scrollport = this.table?.parentElement;
+    const hit = (cx: number, cy: number) => {
+      const td = doc.elementFromPoint(cx, cy)?.closest('td,th');
       if (!(td instanceof HTMLTableCellElement) || td.closest('table') !== this.table) return;
       const tr = td.parentElement;
       if (!(tr instanceof HTMLTableRowElement)) return;
@@ -188,14 +196,43 @@ class LabTable {
       const firstCrossing = !moved;
       moved = true;
       this.suppressClick = true;
-      next.preventDefault();
       if (firstCrossing && startedEditing) {
-        // End the nested editor's text-selection gesture before focusing
-        // a grid cell. Do not clear unrelated document selections.
         const selection = doc.getSelection();
         if (selection?.anchorNode && host.contains(selection.anchorNode)) selection.removeAllRanges();
       }
       this.select({ kind: 'range', anchor, head });
+    };
+    const tick = () => {
+      if (abort.signal.aborted || !win || !scrollport) return;
+      if (moved) {
+        const rect = scrollport.getBoundingClientRect();
+        const left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
+        const top = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
+        const dx = edgeScroll(x, left, right);
+        const dy = edgeScroll(y, 0, win.innerHeight);
+        if (dx) scrollport.scrollLeft += dx;
+        if (dy) win.scrollBy(0, dy);
+        if ((dx || dy) && right > left && bottom > top) {
+          const updated = scrollport.getBoundingClientRect();
+          hit(Math.max(left + 1, Math.min(right - 1, x)),
+            Math.max(Math.max(0, updated.top) + 1, Math.min(Math.min(win.innerHeight, updated.bottom) - 1, y)));
+        }
+      }
+      frame = win.requestAnimationFrame(tick);
+    };
+    if (win) frame = win.requestAnimationFrame(tick);
+    abort.signal.addEventListener('abort', () => win?.cancelAnimationFrame(frame), { once: true });
+    const finish = (next: PointerEvent) => {
+      if (next.pointerId !== pointer) return;
+      abort.abort();
+      if (this.drag === abort) this.drag = null;
+    };
+    doc.addEventListener('pointermove', next => {
+      if (next.pointerId !== pointer) return;
+      if (!(next.buttons & 1)) { finish(next); return; }
+      x = next.clientX; y = next.clientY;
+      hit(x, y);
+      if (moved) next.preventDefault();
     }, { capture: true, signal: abort.signal });
     // Once ownership has transferred, compatibility mouse events must not
     // restart native text selection. Before crossing, leave them untouched.
@@ -218,7 +255,8 @@ class LabTable {
     if (!this.root || !this.snapshot) return false;
     const command = clearSelectedCommand(this.snapshot.model, this.interaction);
     if (!command) return false;
-    return executeTableCommand(this.root, this.snapshot.from, command, parse);
+    const mark = bookmark(this.snapshot.from, this.interaction);
+    return executeTableCommand(this.root, this.snapshot.from, command, parse, tableSelectionTransition.of({ before: mark, after: mark }));
   }
 
   private onClipboard(event: ClipboardEvent, cut: boolean) {
@@ -249,10 +287,12 @@ class LabTable {
       if (!command || command.kind !== 'paste') return;
       // Closing editing before a structural update avoids reusing a stale
       // nested cell. Shape updates can clear selection; restore explicitly.
-      this.close();
-      executeTableCommand(this.root, this.snapshot.from, command, parse);
       const at = { row: command.row, col: command.col };
-      this.select(previous.kind === 'editing' ? { kind: 'cell', cell: at } : clampInteraction(previous, this.shape));
+      const next: TableInteraction = previous.kind === 'editing' ? { kind: 'cell', cell: at } : previous;
+      const effect = tableSelectionTransition.of({ before: bookmark(this.snapshot.from, previous), after: bookmark(this.snapshot.from, next) });
+      this.close();
+      executeTableCommand(this.root, this.snapshot.from, command, parse, effect);
+      this.select(clampInteraction(next, this.shape));
       report('Pasted ' + grid.length + ' × ' + grid[0]!.length + ' cells');
     } catch (error) {
       if (!handled) { event.preventDefault(); event.stopPropagation(); }
@@ -340,6 +380,7 @@ class LabTable {
 
   private open(address: CellAddress, host: HTMLTableCellElement) {
     if (this.active?.host === host || !this.root) return;
+    current = this;
     this.close();
     let text: string;
     try { text = this.currentCell(address).text; } catch (error) { report(String(error)); return; }
@@ -444,9 +485,8 @@ class LabTable {
 
   stepHistory(forward: boolean): boolean {
     if (!this.root) return false;
-    // The prototype intentionally clears the active editor on history
-    // navigation, avoiding identity guesses after a structural replacement.
-    this.finish();
+    // History effects restore selection after the projection has updated.
+    this.clearSelection();
     const changed = forward ? redo(this.root) : undo(this.root);
     report(changed ? (forward ? 'Redo' : 'Undo') + ' applied to root' : 'No history step');
     return true;
@@ -454,9 +494,10 @@ class LabTable {
 
   command(command: TableCommand) {
     if (!this.root || !this.snapshot) return;
+    const before = bookmark(this.snapshot.from, this.interaction);
     this.finish();
     try {
-      const changed = executeTableCommand(this.root, this.snapshot.from, command, parse);
+      const changed = executeTableCommand(this.root, this.snapshot.from, command, parse, tableSelectionTransition.of({ before, after: null }));
       report(changed ? command.kind + ' committed' : 'No change');
     } catch (error) { report('Rejected: ' + String(error)); }
   }
@@ -470,6 +511,8 @@ class LabTable {
     this.drag = null;
     this.suppressClick = false;
     this.close();
+    if (this.mount) controllers.delete(this.mount);
+    if (current === this) current = controllers.values().next().value ?? null;
     this.root = null;
     this.mount = null;
     this.table = null;
@@ -477,9 +520,11 @@ class LabTable {
     this.interaction = noInteraction;
   }
   get updateCount() { return this.updates; }
+  get tableFrom() { return this.snapshot?.from; }
+  restore(mark: SelectionBookmark) { this.select(clampInteraction(mark.interaction, this.shape)); }
+  clearForHistory() { this.clearSelection(); }
 }
 
-const controller = new LabTable();
 class Projection extends WidgetType {
   constructor(readonly snapshot: TableSnapshot) { super(); }
   eq(other: Projection) { return this.snapshot.from === other.snapshot.from && this.snapshot.source === other.snapshot.source; }
@@ -487,22 +532,20 @@ class Projection extends WidgetType {
     const dom = document.createElement('div');
     dom.className = 'table-projection';
     dom.contentEditable = 'false';
-    controller.attach(dom, view, this.snapshot);
+    new LabTable().attach(dom, view, this.snapshot);
     return dom;
   }
-  updateDOM(dom: HTMLElement) { return controller.sync(dom, this.snapshot); }
+  updateDOM(dom: HTMLElement) { return controllers.get(dom)?.sync(dom, this.snapshot) ?? false; }
   ignoreEvent() { return true; }
-  destroy(dom: HTMLElement) { controller.dispose(dom); }
+  destroy(dom: HTMLElement) { controllers.get(dom)?.dispose(dom); }
 }
 
 function project(state: EditorState): DecorationSet {
   const text = state.doc.toString();
   const ranges: Range<Decoration>[] = [];
-  // This disposable lab exercises one top-level table only.
-  let found = false;
+  // Each mounted projection has its own controller; no shared active-cell instance.
   parse(text).iterate({ enter(node) {
-    if (found || node.name !== 'Table') return;
-    found = true;
+    if (node.name !== 'Table') return;
     try {
       const snapshot = readTable(text, node.from, parse);
       ranges.push(Decoration.replace({ widget: new Projection(snapshot), block: true }).range(snapshot.from, snapshot.to));
@@ -516,9 +559,14 @@ const field = StateField.define<DecorationSet>({
   update: (value, tr) => tr.docChanged ? project(tr.state) : value,
   provide: f => [EditorView.decorations.from(f), EditorView.atomicRanges.of(view => view.state.field(f))],
 });
+function restoreBookmark(mark: SelectionBookmark | null) {
+  if (!mark) { current?.clearForHistory(); return; }
+  const table = [...controllers.values()].find(value => value.tableFrom === mark.tableFrom);
+  table?.restore(mark);
+}
 function refresh(view: EditorView) {
   source.textContent = view.state.doc.toString();
-  stats.textContent = 'Undo: ' + undoDepth(view.state) + ' · Redo: ' + redoDepth(view.state) + ' · Projection updates: ' + controller.updateCount;
+  stats.textContent = 'Undo: ' + undoDepth(view.state) + ' · Redo: ' + redoDepth(view.state) + ' · Projection updates: ' + [...controllers.values()].reduce((sum, table) => sum + table.updateCount, 0);
 }
 const root = new EditorView({
   parent: document.querySelector<HTMLElement>('#editor')!,
@@ -526,21 +574,43 @@ const root = new EditorView({
     doc: initial, selection: { anchor: initial.length },
     extensions: [
       markdown({ extensions: grammar, addKeymap: false }), history({ minDepth: 1000 }),
-      drawSelection(), EditorView.lineWrapping, field, keymap.of([...historyKeymap, ...defaultKeymap]),
-      EditorView.updateListener.of(update => refresh(update.view)),
+      drawSelection(), EditorView.lineWrapping, field, tableSelectionHistory, keymap.of([...historyKeymap, ...defaultKeymap]),
+      EditorView.domEventHandlers({
+        paste(event, view) {
+          if (!event.clipboardData) return false;
+          try {
+            const grid = readGrid(event.clipboardData, false);
+            if (!grid) return false;
+            const tr = createPastedTable(view.state, grid, parse);
+            if (!tr) return false;
+            view.dispatch(tr);
+            const effect = tr.effects.find(value => value.is(tableSelectionTransition));
+            if (effect?.is(tableSelectionTransition)) queueMicrotask(() => restoreBookmark(effect.value.after));
+            report('Created table from clipboard');
+            return true;
+          } catch (error) { report('Paste rejected: ' + String(error)); return true; }
+        },
+      }),
+      EditorView.updateListener.of(update => {
+        refresh(update.view);
+        for (const tr of update.transactions) {
+          const mark = restoredSelection(tr);
+          if (mark !== undefined) queueMicrotask(() => restoreBookmark(mark));
+        }
+      }),
     ],
   }),
 });
 refresh(root);
-document.querySelector('#add-row')!.addEventListener('click', () => controller.addRow());
-document.querySelector('#add-column')!.addEventListener('click', () => controller.addColumn());
-document.querySelector('#resize')!.addEventListener('click', () => controller.resize());
-document.querySelector('#undo')!.addEventListener('click', () => controller.stepHistory(false));
-document.querySelector('#redo')!.addEventListener('click', () => controller.stepHistory(true));
+document.querySelector('#add-row')!.addEventListener('click', () => current?.addRow());
+document.querySelector('#add-column')!.addEventListener('click', () => current?.addColumn());
+document.querySelector('#resize')!.addEventListener('click', () => current?.resize());
+document.querySelector('#undo')!.addEventListener('click', () => current ? current.stepHistory(false) : undo(root));
+document.querySelector('#redo')!.addEventListener('click', () => current ? current.stepHistory(true) : redo(root));
 for (const kind of ['row', 'column', 'table'] as const) {
   const button = document.querySelector<HTMLButtonElement>('#select-' + kind)!;
   button.addEventListener('mousedown', event => event.preventDefault());
-  button.addEventListener('click', () => controller.selectAxis(kind));
+  button.addEventListener('click', () => current?.selectAxis(kind));
 }
 document.querySelector('#reset')!.addEventListener('click', () => location.reload());
 window.addEventListener('pagehide', () => root.destroy(), { once: true });

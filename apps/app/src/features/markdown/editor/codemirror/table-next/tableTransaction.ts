@@ -1,5 +1,5 @@
 import { isolateHistory } from '@codemirror/commands';
-import { EditorState, Transaction } from '@codemirror/state';
+import { EditorState, Transaction, type StateEffect } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { planTableEdit, type TableCommand } from './tableCommands';
 import { TableEngineError, type ParseMarkdown } from './tableModel';
@@ -8,12 +8,13 @@ import { TableEngineError, type ParseMarkdown } from './tableModel';
  * the sole history. A later cell-edit adapter must forward minimal mapped
  * changes rather than replace the full table on each keystroke.
  */
-export function createTableTransaction(state: EditorState, tableFrom: number, command: TableCommand, parse: ParseMarkdown): Transaction | null {
+export function createTableTransaction(state: EditorState, tableFrom: number, command: TableCommand, parse: ParseMarkdown, effect?: StateEffect<unknown>): Transaction | null {
   if (state.readOnly) return null;
   const edit = planTableEdit(state.doc.toString(), tableFrom, command, parse);
   if (!edit) return null;
   const tr = state.update({
     changes: edit.change,
+    ...(effect ? { effects: effect } : {}),
     annotations: isolateHistory.of('full'),
     userEvent: 'input.table',
   });
@@ -21,13 +22,13 @@ export function createTableTransaction(state: EditorState, tableFrom: number, co
   // document or drops history semantics, refuse this edit rather than repair it.
   if (tr.newDoc.toString() !== edit.expectedDocument ||
     tr.annotation(isolateHistory) !== 'full' ||
-    tr.annotation(Transaction.addToHistory) === false) {
+    tr.annotation(Transaction.addToHistory) === false || (effect !== undefined && !tr.effects.includes(effect))) {
     throw new TableEngineError('Table transaction did not survive editor filters unchanged');
   }
   return tr;
 }
 
-export function executeTableCommand(view: EditorView, tableFrom: number, command: TableCommand, parse: ParseMarkdown): boolean {
+export function executeTableCommand(view: EditorView, tableFrom: number, command: TableCommand, parse: ParseMarkdown, effect?: StateEffect<unknown>): boolean {
   const tr = createTableTransaction(view.state, tableFrom, command, parse);
   if (!tr) return false;
   view.dispatch(tr);
