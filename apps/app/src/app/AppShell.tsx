@@ -43,6 +43,7 @@ import { UnsavedCloseDialog } from './UnsavedCloseDialog';
 import type { UnsavedAction } from './unsavedCloseCopy';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
 import { Dialog } from '../components/dialog/Dialog';
+import { Button } from '../components/button/Button';
 import {
   SpaceDetails,
   draftForExistingFolder,
@@ -382,6 +383,7 @@ function AppShellContent() {
   // Sparkle is enabled only for direct-distribution builds, never for App Store or ordinary dev.
   const sparkleEnabled = import.meta.env.VITE_CLUTTER_SPARKLE_UPDATES === '1' && isTauri();
   const [sparkleUpdateVersion, setSparkleUpdateVersion] = useState<string>();
+  const [sparkleRestartPhase, setSparkleRestartPhase] = useState<'installing' | 'restart_retry'>();
   const sparkleRestartBusyRef = useRef(false);
   const sparkleClosedRef = useRef(false);
   const sparkleAction = useCallback((action: string) =>
@@ -447,6 +449,9 @@ function AppShellContent() {
         setSparkleUpdateVersion(
           state.phase === 'ready' || state.phase === 'downloaded'
             ? state.version || undefined : undefined
+        );
+        setSparkleRestartPhase(
+          state.phase === 'installing' || state.phase === 'restart_retry' ? state.phase : undefined
         );
         if (state.phase === 'restart_requested') void commitSparkleRestart();
         if (sparkleClosedRef.current && (state.phase === 'failed' || state.phase === 'idle')) {
@@ -1488,6 +1493,24 @@ function AppShellContent() {
   const renderFrame = (): ReactNode => {
   if (error) {
     return <StartupFrame tone="error">{error}</StartupFrame>;
+  }
+
+  if (sparkleRestartPhase === 'installing') {
+    return <StartupFrame>Restarting Clutter…</StartupFrame>;
+  }
+
+  if (sparkleRestartPhase === 'restart_retry') {
+    return (
+      <StartupFrame>
+        Restart is taking longer than expected.{' '}
+        <Button size="small" variant="primary" onClick={() => {
+          setSparkleRestartPhase('installing');
+          void sparkleAction('commit_restart').catch(reportSparkleFailure);
+        }}>
+          Retry restart
+        </Button>
+      </StartupFrame>
+    );
   }
 
   // A Space can't be shown, and no other has opened (yet): either none is configured, or the configured

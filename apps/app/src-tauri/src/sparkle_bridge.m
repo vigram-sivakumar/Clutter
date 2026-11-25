@@ -12,10 +12,13 @@
 @property(nonatomic, copy) NSString *errorMessage;
 @property(nonatomic, copy) void (^prepare)(void);
 @property(nonatomic, copy) void (^install)(void);
+@property(nonatomic, copy) void (^retryInstall)(void);
+@property(nonatomic) NSUInteger installAttempt;
 @property(nonatomic) BOOL explicitInstall;
 @property(nonatomic) BOOL manual;
 @property(nonatomic) BOOL backgroundAfterDismiss;
 - (void)requestRestart;
+- (void)attemptInstall;
 - (void)checkManually;
 @end
 
@@ -69,6 +72,19 @@ static BOOL Ask(NSString *version) {
         self.phase = @"preparing";
         prepare();
     }
+}
+
+- (void)attemptInstall {
+    self.phase = @"installing";
+    NSUInteger attempt = ++self.installAttempt;
+    self.retryInstall();
+    // AppKit can veto termination without reporting it to the updater. Let normal
+    // termination finish before offering an explicit retry to the still-running UI.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        if (self.installAttempt == attempt && self.retryInstall && [self.phase isEqualToString:@"installing"]) {
+            self.phase = @"restart_retry";
+        }
+    });
 }
 
 - (void)checkManually {
@@ -129,7 +145,7 @@ static BOOL Ask(NSString *version) {
     } else {
         // Later on a manual check: give Sparkle back the session and ask its
         // automatic downloader to prepare the update, rather than prompting for authorization.
-        self.backgroundAfterDismiss = state.userInitiated;
+        self.backgroundAfterDismiss = state.userInitiated && self.updater.automaticallyChecksForUpdates;
         self.phase = @"idle";
         reply(SPUUserUpdateChoiceDismiss);
     }
@@ -160,6 +176,7 @@ static BOOL Ask(NSString *version) {
     self.errorMessage = ErrorDetail(error);
     self.prepare = nil;
     self.install = nil;
+    self.retryInstall = nil;
     self.explicitInstall = NO;
     self.manual = NO;
     if (show) Notice(@"Clutter Update", self.errorMessage, NSAlertStyleWarning);
@@ -182,19 +199,26 @@ static BOOL Ask(NSString *version) {
 
 - (void)showInstallingUpdateWithApplicationTerminated:(BOOL)applicationTerminated
                          retryTerminatingApplication:(void (^)(void))retryTerminatingApplication {
-    self.phase = @"installing";
+    if (applicationTerminated) {
+        self.retryInstall = nil;
+        self.phase = @"installing";
+    } else if (self.retryInstall) {
+        self.retryInstall = retryTerminatingApplication;
+    }
 }
 
 - (void)showUpdateInstalledAndRelaunched:(BOOL)relaunched acknowledgement:(void (^)(void))acknowledgement {
     self.phase = @"idle";
     self.install = nil;
     self.prepare = nil;
+    self.retryInstall = nil;
     acknowledgement();
 }
 
 - (void)dismissUpdateInstallation {
     self.install = nil;
     self.prepare = nil;
+    self.retryInstall = nil;
     self.explicitInstall = NO;
     self.manual = NO;
     if (![self.phase isEqualToString:@"failed"]) self.phase = @"idle";
@@ -227,17 +251,25 @@ static BOOL Ask(NSString *version) {
     return NO;
 }
 
+- (void)updater:(SPUUpdater *)updater willScheduleUpdateCheckAfterDelay:(NSTimeInterval)delay {
+    if (!self.backgroundAfterDismiss) return;
+    self.backgroundAfterDismiss = NO;
+    // Sparkle probes the installer asynchronously before setting its next timer.
+    // Wait for that probe to finish, then let Sparkle replace its scheduled check.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (updater.automaticallyChecksForUpdates && !updater.sessionInProgress) {
+            [updater checkForUpdatesInBackground];
+        }
+    });
+}
+
+- (void)updaterWillNotScheduleUpdateCheck:(SPUUpdater *)updater {
+    self.backgroundAfterDismiss = NO;
+}
+
 - (void)updater:(SPUUpdater *)updater didFinishUpdateCycleForUpdateCheck:(SPUUpdateCheck)updateCheck
                                           error:(NSError *)error {
     NSLog(@"Clutter Sparkle: cycle finished, check=%ld, error=%@", (long)updateCheck, error);
-    if (self.backgroundAfterDismiss) {
-        self.backgroundAfterDismiss = NO;
-        self.manual = NO;
-        self.explicitInstall = NO;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (!updater.sessionInProgress) [updater checkForUpdatesInBackground];
-        });
-    }
     if (self.install || self.prepare || [self.phase isEqualToString:@"failed"]) return;
     if (error && error.code != SUNoUpdateError) {
         self.phase = @"failed";
@@ -282,13 +314,16 @@ char *clutter_sparkle_action(const char *action) {
                     driver.explicitInstall = NO;
                 }
             } else if ([command isEqualToString:@"commit_restart"]) {
-                if (![driver.phase isEqualToString:@"restart_requested"] || !driver.install) {
-                    failure = @"No prepared update is awaiting restart.";
-                } else {
-                    void (^install)(void) = driver.install;
+                if ([driver.phase isEqualToString:@"restart_requested"] && driver.install) {
+                    // The automatic driver has no termination callback. Sparkle's
+                    // immediate-install handler can send the quit request again.
+                    driver.retryInstall = driver.install;
                     driver.install = nil;
-                    driver.phase = @"installing";
-                    install();
+                    [driver attemptInstall];
+                } else if ([driver.phase isEqualToString:@"restart_retry"] && driver.retryInstall) {
+                    [driver attemptInstall];
+                } else {
+                    failure = @"No prepared update is awaiting restart.";
                 }
             } else if (![command isEqualToString:@"status"] && ![command isEqualToString:@"start"]) {
                 failure = @"Unknown updater action.";
