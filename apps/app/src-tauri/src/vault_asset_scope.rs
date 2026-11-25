@@ -96,6 +96,28 @@ pub(crate) fn authorize_asset_root(root: &str, in_fs_scope: &dyn Fn(&Path) -> bo
     Ok(path)
 }
 
+/// The root grant retains Tauri's literal-leading-dot rule. Explicitly expose only the
+/// managed media directory, including on a fresh Space where it does not exist yet.
+/// Tauri adds canonicalized patterns as well as literal ones, so never register a
+/// symlinked managed directory: its destination could be outside the authorized Space.
+fn allow_space_assets<R: Runtime>(app: &AppHandle<R>, root: &Path) -> Result<(), String> {
+    let assets = app.asset_protocol_scope();
+    assets.allow_directory(root, true).map_err(|error| error.to_string())?;
+
+    let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
+    let mut media = canonical_root;
+    for segment in [".clutter", "media"] {
+        media.push(segment);
+        match std::fs::symlink_metadata(&media) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    assets.allow_directory(&media, true).map_err(|error| error.to_string())
+}
+
 /// Registers the opened vault root with Tauri's asset protocol scope so `convertFileSrc()` URLs under that directory
 /// tree can be served to the webview. Scoped at runtime because the vault path is user-selected, and only for a
 /// folder the fs scope already grants (see [`authorize_asset_root`]).
@@ -108,9 +130,7 @@ pub async fn allow_vault_asset_scope<R: Runtime>(app: AppHandle<R>, vault_root: 
 
         // Every opened Space passes through here: its folder is never one `delete_path` may remove.
         crate::space_access::protect_folder(&app, &path);
-        app.asset_protocol_scope()
-            .allow_directory(&path, true)
-            .map_err(|error| error.to_string())
+        allow_space_assets(&app, &path)
     }).await.map_err(|error| error.to_string())?
 }
 
@@ -197,6 +217,50 @@ mod tests {
         let _ = std::fs::remove_dir_all(&vault);
         let _ = std::fs::remove_dir_all(&outside);
     }
+    #[test]
+    fn managed_media_is_available_after_lazy_creation_without_exposing_other_hidden_files() {
+        let vault = scratch("managed-media");
+        let outside = scratch("managed-media-outside");
+        let app = mock_builder().plugin(tauri_plugin_fs::init())
+            .build(mock_context(noop_assets())).unwrap();
+        app.fs_scope().allow_directory(&vault, true).unwrap();
+        allow_space_assets(app.handle(), &vault).unwrap();
+        let media = vault.join(".clutter/media");
+        std::fs::create_dir_all(&media).unwrap();
+        let avatar = media.join("avatar.png");
+        let metadata = vault.join(".clutter/workspace.json");
+        let unrelated = vault.join(".private.png");
+        let secret = outside.join("secret.png");
+        for path in [&avatar, &metadata, &unrelated, &secret] {
+            std::fs::write(path, "fixture").unwrap();
+        }
+        let assets = app.asset_protocol_scope();
+        assert!(assets.is_allowed(&avatar));
+        assert!(!assets.is_allowed(&metadata));
+        assert!(!assets.is_allowed(&unrelated));
+        assert!(!assets.is_allowed(&secret));
+        std::fs::remove_dir_all(vault).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn managed_media_grant_does_not_follow_a_symlink_outside_the_space() {
+        let vault = scratch("managed-link");
+        let outside = scratch("managed-link-outside");
+        let secret = outside.join("secret.png");
+        std::fs::write(&secret, "fixture").unwrap();
+        std::fs::create_dir_all(vault.join(".clutter")).unwrap();
+        std::os::unix::fs::symlink(&outside, vault.join(".clutter/media")).unwrap();
+        let app = mock_builder().plugin(tauri_plugin_fs::init())
+            .build(mock_context(noop_assets())).unwrap();
+        app.fs_scope().allow_directory(&vault, true).unwrap();
+        allow_space_assets(app.handle(), &vault).unwrap();
+        assert!(!app.asset_protocol_scope().is_allowed(&secret));
+        assert!(!app.asset_protocol_scope().is_allowed(vault.join(".clutter/media/secret.png")));
+        std::fs::remove_dir_all(vault).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
     #[test]
     fn filesystem_exclusions_win_over_asset_grants_and_resolved_aliases() {
         let vault = scratch("deny-vault");
