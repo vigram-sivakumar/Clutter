@@ -154,6 +154,35 @@ describe('table live wiring — DOM structure', () => {
 });
 
 describe('table live wiring — read-only (note embed) table', () => {
+  it('refreshes a read-only projection in place and preserves the exact width attribute and ragged source', () => {
+    const doc = 'Intro\n\n| Name | Role |\n| --- | ---: |\n| **Vik** |\n{table-col-widths=" 130, 280 "}';
+    const view = mount(doc, true);
+    const scroll = view.dom.querySelector<HTMLElement>('.cm-table-scroll')!;
+    const table = scroll.querySelector('table')!;
+    const cell = table.tBodies[0]!.rows[0]!.cells[0]!;
+    expect(cell.textContent).toBe('Vik');
+    expect(cell.querySelector('.cm-table-cell-wrapper')!.children.length).toBeGreaterThan(0);
+    expect(table.rows[1]!.cells[1]!.textContent).toBe('');
+    expect(table.rows[1]!.cells[1]!.className).toContain('align-right');
+    expect(table.querySelectorAll('col')[1]!.style.width).toBe('280px');
+    expect(view.state.doc.toString()).toBe(doc);
+    scroll.scrollLeft = 37;
+    const pos = doc.indexOf('Vik');
+    view.dispatch({ changes: { from: pos, to: pos + 3, insert: 'Mira' } });
+    expect(view.dom.querySelector('.cm-table-scroll')).toBe(scroll);
+    expect(scroll.scrollLeft).toBe(37);
+    expect(table.rows[1]!.cells[0]).toBe(cell);
+    expect(cell.textContent).toBe('Mira');
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'Mira'));
+  });
+
+  it('keeps overflow cells visible when an imported table needs the compatibility renderer', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| A | B | C |';
+    const view = mount(doc, true);
+    expect(view.dom.querySelector('tbody tr')?.children).toHaveLength(3);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
   it('renders as a real <table> with the same wrapper structure, but clicking a cell does nothing — no activation, no nested editor', () => {
     const view = mount(TABLE, true);
 

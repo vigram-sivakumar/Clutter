@@ -341,7 +341,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   ];
 
   const table: Extension[] = [
-    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.()),
+    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly),
     tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`

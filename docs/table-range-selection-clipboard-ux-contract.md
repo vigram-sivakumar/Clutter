@@ -6,6 +6,20 @@
 
 ---
 
+## Production migration comparison
+
+The manually validated prototype at `e99a5e40` hands native text selection to rectangular selection when the pointer crosses a cell boundary. Horizontal auto-scroll continues hit-testing as the scrollport moves. Both behaviors belong in the editable migration.
+
+| Gesture with an active range | Earlier contract | Validated prototype implementation |
+| --- | --- | --- |
+| Arrow, Tab, Shift+Tab | Clear the range and navigate from its anchor | Navigate from the head. Tab selects the destination without a caret. |
+| Enter | Run Enter from the anchor | Open the focused cell at the head. |
+| Typing | Insert text at the anchor's remembered caret | Ignore printable input for a multi-cell range. Typing replaces a single selected cell. |
+| Paste | Begin at the drag anchor and retain the selection | Begin at the rectangle's top-left and retain the selection when valid. A reverse drag distinguishes these origins. |
+| Delete and Cut | Clear the rectangle and retain selection | Same behavior. |
+
+The first production consumer is the read-only projection. Editable rollout still requires an explicit decision on the differing rows above, with reverse-drag, caret and history tests for the chosen behavior.
+
 ## Range selection
 
 **Anchor.** The cell where a drag starts is the range's anchor. Dragging defines a rectangle from the anchor to the current cell. The anchor stays "the active cell" for the lifetime of the range selection — it is not just the drag's geometric origin, it is the cell all clearing/navigation behaviors below fall back to.

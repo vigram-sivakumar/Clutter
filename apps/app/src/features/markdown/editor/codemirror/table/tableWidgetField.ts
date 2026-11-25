@@ -5,6 +5,8 @@ import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 
 import type { SyntaxNode } from '@lezer/common';
 
+import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
+import { TableProjection } from '../table-engine/tableProjection';
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
@@ -251,6 +253,7 @@ function buildTableDecorations(
   state: EditorState,
   controller: TableActiveCellController | undefined,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
+  readOnlyProjection: boolean,
   reason: 'create' | 'transaction'
 ): DecorationSet {
   // This field owns block replacements for every table in the document, not just
@@ -269,7 +272,20 @@ function buildTableDecorations(
   const tables = findAllTables(state, tree);
 
   const ranges: Range<Decoration>[] = [];
+  const source = readOnlyProjection && tables.length ? state.doc.toString() : null;
   for (const table of tables) {
+    if (source !== null) {
+      try {
+        const snapshot = snapshotFromTableNode(source, table.node);
+        const selected = tableIntersectsSelectionRange(state.selection.main, table);
+        const widget = new TableProjection(snapshot, selected);
+        ranges.push(Decoration.replace({ widget, block: true }).range(table.from, table.to));
+        continue;
+      } catch (error) {
+        // Imported tables outside the engine's domain retain their existing renderer.
+        if (!(error instanceof TableEngineError)) throw error;
+      }
+    }
     const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange);
     if (range) {
       ranges.push(range);
@@ -330,11 +346,12 @@ function buildTableDecorations(
  */
 export function tableWidgetDecoration(
   controller?: TableActiveCellController,
-  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined,
+  readOnlyProjection = false
 ): Extension {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, 'create');
+      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, readOnlyProjection, 'create');
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
@@ -355,7 +372,7 @@ export function tableWidgetDecoration(
         },
       });
       if (shouldRebuild) {
-        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, 'transaction');
+        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, readOnlyProjection, 'transaction');
       }
       return value;
     },
