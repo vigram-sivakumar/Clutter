@@ -297,6 +297,7 @@ function AppShellContent() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [documentsDeniedPath, setDocumentsDeniedPath] = useState<string | null>(null);
   // The Space path whose folder `bootstrap` found missing (it was there when startup probed it, or the
   // probe was skipped). Like `spaces.activeSpaceMissing` it shows the Welcome dialog and leaves the
   // registry untouched; it only counts while that path is still the active one.
@@ -736,6 +737,20 @@ function AppShellContent() {
           return;
         }
 
+        // A denied macOS Documents privacy prompt is not a lost Space or a filesystem-format refusal.
+        // Check only after an open failed; do not request extra access on successful opens.
+        if (isTauri() && applicationRef.current === null) {
+          const permission = await invoke<string>('documents_permission_status', { path: openPath })
+            .catch(() => 'unknown');
+          if (isStale()) return;
+          if (permission === 'denied') {
+            spaces.abortPendingRemoval();
+            setError('Folder access required. Allow Documents access in System Settings to continue.');
+            setDocumentsDeniedPath(openPath);
+            return;
+          }
+        }
+
         if (
           loadError instanceof VaultRootMissingError &&
           applicationRef.current === null
@@ -781,6 +796,55 @@ function AppShellContent() {
     // `spaces` is a fresh object each render; only a change of root, readiness or missing-folder state starts a run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath, spaces.ready, spaces.activeSpaceMissing, missingRoot, reopenNonce]);
+
+  // Present the native recovery alert after the failed bootstrap has settled.
+  // Keep the stored Space intact and retry only once access is actually restored.
+  useEffect(() => {
+    if (!documentsDeniedPath) return;
+    let disposed = false;
+    let waiting = false;
+    let checking = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const retryIfAllowed = async () => {
+      if (disposed || !waiting || checking || !document.hasFocus()) return;
+      checking = true;
+      try {
+        const status = await invoke<string>('documents_permission_status', { path: documentsDeniedPath });
+        if (!disposed && status === 'allowed') {
+          waiting = false;
+          setDocumentsDeniedPath(null);
+          setError(null);
+          setIsLoading(true);
+          setReopenNonce((value) => value + 1);
+        }
+      } catch (error) {
+        console.error('Checking Documents permission failed:', error);
+      } finally {
+        checking = false;
+      }
+    };
+    void invoke<string>('show_documents_permission_alert').then(async (choice) => {
+      if (disposed) return;
+      if (choice === 'quit') {
+        await getCurrentWindow().destroy();
+      } else if (choice === 'settings') {
+        waiting = true;
+        timer = setInterval(() => void retryIfAllowed(), 1500);
+      }
+    }).catch((error) => {
+      if (!disposed) {
+        console.error('Documents recovery alert failed:', error);
+        setError('Allow Documents access in System Settings, then restart Clutter.');
+      }
+    });
+    const onFocus = () => void retryIfAllowed();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      disposed = true;
+      if (timer !== undefined) clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [documentsDeniedPath]);
 
   // Unmount: supersede any run in flight and close the open Application.
   useEffect(

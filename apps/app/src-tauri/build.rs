@@ -36,6 +36,8 @@ const APP_COMMANDS: &[&str] = &[
     "remember_space_access",
     "forget_space_access",
     "documents_access",
+    "documents_permission_status",
+    "show_documents_permission_alert",
     "request_documents_access",
     "create_space_folder",
     "ensure_space_access",

@@ -29,6 +29,7 @@ mod space_access;
 mod space_folder;
 mod vault_entries;
 mod startup_notice;
+mod documents_permission;
 mod vault_asset_scope;
 mod vault_watcher;
 
@@ -246,6 +247,8 @@ pub fn run() {
             space_access::remember_space_access,
             space_access::forget_space_access,
             space_access::documents_access,
+            documents_permission::documents_permission_status,
+            documents_permission::show_documents_permission_alert,
             space_access::request_documents_access,
             space_folder::create_space_folder,
             space_folder::ensure_space_access,

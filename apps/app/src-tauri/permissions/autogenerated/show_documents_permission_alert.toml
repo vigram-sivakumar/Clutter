@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-show-documents-permission-alert"
+description = "Enables the show_documents_permission_alert command without any pre-configured scope."
+commands.allow = ["show_documents_permission_alert"]
+
+[[permission]]
+identifier = "deny-show-documents-permission-alert"
+description = "Denies the show_documents_permission_alert command without any pre-configured scope."
+commands.deny = ["show_documents_permission_alert"]

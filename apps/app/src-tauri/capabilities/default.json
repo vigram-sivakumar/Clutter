@@ -46,6 +46,8 @@
     "allow-remember-space-access",
     "allow-forget-space-access",
     "allow-documents-access",
+    "allow-documents-permission-status",
+    "allow-show-documents-permission-alert",
     "allow-request-documents-access",
     "allow-create-space-folder",
     "allow-ensure-space-access",
