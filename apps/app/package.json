@@ -1,6 +1,6 @@
 {
   "name": "@clutter/app",
-  "version": "0.0.14",
+  "version": "0.0.16",
   "private": true,
   "type": "module",
   "description": "Clutter 2.0 - Core editor implementation with segmented architecture",
