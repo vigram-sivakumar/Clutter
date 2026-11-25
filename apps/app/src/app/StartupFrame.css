@@ -26,3 +26,15 @@
   color: var(--foreground-secondary);
   user-select: text;
 }
+
+/* Fade the indicator, not the themed surface or native drag strip. */
+.startup-frame[data-fading='true'] .loading-bar {
+  opacity: 0;
+  transition: opacity var(--startup-loader-fade-duration, 150ms) var(--layout-transition-collapse-easing, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-frame[data-fading='true'] .loading-bar {
+    transition: none;
+  }
+}

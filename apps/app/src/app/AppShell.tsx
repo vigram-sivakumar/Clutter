@@ -36,6 +36,7 @@ import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FA
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
 import { StartupFrame } from './StartupFrame';
+import { useInitialLoadingFrame } from './useInitialLoadingFrame';
 import { LoadingBar } from '@components/loading-bar/LoadingBar';
 import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
@@ -1491,6 +1492,16 @@ function AppShellContent() {
     if (settingsAvailable) openSettings();
   });
 
+  const opening = !error && !showWelcome && sparkleRestartPhase !== 'installing' &&
+    sparkleRestartPhase !== 'restart_retry' &&
+    (isLoading || (!application && (recovering || (lostActiveSpace && recoveryDoneFor !== vaultPath))));
+  const initialLoading = useInitialLoadingFrame(
+    opening,
+    !!application && !isLoading,
+    !!error || showWelcome || sparkleRestartPhase === 'installing' ||
+      sparkleRestartPhase === 'restart_retry' || (!opening && !application)
+  );
+
   const renderFrame = (): ReactNode => {
   if (error) {
     return <StartupFrame tone="error">{error}</StartupFrame>;
@@ -1549,6 +1560,10 @@ function AppShellContent() {
 
   if (!application) {
     return <StartupFrame tone="error">No vault loaded</StartupFrame>;
+  }
+
+  if (initialLoading !== 'done') {
+    return <StartupFrame loading fading={initialLoading === 'fading'}><LoadingBar label="Opening Clutter…" /></StartupFrame>;
   }
 
   // Keyed by root: AppLayout reads per-Space state (view configs, overlays, pending reveals) once

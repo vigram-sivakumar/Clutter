@@ -11,6 +11,9 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Timing is covered by useInitialLoadingFrame.test.ts; these tests exercise Space lifecycle.
+vi.mock('./useInitialLoadingFrame', () => ({ useInitialLoadingFrame: () => 'done' }));
+
 const bootstrap = vi.fn();
 vi.mock('../core/application/Application', () => ({
   Application: { bootstrap: (...args: unknown[]) => bootstrap(...args) },

@@ -9,7 +9,7 @@ interface LoadingBarProps {
 export function LoadingBar({ label }: LoadingBarProps) {
   return (
     <div className="loading-bar" role="progressbar" aria-label={label}>
-      <GradientGrainy palette="iris" />
+      <GradientGrainy />
     </div>
   );
 }

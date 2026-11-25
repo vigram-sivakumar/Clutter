@@ -10,6 +10,7 @@ interface StartupFrameProps {
    */
   backdrop?: ReactNode;
   loading?: boolean;
+  fading?: boolean;
   children: ReactNode;
 }
 
@@ -18,11 +19,12 @@ interface StartupFrameProps {
  * quiet line of text, and the same drag strip the workspace has so the window
  * can be moved from the first frame.
  */
-export function StartupFrame({ tone = 'status', backdrop, loading = false, children }: StartupFrameProps) {
+export function StartupFrame({ tone = 'status', backdrop, loading = false, fading = false, children }: StartupFrameProps) {
   return (
     <div
       className="startup-frame"
       data-tone={tone}
+      data-fading={fading || undefined}
       role={loading ? undefined : tone === 'error' ? 'alert' : 'status'}
     >
       {backdrop}
