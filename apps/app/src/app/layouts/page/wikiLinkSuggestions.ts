@@ -1,3 +1,4 @@
+import { resourceSuggestionBreadcrumb } from './resourceSuggestionBreadcrumb';
 import { isTaskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
@@ -292,7 +293,7 @@ function toAssetSuggestion(
     kind: 'asset',
     path: relative,
     title: getResourceDisplayName(resource),
-    breadcrumb: VaultPath.parentDirectory(relative) || null,
+    breadcrumb: resourceSuggestionBreadcrumb(vault, resource),
     assetKind: resource.kind,
     ...(resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
   };

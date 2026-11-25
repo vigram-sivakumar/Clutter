@@ -1,5 +1,8 @@
 import { EditorSelection, type EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { insertedEmbedEffects } from '../embed/insertedEmbedEffects';
+import { serializeEmbed } from '../embed/embedSerialize';
+import { syncEmbedObjectSelection } from '../embed/embedObjectSelection';
 
 import { findEnclosingTable } from '../table/tableGeometry';
 import { decodeDataImage, hasRichHtml, htmlToPieces } from './htmlToMarkdown';
@@ -171,7 +174,7 @@ export function embedPasted(view: EditorView, data: DataTransfer, assets: PasteA
     // Inside a table a row is one line: a newline would split it, so everything goes in on one line.
     const inTable = findEnclosingTable(view.state, view.state.selection.main.head) !== null;
     const joined = pieces
-      .map((piece) => piece.text ?? `![[${piece.reference}]]`)
+      .map((piece) => piece.text ?? serializeEmbed(piece.reference!))
       .filter((text) => text !== '')
       .join(inTable ? ' ' : plan.separator);
     const insert = inTable ? joined.replace(/\s*\n\s*/g, ' ') : plan.finish(joined);
@@ -180,12 +183,21 @@ export function embedPasted(view: EditorView, data: DataTransfer, assets: PasteA
       const unchanged = view.state.doc.eq(docAtStart);
       const at = unchanged ? { from, to } : { from: view.state.selection.main.head, to: view.state.selection.main.head };
       const { leading, body, trailing } = plan.block && !inTable ? blockBoundaries(view.state, at, insert) : { leading: '', body: insert, trailing: '' };
+      const changes = { ...at, insert: leading + body + trailing };
+      const selection = EditorSelection.cursor(at.from + leading.length + body.length);
+      const inserted = new Set(pieces.flatMap((piece) => piece.reference === undefined ? [] : [serializeEmbed(piece.reference)]));
+      const scratch = view.state.update({ changes, selection });
+      const effects = !inTable && inserted.size
+        ? insertedEmbedEffects(scratch.state, at.from, at.from + changes.insert.length, (raw) => inserted.has(raw))
+        : [];
       view.dispatch({
-        changes: { ...at, insert: leading + body + trailing },
-        selection: EditorSelection.cursor(at.from + leading.length + body.length),
+        changes,
+        selection,
+        effects,
         scrollIntoView: true,
         userEvent: 'input.paste',
       });
+      syncEmbedObjectSelection(view);
     }
 
     if (failed.length > 0) {

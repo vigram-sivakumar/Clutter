@@ -3,12 +3,26 @@ import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '
 
 import { EditorView, keymap, ViewPlugin, type Command, type KeyBinding } from '@codemirror/view';
 
-interface EmbedObjectSelection {
+export interface EmbedObjectRange {
   readonly from: number;
   readonly to: number;
 }
 
+interface EmbedObjectSelection extends EmbedObjectRange {
+  /** A batch can contain separate embeds, even with intervening rich-paste text. */
+  readonly members?: readonly EmbedObjectRange[];
+}
+
 const embedObjectSelectionChanged = StateEffect.define<EmbedObjectSelection | null>();
+
+/** Post-change coordinates, included in the insertion transaction. */
+export function selectInsertedEmbeds(ranges: readonly EmbedObjectRange[]) {
+  const first = ranges[0];
+  const last = ranges[ranges.length - 1];
+  return embedObjectSelectionChanged.of(first && last
+    ? { from: first.from, to: last.to, ...(ranges.length > 1 && { members: ranges }) }
+    : null);
+}
 
 export const embedObjectSelectionField = StateField.define<EmbedObjectSelection | null>({
   create: () => null,
@@ -150,7 +164,9 @@ export function embedObjectSelectionKeymap(): Extension {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected || view.state.readOnly) return false;
     view.dispatch({
-      changes: { from: selected.from, to: selected.to, insert: '' },
+      changes: selected.members && selected.members.some((member, index, members) => index > 0 && /\S/.test(view.state.sliceDoc(members[index - 1]!.to, member.from)))
+        ? selected.members.map(({ from, to }) => ({ from, to, insert: '' }))
+        : { from: selected.from, to: selected.to, insert: '' },
       selection: EditorSelection.cursor(selected.from),
       scrollIntoView: true,
     });
@@ -206,7 +222,7 @@ export function embedObjectSelectionKeymap(): Extension {
     if (view.state.readOnly) return false;
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     const currentLineNumber = selected
-      ? view.state.doc.lineAt(selected.from).number
+      ? view.state.doc.lineAt(direction === 'down' ? selected.to : selected.from).number
       : view.state.doc.lineAt(view.state.selection.main.head).number;
     if (!selected && !view.state.selection.main.empty) return false;
 
@@ -299,7 +315,7 @@ export function syncEmbedObjectSelection(view: EditorView): void {
     if (widget.closest('.cm-editor') !== view.dom) continue;
     widget.classList.toggle(
       'cm-embed-object-selected',
-      selected !== null && Number(widget.dataset.embedFrom) === selected.from
+      selected !== null && (selected.members ?? [selected]).some((member) => Number(widget.dataset.embedFrom) === member.from)
     );
   }
 }

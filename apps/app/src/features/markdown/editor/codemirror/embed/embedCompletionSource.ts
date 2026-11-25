@@ -10,6 +10,8 @@ import { mixedGroupSections } from '../completionPopup/mixedGroups';
 import { layoutFor, type CompletionListConfig, type CompletionListLayout } from '../completionPopup/completionRow';
 import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
+import { insertedEmbedEffects } from './insertedEmbedEffects';
+import { syncEmbedObjectSelection } from './embedObjectSelection';
 import type { EmbedTargetSuggestion, GetEmbedSuggestions } from './embedSuggestion';
 
 /**
@@ -33,10 +35,9 @@ export const EMBED_TRIGGER_PATTERN = /!\[\[[^\]|\n]*$/;
  * same way, differing only in what `insert` text they compose (a
  * resource's own `path`, or `${pagePart}#${heading}` for a heading
  * suggestion — see `toCompletion`/`toHeadingCompletion`). Every
- * embed — note, Daily Note, heading, image, PDF — moves the cursor onto a
- * fresh line below it.
+ * Media is rendered and selected; note and heading embeds retain their existing line-below behaviour.
  */
-function applyEmbedInsert(insert: string, view: EditorView, from: number, to: number): void {
+function applyEmbedInsert(insert: string, view: EditorView, from: number, to: number, selectMedia = false): void {
   // Mirrors wikiLinkCompletionSource.ts's identical fix, one node
   // type over: reactivating completion inside an ALREADY-CLOSED
   // `![[reference]]` replaces only the bare reference text, leaving
@@ -53,6 +54,16 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
   const embedEndAfter = existingBeforeChange
     ? existingBeforeChange.to + (insert.length - (to - from))
     : from + insert.length;
+
+  if (selectMedia) {
+    const changes = { from, to, insert };
+    const selection = { anchor: embedEndAfter };
+    const scratch = view.state.update({ changes, selection });
+    const effects = insertedEmbedEffects(scratch.state, existingBeforeChange?.from ?? from, embedEndAfter);
+    view.dispatch({ changes, selection, effects, scrollIntoView: true, userEvent: 'input.complete' });
+    syncEmbedObjectSelection(view);
+    return;
+  }
 
   // An embed renders as a block (an image, a PDF, an embedded note), so the cursor leaves it for
   // its own line: exactly one line break after the embed, in this same transaction (one undo
@@ -111,7 +122,7 @@ function toCompletion(
     ...(suggestion.kind === 'page' ? embedPageRow(suggestion, layout) : embedResourceRow(suggestion, layout)),
     ...(group && { section: group, limitKey: undefined }),
     apply(view, _completion, from, to) {
-      applyEmbedInsert(insertText(suggestion.path), view, from, to);
+      applyEmbedInsert(insertText(suggestion.path), view, from, to, suggestion.kind === 'resource');
     },
   };
 

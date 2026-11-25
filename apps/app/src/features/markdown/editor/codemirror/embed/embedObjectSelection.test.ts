@@ -11,6 +11,8 @@ import { imageUiStateField } from '../image/imageUiState';
 import {
   embedObjectSelectionField,
   embedObjectSelectionKeymap,
+  selectInsertedEmbeds,
+  syncEmbedObjectSelection,
 } from './embedObjectSelection';
 
 function mount(doc: string, anchor = 0, readOnly = false): EditorView {
@@ -384,5 +386,34 @@ describe('embedObjectSelectionKeymap', () => {
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(view.state.selection.main.head).toBe(1);
+  });
+});
+
+describe('batch object selection', () => {
+  it('highlights both inserted objects and Enter creates a line below the last', () => {
+    const first = '![[a.png]]';
+    const second = '![[b.pdf]]';
+    const doc = first + '\n' + second;
+    const view = mount(doc, doc.length);
+    const a = addRenderedEmbedMarker(view, 0);
+    const b = addRenderedEmbedMarker(view, first.length + 1);
+    view.dispatch({ effects: selectInsertedEmbeds([{ from: 0, to: first.length }, { from: first.length + 1, to: doc.length }]) });
+    syncEmbedObjectSelection(view);
+    expect(a.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(b.classList.contains('cm-embed-object-selected')).toBe(true);
+    press(view, 'Enter');
+    expect(view.state.doc.toString()).toBe(doc + '\n');
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+  });
+
+  it('deletes only the selected embeds when other text is between them', () => {
+    const first = '![[a.png]]';
+    const gap = '\nkeep this\n';
+    const second = '![[b.pdf]]';
+    const doc = first + gap + second;
+    const view = mount(doc);
+    view.dispatch({ effects: selectInsertedEmbeds([{ from: 0, to: first.length }, { from: first.length + gap.length, to: doc.length }]) });
+    press(view, 'Delete');
+    expect(view.state.doc.toString()).toBe(gap);
   });
 });

@@ -350,3 +350,20 @@ describe('createEmbedSuggester — typed query: one list ordered by match qualit
     expect(found.every((s) => s.kind === 'page' || s.kind === 'resource')).toBe(true);
   });
 });
+
+describe('managed attachment suggestion presentation', () => {
+  it('hides the storage breadcrumb but still matches and inserts the actual path', () => {
+    const attachment = makeResource('a', `${ROOT}/Attachments/shot.png`);
+    const asset = makeResource('b', `${ROOT}/Assets/Brand/logo.png`);
+    const resources = [attachment, asset];
+    const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources));
+    expect(suggest('Attachments/shot')[0]).toMatchObject({ path: 'Attachments/shot.png', breadcrumb: null });
+    expect(suggest('logo')[0]).toMatchObject({ breadcrumb: 'Assets/Brand' });
+  });
+
+  it('shows the attachment breadcrumb when another filename matches case-insensitively', () => {
+    const resources = [makeResource('a', `${ROOT}/Attachments/shot.png`), makeResource('b', `${ROOT}/Assets/SHOT.png`)];
+    const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources));
+    expect(suggest('shot').map((item) => item.breadcrumb).sort()).toEqual(['Assets', 'Attachments']);
+  });
+});

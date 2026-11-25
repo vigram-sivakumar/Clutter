@@ -838,8 +838,10 @@ describe('embedLivePreview — Flow A: new Embed (type ![[, select, leave)', () 
     settleAllProbes();
     expect(accepted).toBe(true);
 
-    expect(view.state.doc.toString()).toBe(`${HERO}\n`);
-    expect(view.state.selection.main.head).toBe(HERO.length + 1); // the cursor moves to the new line below
+    expect(view.state.doc.toString()).toBe(HERO);
+    expect(view.state.selection.main.head).toBe(HERO.length);
+    expect(view.dom.classList.contains('cm-embed-object-selection-active')).toBe(true);
+    expect(view.dom.querySelector('.cm-embed-object-selected')).not.toBeNull();
     expect(getImg(view)?.src).toBe('app://vault/hero.png');
   });
 
