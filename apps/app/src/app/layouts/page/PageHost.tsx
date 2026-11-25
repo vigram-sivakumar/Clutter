@@ -1076,17 +1076,14 @@ export function PageHost({
       (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
 
   // The assets one Assets page lists — only its DIRECT ones: a folder's own files, or on the top-level
-  // page everything in the catalog (remote images and files elsewhere in the vault included) except the
+  // page local files only (remote references are not library entries), except the
   // files that live in a folder inside Assets/, which show in that folder instead.
   const assetsOfPage = (folderId: string | null): Asset[] =>
     application.membershipSelector
       .getAllAssets()
       .filter((asset) =>
         folderId === null
-          ? !(
-              asset.source === 'local' &&
-              application.membershipSelector.isInAssetsSubfolder(asset.resource)
-            )
+          ? asset.source === 'local' && !application.membershipSelector.isInAssetsSubfolder(asset.resource)
           : asset.source === 'local' && asset.resource.parentId === folderId
       );
 

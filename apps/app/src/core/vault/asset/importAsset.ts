@@ -78,9 +78,9 @@ export async function resolveAssetDestination(
   /** The absolute folder the file goes into — `Assets/` itself, or a folder inside it. Absent: `Assets/`. */
   destinationFolderPath?: string
 ): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
-  await ensureAssetsDirectory(fileSystem, vaultRoot);
-
-  const assetsDir = destinationFolderPath ?? `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
+  const defaultDir = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
+  const assetsDir = destinationFolderPath ?? defaultDir;
+  if (assetsDir === defaultDir) await ensureAssetsDirectory(fileSystem, vaultRoot);
   const dotIndex = fileName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
   const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';

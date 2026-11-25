@@ -1723,7 +1723,7 @@ export class Application {
    * Settles the open Space's own profile after the user has confirmed it: gives the Space an identity if it
    * has none (the lazy migration of a Space that predates them), and applies the avatar change — `undefined`
    * leaves the avatar as it is, `null` removes it, an emoji sets it, and an image is copied into the Space's
-   * `Assets/` (the usual asset convention) and stored as that vault-relative reference, so nothing depends
+   * `.clutter/media/` and stored as that vault-relative reference, so nothing depends
    * on the original file. Only ever called for the Space that is open, never merely because it was selected.
    */
   public async applySpaceProfile(change: SpaceProfileChange = {}): Promise<SpaceProfile> {
@@ -1731,14 +1731,7 @@ export class Application {
     if (avatar === undefined) {
       return this.spaceProfileStore.ensureIdentity();
     }
-    if (avatar === null) {
-      return this.spaceProfileStore.setAvatar(undefined);
-    }
-    if (avatar.type === 'emoji') {
-      return this.spaceProfileStore.setAvatar(avatar);
-    }
-    const reference = await this.importCoverAsset(avatar.sourcePath);
-    return this.spaceProfileStore.setAvatar({ type: 'image', src: reference });
+    return this.trackWrite(() => this.spaceProfileStore.changeAvatar(avatar));
   }
 
   /**

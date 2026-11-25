@@ -2,13 +2,13 @@ import {
   mergeAndWriteWorkspaceStateFile,
   readWorkspaceStateFileText,
 } from '../../vault/initialize/workspaceStateFile';
-import { importAsset } from '../../vault/asset/importAsset';
+import { copyManagedSpaceAvatar, removeReplacedManagedAvatar } from './managedSpaceAvatar';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 
 /**
  * The avatar a Space carries. An image is a *vault-relative* reference to a file inside the Space
- * (`Assets/…`), never a path outside it, so it travels with the folder.
+ * (`.clutter/media/…` for new avatars, legacy `Assets/…` still supported), so it travels with the folder.
  */
 export type SpaceProfileAvatar =
   | { readonly type: 'emoji'; readonly emoji: string }
@@ -179,10 +179,10 @@ function writtenByNewerVersion(contents: string): boolean {
  * lifecycle guard so the Space cannot open in between. It never touches another Space: every path it writes is
  * under `rootPath`, and the reference it stores is the one it just created, never a value from the caller.
  *
- *   image → copy into this Space's `Assets/` (collision-free name, existing assets untouched)
+ *   image → copy into this Space's `.clutter/media/` (collision-free name, existing assets untouched)
  *         → read the profile as it is NOW → write it with the new reference (identity first, if the Space had none)
  *   a failed write after the copy deletes the file this call created, and nothing else; an earlier avatar's asset is
- *   never deleted (it may be used by notes).
+ *   never deleted if it is a legacy library asset (it may be used by notes). Managed avatars are removed only after the new assignment is saved.
  *
  * Rejects, with the profile file unchanged, when the image cannot be stored, the profile cannot be read as an object
  * or was written by a newer version, or the write fails. Resolves the profile it wrote.
@@ -201,9 +201,8 @@ export async function setSpaceProfileAvatar(
   if (change?.type === 'emoji') {
     avatar = change;
   } else if (change?.type === 'image') {
-    const reference = await importAsset(fileSystem, rootPath, change.sourcePath);
-    createdAsset = `${rootPath}/${reference}`;
-    avatar = { type: 'image', src: reference };
+    avatar = await copyManagedSpaceAvatar(fileSystem, rootPath, change.sourcePath);
+    createdAsset = `${rootPath}/${avatar.src}`;
   }
 
   try {
@@ -211,19 +210,28 @@ export async function setSpaceProfileAvatar(
     const contents = await readWorkspaceStateFileText(fileSystem, rootPath);
     if (writtenByNewerVersion(contents)) throw new SpaceProfileNotUnderstoodError();
 
-    const { avatar: _previous, ...rest } = parseSpaceProfile(contents) ?? { id: new UuidGenerator().generate() };
+    const { avatar: previous, ...rest } = parseSpaceProfile(contents) ?? { id: new UuidGenerator().generate() };
     const next: SpaceProfile = avatar ? { ...rest, avatar } : rest;
 
     await mergeAndWriteWorkspaceStateFile(fileSystem, rootPath, {
       [SPACE_KEY]: { version: CURRENT_VERSION, ...next },
     });
 
+    const saved = parseSpaceProfile(await readWorkspaceStateFileText(fileSystem, rootPath));
+    if (!saved || JSON.stringify(saved.avatar) !== JSON.stringify(avatar)) throw new Error('The avatar was not saved');
+    await removeReplacedManagedAvatar(fileSystem, rootPath, previous, avatar);
     return next;
   } catch (error) {
     if (createdAsset !== undefined) {
-      await fileSystem.deleteFile(createdAsset).catch((cleanupError: unknown) => {
-        console.warn(`Could not remove the avatar image ${createdAsset} after a failed save.`, cleanupError);
-      });
+      // A failed durability check may mean the new reference reached disk. Never delete in that case.
+      try {
+        const saved = parseSpaceProfile(await readWorkspaceStateFileText(fileSystem, rootPath));
+        if (saved?.avatar?.type !== 'image' || `${rootPath}/${saved.avatar.src}` !== createdAsset) {
+          await fileSystem.deleteFile(createdAsset);
+        }
+      } catch (cleanupError) {
+        console.warn('Could not verify or remove the new avatar after a failed save', cleanupError);
+      }
     }
     throw error;
   }
@@ -281,6 +289,43 @@ export class SpaceProfileStore {
   async ensureIdentity(): Promise<SpaceProfile> {
     if (this.current) return this.current;
     return this.write({ id: new UuidGenerator().generate() });
+  }
+
+  private avatarChangeQueue: Promise<unknown> = Promise.resolve();
+
+  /** User-selected avatar changes, serialized so replacement cannot race cleanup. */
+  changeAvatar(change: SpaceAvatarChange): Promise<SpaceProfile> {
+    const result = this.avatarChangeQueue.then(async () => {
+      const previous = this.current?.avatar;
+      const avatar = change?.type === 'image'
+        ? await copyManagedSpaceAvatar(this.fileSystem, this.rootPath, change.sourcePath)
+        : change ?? undefined;
+      try {
+        const next = await this.setAvatar(avatar);
+        const saved = parseSpaceProfile(await readWorkspaceStateFileText(this.fileSystem, this.rootPath));
+        if (!saved || JSON.stringify(saved.avatar) !== JSON.stringify(avatar)) throw new Error('The avatar was not saved');
+        await removeReplacedManagedAvatar(this.fileSystem, this.rootPath, previous, avatar);
+        return next;
+      } catch (error) {
+        // Preserve the old file; only remove a newly copied image when disk confirms it is not assigned.
+        if (this.current && JSON.stringify(this.current.avatar) === JSON.stringify(avatar)) {
+          const { avatar: _discarded, ...rest } = this.current;
+          this.current = previous ? { ...rest, avatar: previous } : rest;
+          this.listeners.forEach((listener) => listener());
+        }
+        if (change?.type === 'image') {
+          try {
+            const saved = parseSpaceProfile(await readWorkspaceStateFileText(this.fileSystem, this.rootPath));
+            await removeReplacedManagedAvatar(this.fileSystem, this.rootPath, avatar, saved?.avatar);
+          } catch (cleanupError) {
+            console.warn('Could not verify or remove the new avatar after a failed save', cleanupError);
+          }
+        }
+        throw error;
+      }
+    });
+    this.avatarChangeQueue = result.catch(() => undefined);
+    return result;
   }
 
   /** Sets, or with `undefined` removes, the Space's avatar. Gives the Space an identity first if needed. */

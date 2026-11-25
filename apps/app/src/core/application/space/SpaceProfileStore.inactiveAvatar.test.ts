@@ -43,14 +43,15 @@ describe('setSpaceProfileAvatar — a Space that is not open', () => {
     expect((await disk(fileSystem)).foldState).toEqual({ a: true });
   });
 
-  it('copies an image into THIS Space’s Assets and stores that reference, after the copy succeeded', async () => {
+  it('copies an image into THIS Space’s private media and stores that reference, after the copy succeeded', async () => {
     const fileSystem = setup();
 
     const profile = await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE });
 
-    expect(profile.avatar).toEqual({ type: 'image', src: 'Assets/photo.png' });
-    expect(fileSystem.getFileSync(`${ROOT}/Assets/photo.png`)).toBe('PNG-BYTES');
-    expect((await disk(fileSystem)).space.avatar).toEqual({ type: 'image', src: 'Assets/photo.png' });
+    expect(profile.avatar).toEqual({ type: 'image', src: expect.stringMatching(/^\.clutter\/media\/avatar-.*\.png$/) });
+    const src = (profile.avatar as { src: string }).src;
+    expect(fileSystem.getFileSync(`${ROOT}/${src}`)).toBe('PNG-BYTES');
+    expect((await disk(fileSystem)).space.avatar).toEqual(profile.avatar);
   });
 
   it('names a colliding asset collision-free and leaves the existing one untouched', async () => {
@@ -59,9 +60,22 @@ describe('setSpaceProfileAvatar — a Space that is not open', () => {
 
     const profile = await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE });
 
-    expect(profile.avatar).toEqual({ type: 'image', src: 'Assets/photo 2.png' });
+    expect(profile.avatar).toEqual({ type: 'image', src: expect.stringMatching(/^\.clutter\/media\/avatar-.*\.png$/) });
     expect(fileSystem.getFileSync(`${ROOT}/Assets/photo.png`)).toBe('SOMEONE-ELSES');
-    expect(fileSystem.getFileSync(`${ROOT}/Assets/photo 2.png`)).toBe('PNG-BYTES');
+    expect(fileSystem.getFileSync(`${ROOT}/${(profile.avatar as { src: string }).src}`)).toBe('PNG-BYTES');
+  });
+
+  it('removes a previous managed avatar only after replacement is saved', async () => {
+    const fileSystem = setup();
+    const first = await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE });
+    const old = (first.avatar as { src: string }).src;
+    const second = await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE });
+    const next = (second.avatar as { src: string }).src;
+    expect(next).not.toBe(old);
+    expect(await fileSystem.exists(`${ROOT}/${old}`)).toBe(false);
+    expect(await fileSystem.exists(`${ROOT}/${next}`)).toBe(true);
+    await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'emoji', emoji: '🌿' });
+    expect(await fileSystem.exists(`${ROOT}/${next}`)).toBe(false);
   });
 
   it('gives a Space with no profile an identity, as the open Space does', async () => {
@@ -108,7 +122,7 @@ describe('setSpaceProfileAvatar — a Space that is not open', () => {
 
     await setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE });
 
-    expect((await disk(fileSystem)).space).toMatchObject({ defaultCoverPosition: 'above', avatar: { type: 'image', src: 'Assets/photo.png' } });
+    expect((await disk(fileSystem)).space).toMatchObject({ defaultCoverPosition: 'above', avatar: { type: 'image', src: expect.stringMatching(/^\.clutter\/media\/avatar-.*\.png$/) } });
   });
 
   it('two requests in a row each take effect in order, and the last one wins', async () => {
@@ -142,7 +156,7 @@ describe('setSpaceProfileAvatar — failures leave nothing half-saved', () => {
 
     await expect(setSpaceProfileAvatar(fileSystem, ROOT, { type: 'image', sourcePath: SOURCE })).rejects.toThrow('write refused');
 
-    expect(fileSystem.hasFileSync(`${ROOT}/Assets/photo 2.png`)).toBe(false);
+    expect(await fileSystem.readDirectory(`${ROOT}/.clutter/media`)).toEqual([]);
     expect(fileSystem.getFileSync(`${ROOT}/Assets/photo.png`)).toBe('EXISTING');
     expect(JSON.parse(fileSystem.getFileSync(FILE)!).space.avatar).toBeUndefined();
   });
@@ -174,7 +188,7 @@ describe('setSpaceProfileAvatar — failures leave nothing half-saved', () => {
     );
 
     expect(await fileSystem.readFile(FILE)).toBe(before);
-    expect(fileSystem.hasFileSync(`${ROOT}/Assets/photo.png`)).toBe(false);
+    expect(await fileSystem.readDirectory(`${ROOT}/.clutter/media`)).toEqual([]);
   });
 
   it.each([

@@ -68,15 +68,18 @@ describe('Application.applySpaceProfile', () => {
   });
 
   it('copies an image into the Space and stores a Space-relative reference, not the original path', async () => {
-    const { application } = await createApplication();
-    const importCover = vi.spyOn(application, 'importCoverAsset').mockResolvedValue('Assets/logo.png');
+    const { application, fileSystem } = await createApplication();
+    fileSystem.seedFile('/Users/me/Pictures/logo.png', 'image bytes');
 
     const profile = await application.applySpaceProfile({
       avatar: { type: 'image', sourcePath: '/Users/me/Pictures/logo.png' },
     });
 
-    expect(importCover).toHaveBeenCalledWith('/Users/me/Pictures/logo.png');
-    expect(profile.avatar).toEqual({ type: 'image', src: 'Assets/logo.png' });
+    expect(profile.avatar).toEqual({ type: 'image', src: expect.stringMatching(/^\.clutter\/media\/avatar-.*\.png$/) });
+    const src = (profile.avatar as { src: string }).src;
+    expect(await fileSystem.readFile(`${ROOT}/${src}`)).toBe('image bytes');
+    await application.applySpaceProfile({ avatar: null });
+    expect(await fileSystem.exists(`${ROOT}/${src}`)).toBe(false);
   });
 
   it('removes the avatar on null and leaves it alone on undefined', async () => {
@@ -88,9 +91,9 @@ describe('Application.applySpaceProfile', () => {
   });
 
   it('does not copy anything when an image cannot be imported, and keeps the previous avatar', async () => {
-    const { application } = await createApplication();
+    const { application, fileSystem } = await createApplication();
     await application.applySpaceProfile({ avatar: { type: 'emoji', emoji: '🌿' } });
-    vi.spyOn(application, 'importCoverAsset').mockRejectedValue(new Error('copy failed'));
+    vi.spyOn(fileSystem, 'copyFile').mockRejectedValue(new Error('copy failed'));
 
     await expect(
       application.applySpaceProfile({ avatar: { type: 'image', sourcePath: '/x.png' } })
