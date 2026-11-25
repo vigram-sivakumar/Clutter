@@ -192,7 +192,7 @@ describe('createWikiLinkResolver', () => {
     const resolution = resolve('Alpha', null);
 
     expect(resolution.status).toBe('resolved');
-    expect(resolution.displayLabel).toBe('Page');
+    expect(resolution.displayLabel).toBe('Path');
   });
 
   it('returns ambiguous, never a silent pick, when multiple pages share an alias', () => {
