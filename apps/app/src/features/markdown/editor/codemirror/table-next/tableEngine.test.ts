@@ -74,7 +74,7 @@ describe('table-next model and structural commands', () => {
 });
 
 function makeHistory(source: string) {
-  let state = EditorState.create({ doc: source, extensions: [history()], selection: { anchor: source.length } });
+  let state = EditorState.create({ doc: source, extensions: [history({ minDepth: 1000 })], selection: { anchor: source.length } });
   const target = {
     get state() { return state; },
     dispatch(tr: Transaction) { state = tr.state; },

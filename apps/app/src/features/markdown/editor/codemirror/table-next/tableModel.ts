@@ -105,15 +105,15 @@ function readWidths(line: string, count: number): readonly number[] | null {
  */
 export function readTable(source: string, tableFrom: number, parse: ParseMarkdown): TableSnapshot {
   const tree = parse(source);
-  let table: SyntaxNode | undefined;
+  const matches: SyntaxNode[] = [];
   tree.iterate({ enter(node) {
     if (node.name === 'Table' && node.from === tableFrom) {
-      table = node.node;
+      matches.push(node.node);
       return false;
     }
   } });
-  if (!table) fail('No table at requested source position');
-  const node: SyntaxNode = table;
+  const node = matches[0];
+  if (!node) fail('No table at requested source position');
   if (node.parent?.name !== 'Document' || node.from !== lineStart(source, node.from)) {
     fail('Nested/indented tables are outside the first prototype');
   }
