@@ -39,6 +39,10 @@
   border-radius: var(--radius-md);
   background: var(--surface-layer-subtle);
 }
+/* Match the sidebar avatar: PNGs have no visible backing surface or inset border. */
+.space-page__avatar .space__avatar--borderless {
+  background: transparent;
+}
 .space-page__avatar:hover .space__avatar {
   opacity: 1;
   transition: opacity 220ms ease;
