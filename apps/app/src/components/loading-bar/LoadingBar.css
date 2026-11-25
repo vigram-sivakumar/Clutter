@@ -12,15 +12,15 @@
 .loading-bar .gradient-grainy__blob {
   width: 75%;
   animation-name: loading-bar-flow;
-  animation-duration: 1.4s;
+  animation-duration: 4s;
   animation-timing-function: ease-in-out;
 }
 
 /* The full-screen gradient's slow rotation is barely visible in a thin bar.
    Use compositor transforms to sweep the same randomly coloured blobs. */
 @keyframes loading-bar-flow {
-  from { transform: translateX(-65%) scaleX(1.1); }
-  to { transform: translateX(65%) scaleX(1.25); }
+  from { transform: translateX(-35%) scaleX(1.1); }
+  to { transform: translateX(35%) scaleX(1.15); }
 }
 
 @media (prefers-reduced-motion: reduce) {
