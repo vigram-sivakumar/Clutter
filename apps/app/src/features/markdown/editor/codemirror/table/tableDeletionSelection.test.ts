@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorSelection, EditorState } from '@codemirror/state';
+import { history, undo, redo, undoDepth } from '@codemirror/commands';
+import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -18,7 +19,7 @@ afterEach(() => {
   }
 });
 
-function mountRootView(doc: string, pos: number): { view: EditorView; controller: TableActiveCellController } {
+function mountRootView(doc: string, pos: number, extra: Extension = []): { view: EditorView; controller: TableActiveCellController } {
   const controller = new TableActiveCellController();
   const parent = document.createElement('div');
   document.body.appendChild(parent);
@@ -26,7 +27,7 @@ function mountRootView(doc: string, pos: number): { view: EditorView; controller
     state: EditorState.create({
       doc,
       selection: EditorSelection.cursor(pos),
-      extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableDeletionSelectionField, tableWholeDeletionKeymap()],
+      extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableDeletionSelectionField, tableWholeDeletionKeymap(), extra],
     }),
     parent,
   });
@@ -85,6 +86,46 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
 
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
     expect(view.state.doc.toString()).toBe(doc);
+  });
+});
+
+describe('whole-table deletion through root history', () => {
+  it.each(['above', 'below'])('includes the attached width line when armed from %s', (side) => {
+    const source = 'Before\n\n' + TABLE + '\n{table-col-widths=" 80, 240 "}\n\nAfter';
+    const start = source.indexOf('|');
+    const { view } = mountRootView(source, side === 'above' ? start - 1 : source.indexOf('\n\nAfter') + 1, history());
+    dispatchKey(view, side === 'above' ? 'Delete' : 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toBe(start);
+    expect(undoDepth(view.state)).toBe(0);
+    dispatchKey(view, side === 'above' ? 'Backspace' : 'Delete');
+    const deleted = 'Before\n\n\n\nAfter';
+    expect(view.state.doc.toString()).toBe(deleted);
+    expect(view.state.selection.main.head).toBe(start);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(deleted);
+  });
+
+  it('preserves a following malformed width line when deleting from above', () => {
+    const source = '\n' + TABLE + '\n{table-col-widths="oops"}';
+    const { view } = mountRootView(source, 0);
+    dispatchKey(view, 'Delete');
+    dispatchKey(view, 'Delete');
+    expect(view.state.doc.toString()).toBe('\n\n{table-col-widths="oops"}');
+  });
+
+  it('consumes a refused deletion without applying a filter rewrite or a fallback edit', () => {
+    const source = TABLE + '\n';
+    const filter = EditorState.transactionFilter.of(tr => tr.docChanged ? { changes: { from: 0, insert: 'unexpected' } } : tr);
+    const { view } = mountRootView(source, source.length, [history(), filter]);
+    dispatchKey(view, 'Backspace');
+    const event = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+    view.contentDOM.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
   });
 });
 

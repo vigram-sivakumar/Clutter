@@ -1,13 +1,14 @@
 import { invertedEffects } from '@codemirror/commands';
-import { EditorSelection, Prec, type ChangeSpec, type Extension } from '@codemirror/state';
+import { Prec, type ChangeSpec, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 import type { SyntaxNode } from '@lezer/common';
 
+import { deleteProjectedTable } from '../table-engine/tableTransaction';
 import { splitPipeRowCells } from './tableAlignment';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnDeletion, resolveTableColumnWidths, tableRemovalRangeIncludingWidths } from './tableColumnWidthMetadata';
+import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnDeletion, resolveTableColumnWidths } from './tableColumnWidthMetadata';
 
 /**
  * Structural deletion of a currently-selected table row or column
@@ -150,53 +151,15 @@ function nextSelectionAfterColumnDeletion(tableFrom: number, columnIndex: number
   return { kind: 'column', tableFrom, columnIndex: clampNextIndex(columnIndex, newColumnCount) };
 }
 
-/**
- * Always passes an explicit `selection` — even when `caretAnchor` is
- * omitted, in which case it's the exact same mapped position CM6 would have
- * computed on its own (`startState.selection.map(changes)`, per
- * `Transaction`'s own `newSelection` getter). This isn't a behavior change;
- * it's what makes `tableRootSelectionSnap`'s own transaction filter actually
- * run at all — that filter starts with `if (!tr.selection) return tr`,
- * i.e. it only ever inspects a transaction's *explicitly* provided
- * selection, never one CM6 derived implicitly by mapping. A plain
- * `changes`-only dispatch (no `selection` field) would silently skip that
- * safety net — confirmed directly: without this, a pre-existing root
- * selection that happened to map into the table's shrunken-but-still-
- * present range after a row/column deletion was left there uncorrected.
- */
-function dispatchDeletion(view: EditorView, changes: ChangeSpec[], nextSelection: TableSelection | null, caretAnchor?: number): void {
-  const changeSet = view.state.changes(changes);
-  const selection = caretAnchor !== undefined ? EditorSelection.single(caretAnchor) : view.state.selection.map(changeSet);
+/** Supply the mapped root selection explicitly so the root caret snap filter sees it. */
+function dispatchDeletion(view: EditorView, changes: ChangeSpec[], nextSelection: TableSelection | null): void {
+  const selection = view.state.selection.map(view.state.changes(changes));
   view.dispatch({
     changes,
     selection,
     effects: [tableSelectionChanged.of(nextSelection)],
     scrollIntoView: true,
   });
-}
-
-/**
- * Deletes the whole table — the only correct outcome for deleting a
- * single-column table's own last remaining column (unlike a row, which can
- * shrink to a valid zero-body-row, header-only table, a table cannot have
- * zero columns and still be a valid GFM table, so there is no partial
- * remnant to preserve) and for deleting a header row with no body row left
- * to promote. Mirrors `tableDeletionSelection.ts`'s own `deleteTable` shape
- * (delete the table's own range, land the caret at the position that range's
- * own start maps to) — not reused directly because that function also
- * always clears `tableDeletionSelectionChanged`, an effect meaningless to
- * this module's own (always-null-here) whole-table-selection case.
- *
- * **Also removes the table's own width-metadata attribute line, when one
- * exists**, via `tableRemovalRangeIncludingWidths` — in the same one-change
- * removal, so undo restores both the table and its widths together. Fixed
- * here, in the one function both cascades (column-count-1, header-with-no-
- * body) already funnel through, rather than duplicated at each call site.
- */
-function deleteWholeTable(view: EditorView, table: TableInfo): void {
-  const attribute = resolveTableColumnWidths(view.state, table);
-  const range = tableRemovalRangeIncludingWidths(table, attribute);
-  dispatchDeletion(view, [{ from: range.from, to: range.to, insert: '' }], null, table.from);
 }
 
 /**
@@ -228,8 +191,7 @@ function deleteHeaderRow(view: EditorView, table: TableInfo, navigableRows: read
   }
   const firstBodyRow = navigableRows[1];
   if (!firstBodyRow) {
-    deleteWholeTable(view, table);
-    return true;
+    return deleteProjectedTable(view, table, tableSelectionChanged.of(null));
   }
   const removalRange = rowDeletionRange(navigableRows, 1);
   if (!removalRange) {
@@ -297,8 +259,7 @@ function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: n
     return false;
   }
   if (headerColumnCount <= 1) {
-    deleteWholeTable(view, table);
-    return true;
+    return deleteProjectedTable(view, table, tableSelectionChanged.of(null));
   }
 
   const changes: ChangeSpec[] = [];
@@ -324,7 +285,7 @@ function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: n
   // removed from the array at the same index, mirroring the cell-content
   // removal above (`nextWidthsAfterColumnDeletion`). Not reached for a
   // single-column table (the `headerColumnCount <= 1` branch above already
-  // returned via `deleteWholeTable`, which removes the whole attribute line
+  // returned via `deleteProjectedTable`, which removes the whole attribute line
   // instead of shrinking it).
   const attribute = resolveTableColumnWidths(view.state, table);
   const nextWidths = nextWidthsAfterColumnDeletion(attribute?.widths ?? null, columnIndex);

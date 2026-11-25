@@ -1,6 +1,8 @@
 import { Prec, StateEffect, StateField, type EditorState, type Extension, type SelectionRange } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
+import { deleteProjectedTable } from '../table-engine/tableTransaction';
+import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
 import { tableActiveCellChanged } from './tableActiveCellController';
 import { findAllTables, type TableInfo } from './tableGeometry';
 
@@ -116,7 +118,9 @@ function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table:
     return false;
   }
   const line = state.doc.lineAt(range.head);
-  return line.text.length === 0 && state.doc.lineAt(table.to).number === line.number - 1;
+  if (line.length !== 0) return false;
+  const distance = line.number - state.doc.lineAt(table.to).number;
+  return distance === 1 || (distance === 2 && resolveTableColumnWidths(state, table) !== null);
 }
 
 /**
@@ -143,12 +147,9 @@ function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table
 }
 
 /** The table whose own blank line directly below it currently holds a collapsed caret at `pos` — `null` if `pos` isn't on any such line. The Backspace-only arming trigger for the "below" direction. */
-function findTableAboveBlankLine(state: EditorState, pos: number): TableInfo | null {
-  const line = state.doc.lineAt(pos);
-  if (line.text.length !== 0) {
-    return null;
-  }
-  return findAllTables(state).find((table) => state.doc.lineAt(table.to).number === line.number - 1) ?? null;
+function findTableAboveBlankLine(state: EditorState, range: SelectionRange): TableInfo | null {
+  if (state.doc.lineAt(range.head).length !== 0) return null;
+  return findAllTables(state).find((table) => isCaretJustBelowTable(state, range, table)) ?? null;
 }
 
 /** The table whose own first line directly follows the line ending at `pos` — `null` if `pos` isn't at such a line's own end. The Delete-only arming trigger for the "above" direction, mirroring `findTableAboveBlankLine`. */
@@ -158,16 +159,6 @@ function findTableBelowLineEnd(state: EditorState, pos: number): TableInfo | nul
     return null;
   }
   return findAllTables(state).find((table) => state.doc.lineAt(table.from).number === line.number + 1) ?? null;
-}
-
-function deleteTable(view: EditorView, table: TableInfo): boolean {
-  view.dispatch({
-    changes: { from: table.from, to: table.to, insert: '' },
-    selection: { anchor: table.from },
-    effects: tableDeletionSelectionChanged.of(null),
-    scrollIntoView: true,
-  });
-  return true;
 }
 
 /**
@@ -200,7 +191,9 @@ export function tableWholeDeletionKeymap(): Extension {
     if (!table || !isCaretAdjacentToTable(view.state, sel, table)) {
       return null;
     }
-    return deleteTable(view, table);
+    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null));
+    // Consume the armed gesture even if a root filter refuses the edit.
+    return true;
   }
 
   const backspaceCommand: Command = (view) => {
@@ -215,7 +208,7 @@ export function tableWholeDeletionKeymap(): Extension {
     // Arming trigger: only from the blank line below a table — a plain
     // Backspace at the end of an ordinary line (the "above" position)
     // must keep doing ordinary character deletion, never arm anything.
-    const table = findTableAboveBlankLine(view.state, sel.head);
+    const table = findTableAboveBlankLine(view.state, sel);
     if (!table) {
       return false;
     }

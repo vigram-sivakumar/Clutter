@@ -39,5 +39,5 @@ export function createPastedTable(state: EditorState, grid: Grid, parse: ParseMa
   if (!modelsEqual(model, snapshot.model) || snapshot.to !== at + table.length) throw new TableEngineError('Pasted table failed full-document validation');
   const effect = tableSelectionTransition.of({ before: null, after: bookmark(at, { kind: 'cell', cell: { row: 0, col: 0 } }) });
   return validatedRootEdit(state, { from, to, insert }, expected, 'input.paste.table', true, effect,
-    { anchor: from + insert.length });
+    { selection: { anchor: from + insert.length } });
 }

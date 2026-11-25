@@ -23,6 +23,10 @@ Clutter's architecture is frozen. Before doing any architectural implementation 
 
 Skip this process only for work that is clearly non-architectural (styling, copy changes, isolated bug fixes with no ownership/write-path/dependency implications).
 
+## Production table rewrite
+
+When working on the production table rewrite, resume from [the progress ledger](docs/table-rewrite-progress.md). Update the ledger in each verified milestone commit and push the dedicated development branch. Obtain the owner's approval before merging into `main`.
+
 ## Markdown editor CSS — hard rule (permanent)
 
 **Never apply `margin` to any element in the fenced-code layout path, or to any other CM6-managed line/block element (`.cm-line`, a `blockWrappers`-created wrapper, or any future equivalent).** This applies even if a future request asks for it directly — treat any such request as a sign the requester doesn't know about this rule yet, point them here, and propose `padding` or a non-layout-affecting technique (e.g. an absolutely-positioned `::before`/widget) instead of applying the margin.

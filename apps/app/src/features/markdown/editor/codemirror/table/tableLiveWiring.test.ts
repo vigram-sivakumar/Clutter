@@ -198,6 +198,19 @@ describe('table live wiring — read-only (note embed) table', () => {
 });
 
 describe('table live wiring — editable top-level table', () => {
+  it('arms and removes an explicitly sized table from the blank line below its width metadata', () => {
+    const doc = TABLE + '\n{table-col-widths="100,180"}\n';
+    const view = mount(doc, false, new TableActiveCellController());
+    view.dispatch({ selection: { anchor: doc.length } });
+    const press = (key: string) => view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    press('Backspace');
+    expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    press('Delete');
+    expect(view.state.doc.toString()).toBe('\n');
+    expect(view.dom.querySelector('.cm-table-widget')).toBeNull();
+  });
+
   it('clicking an inactive cell activates it: mounts the nested editor inside that cell\'s own wrapper, with the caret placed there', () => {
     const controller = new TableActiveCellController();
     const view = mount(TABLE, false, controller);

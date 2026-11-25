@@ -886,7 +886,7 @@ export const MarkdownEditor = forwardRef<
   // tableSelectionDeletion.ts's own existing deleteRowSelection/
   // deleteColumnSelection (header deletion promotes the next body row;
   // deleting a table's only remaining column deletes the whole table — see
-  // that module's own deleteHeaderRow/deleteWholeTable doc comments).
+  // deleteHeaderRow and deleteProjectedTable).
   // Deliberately not reachable via Backspace/Delete — tableSelectionClearKeymap()
   // still owns that keyboard path (Clear contents); this is the menu's own,
   // separate entry point into structural deletion.

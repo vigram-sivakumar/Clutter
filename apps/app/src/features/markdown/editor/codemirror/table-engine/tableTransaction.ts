@@ -1,6 +1,8 @@
 import { isolateHistory } from '@codemirror/commands';
-import { EditorState, Transaction, type StateEffect, type ChangeSpec, type EditorSelection } from '@codemirror/state';
+import { EditorState, Transaction, type StateEffect, type ChangeSpec, type TransactionSpec } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
+import { resolveTableColumnWidths, tableRemovalRangeIncludingWidths } from '../table/tableColumnWidthMetadata';
+import type { TableInfo } from '../table/tableGeometry';
 import { planTableEdit, type TableCommand } from './tableCommands';
 import { readTable, TableEngineError, type ParseMarkdown } from './tableModel';
 
@@ -14,11 +16,11 @@ export function validatedRootEdit(
   userEvent: string,
   isolated: boolean,
   effect?: StateEffect<unknown>,
-  selection?: EditorSelection | { anchor: number }
+  placement?: Pick<TransactionSpec, 'selection' | 'scrollIntoView'>
 ): Transaction {
   if (state.readOnly) throw new TableEngineError('Read-only document');
   const tr = state.update({
-    changes, userEvent, selection,
+    changes, userEvent, ...placement,
     annotations: isolated ? isolateHistory.of('full') : undefined,
     effects: effect,
   });
@@ -30,6 +32,30 @@ export function validatedRootEdit(
   return tr;
 }
 
+function createTableRemoval(state: EditorState, from: number, to: number, effect?: StateEffect<unknown>): Transaction {
+  const expected = state.doc.sliceString(0, from) + state.doc.sliceString(to);
+  return validatedRootEdit(state, { from, to }, expected, 'delete.table', true, effect,
+    { selection: { anchor: from }, scrollIntoView: true });
+}
+
+/** The live projection already has the shared grammar node. Removing a complete
+ * table also works for imported rows the rectangular model cannot represent.
+ * Only a width line positively associated with that table belongs to the edit.
+ */
+export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>): boolean {
+  if (view.state.readOnly) return false;
+  const { from, to } = tableRemovalRangeIncludingWidths(table, resolveTableColumnWidths(view.state, table));
+  let transaction: Transaction;
+  try {
+    transaction = createTableRemoval(view.state, from, to, effect);
+  } catch (error) {
+    if (error instanceof TableEngineError) return false;
+    throw error;
+  }
+  view.dispatch(transaction);
+  return true;
+}
+
 type RootTableCommand = TableCommand | { readonly kind: 'deleteTable' };
 
 export function createTableTransaction(state: EditorState, tableFrom: number, command: RootTableCommand, parse: ParseMarkdown, effect?: StateEffect<unknown>): Transaction | null {
@@ -37,8 +63,7 @@ export function createTableTransaction(state: EditorState, tableFrom: number, co
   const source = state.doc.toString();
   if (command.kind === 'deleteTable') {
     const { from, to } = readTable(source, tableFrom, parse);
-    return validatedRootEdit(state, { from, to }, source.slice(0, from) + source.slice(to),
-      'delete.table', true, effect, { anchor: from });
+    return createTableRemoval(state, from, to, effect);
   }
   const edit = planTableEdit(source, tableFrom, command, parse);
   if (!edit) return null;
