@@ -21,6 +21,7 @@ import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationU
 import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { getEmbedMarkerRanges, scanEmbed } from '../../../../../core/vault/ingest/grammar/embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
+import { isStandaloneEmbedLine } from './embedBlockLine';
 import {
   embedObjectSelectionField,
   embedObjectSelectionKeymap,
@@ -332,6 +333,17 @@ function buildDecorations(
         }
 
         const resolution = resolveEmbedImage(match.path, match.alias);
+        // A block widget inside a line of editable text breaks caret geometry.
+        // Keep externally authored or manually typed inline media as source.
+        // Read-only previews do not have an editing caret and retain rendering.
+        const inlineEditable = !view.state.readOnly && !isStandaloneEmbedLine(view.state, node);
+        if (inlineEditable && (resolution.status === 'image' ||
+          classifyEmbedTargetExtension(match.path) === 'image' ||
+          /\.pdf$/i.test(match.path))) {
+          ranges.push(...markerRanges);
+          return;
+        }
+
         if (resolution.status === 'non-image' || resolution.status === 'unresolved') {
           // Two different reasons to ask the PDF resolver, same question
           // either way — "should this render as a PDF instead": for
@@ -345,6 +357,11 @@ function buildDecorations(
           // place of the image resolution above.
           const resolveEmbedPdf = getResolveEmbedPdf();
           const pdfResolution = resolveEmbedPdf?.(match.path, match.alias);
+
+          if (inlineEditable && (pdfResolution?.status === 'pdf' || pdfResolution?.status === 'unresolved')) {
+            ranges.push(...markerRanges);
+            return;
+          }
 
           if (pdfResolution?.status === 'pdf') {
             const pdfWidget = new PdfEmbedWidget(

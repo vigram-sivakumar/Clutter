@@ -2,6 +2,7 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import type { EditorState, StateEffect } from '@codemirror/state';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
 import { selectInsertedEmbeds, type EmbedObjectRange } from './embedObjectSelection';
+import { isStandaloneEmbedLine } from './embedBlockLine';
 
 /** One insertion policy for autocomplete and imported files. Only actual parsed embeds qualify;
  * literal syntax in code or other non-embed contexts must not acquire an invisible selection.
@@ -17,7 +18,7 @@ export function insertedEmbedEffects(
   ensureSyntaxTree(state, to, 100)?.iterate({
     from, to,
     enter(node) {
-      if (node.name === 'Embed' && node.from >= from && node.to <= to && matches(state.sliceDoc(node.from, node.to))) {
+      if (node.name === 'Embed' && node.from >= from && node.to <= to && isStandaloneEmbedLine(state, node) && matches(state.sliceDoc(node.from, node.to))) {
         ranges.push({ from: node.from, to: node.to });
         return false;
       }

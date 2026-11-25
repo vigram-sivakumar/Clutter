@@ -189,7 +189,7 @@ const HERO = '![[hero.png]]';
 describe('embedLivePreview — rendering (cursor already outside — "at rest")', () => {
   it('renders a resolved root-level image resource', () => {
     const view = mountView(
-      `x ${HERO}`,
+      `x\n${HERO}`,
       resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') })
     );
 
@@ -201,7 +201,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
 
   it('renders a resolved nested image resource', () => {
     const view = mountView(
-      'x ![[Projects/A/hero.png]]',
+      'x\n![[Projects/A/hero.png]]',
       resolverFor({
         'Projects/A/hero.png': imageResolution('app://vault/Projects/A/hero.png', 'Projects/A/hero.png', 'hero.png'),
       })
@@ -212,7 +212,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
 
   it('renders a resolved resource inside the managed Assets/ folder', () => {
     const view = mountView(
-      'x ![[Assets/hero.png]]',
+      'x\n![[Assets/hero.png]]',
       resolverFor({
         'Assets/hero.png': imageResolution('app://vault/Assets/hero.png', 'Assets/hero.png', 'hero.png'),
       })
@@ -230,7 +230,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
   });
 
   it('a missing/unresolved (but non-empty) resource renders the broken-resource state, never a real <img> load attempt', () => {
-    const view = mountView('x ![[missing.png]]', resolverFor({}));
+    const view = mountView('x\n![[missing.png]]', resolverFor({}));
 
     expect(getImg(view)).toBeNull();
     expect(view.dom.querySelector('.cm-invalid-embed')).not.toBeNull();
@@ -239,7 +239,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
 
   it('an invalid image URL/load failure for an otherwise-resolved resource renders the custom broken state, via the exact same ImageWidget onerror mechanism standard images already use', () => {
     const view = mountView(
-      `x ${HERO}`,
+      `x\n${HERO}`,
       resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') })
     );
     expect(getImg(view)).not.toBeNull();
@@ -262,7 +262,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
     const parent = document.createElement('div');
     document.body.appendChild(parent);
     const state = EditorState.create({
-      doc: `x ${HERO}`,
+      doc: `x\n${HERO}`,
       extensions: [markdownLanguageExtension(), embedLivePreview({
       hostPageId: 'test-host-page',
       resolveEmbedImage: () => undefined,
@@ -341,18 +341,24 @@ describe('embedLivePreview — global media/embed block-flow contract (.cm-media
   });
 
   it('a broken asset-embed root also carries .cm-media-block — the contract applies in every state', () => {
-    const view = mountView('x ![[missing.png]]', resolverFor({}));
+    const view = mountView('x\n![[missing.png]]', resolverFor({}));
     const broken = view.dom.querySelector('.cm-invalid-embed');
     expect(broken).not.toBeNull();
     expect(broken?.classList.contains('cm-media-block')).toBe(true);
   });
 
-  it('a narrow custom-width asset embed still carries .cm-media-block mid-paragraph, with real text immediately before and after it on the same Markdown line', () => {
+  it('keeps external inline media editable and preserves source until explicitly moved to its own line', () => {
     const resolve = resolverFor({ 'image.png': imageResolution('app://vault/image.png', 'image.png', 'image.png') });
-    const view = mountView('Some text here. ![[image.png|320]] More text here.', resolve);
-    expect(view.dom.textContent).toContain('Some text here.');
-    expect(view.dom.textContent).toContain('More text here.');
+    const doc = 'Some text here. ![[image.png|320]] More text here.';
+    const view = mountView(doc, resolve);
+    expect(view.dom.textContent).toContain(doc);
+    expect(view.dom.querySelector('.cm-media-block')).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    const standalone = 'Some text here. More text here.\n![[image.png|320]]';
+    view.dispatch({ changes: { from: 0, to: doc.length, insert: standalone }, selection: { anchor: 0 } });
+    settleAllProbes();
     expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
+    expect(view.state.doc.toString()).toBe(standalone);
   });
 });
 
@@ -444,7 +450,7 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
     const view = mountAndType(
       resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') }),
       '',
-      ' x'
+      '\nx'
     );
     expect(getImg(view)).toBeNull();
 
@@ -455,7 +461,7 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
   });
 
   it('moving the cursor away from a freshly-completed, genuinely-nonexistent embed for the first time transitions it to the broken state — this is the expected, accepted outcome for a complete-but-nonexistent target (distinct from empty syntax, which never renders)', () => {
-    const view = mountAndType(resolverFor({}), '', ' x');
+    const view = mountAndType(resolverFor({}), '', '\nx');
     expect(getImg(view)).toBeNull();
     expect(view.dom.querySelector('.cm-invalid-embed')).toBeNull();
 
@@ -467,8 +473,8 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
   it('Phase 2: once an embed has settled (rendered once), merely navigating back into it does NOT hide the rendered widget again — navigation is not editing', () => {
     const view = mountAndType(
       resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') }),
-      'x ',
-      ' y'
+      'x\n',
+      '\ny'
     );
     // Leave once — this is what "settles" it (pendingFirstLeave -> false).
     view.dispatch({ selection: { anchor: 0 } });
@@ -478,7 +484,7 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
     // Navigate back inside via a pure selection change (click/arrow-key
     // equivalent) — must NOT revert to raw, matching the same rule
     // WikiLink/standard images now follow.
-    view.dispatch({ selection: { anchor: 'x '.length + 6 } });
+    view.dispatch({ selection: { anchor: 'x\n'.length + 6 } });
 
     expect(getImg(view)).not.toBeNull();
   });
@@ -488,7 +494,7 @@ describe('embedLivePreview — Edit source still works exactly like standard ima
   const resolve = resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') });
 
   it('Edit reveals the raw Embed source above the still-rendered image, caret at the end', () => {
-    const view = mountView(`x ${HERO}`, resolve);
+    const view = mountView(`x\n${HERO}`, resolve);
 
     clickEdit(view);
     settleAllProbes();
@@ -497,12 +503,12 @@ describe('embedLivePreview — Edit source still works exactly like standard ima
     expect(getImg(view)).not.toBeNull(); // both representations coexist, per the shared ImageWidget contract
     const sel = view.state.selection.main;
     expect(sel.empty).toBe(true);
-    expect(sel.from).toBe(`x ${HERO}`.length);
+    expect(sel.from).toBe(`x\n${HERO}`.length);
   });
 
   it('while editing, the revealed source is ordinary document text — clicking it does not open the image overlay or navigate', () => {
     const onImageClick = vi.fn();
-    const view = mountView(`x ${HERO}`, resolve, 0, onImageClick);
+    const view = mountView(`x\n${HERO}`, resolve, 0, onImageClick);
 
     clickEdit(view);
     view.dom.querySelector('.cm-line')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -528,7 +534,7 @@ describe('embedLivePreview — remove', () => {
   it("opening the size menu for a resolved embed reports the exact node pos/to computeEmbedRemovalRange (MarkdownEditor.tsx's own handleRemoveImage) needs — Remove for a working embed is MarkdownEditor-level wiring shared unchanged with standard images, not this plugin's own concern", () => {
     let captured: OpenImageMenuParams | null = null;
     const view = mountView(
-      `See: ${HERO}`,
+      `See:\n${HERO}`,
       resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') }),
       0,
       () => {},
@@ -544,7 +550,7 @@ describe('embedLivePreview — remove', () => {
   });
 
   it('deleting a broken (unresolved) embed removes only the Markdown, never touches any resource — no VaultResource exists to touch, by construction', () => {
-    const view = mountView(`See: ![[missing.png]]`, resolverFor({}));
+    const view = mountView(`![[missing.png]]`, resolverFor({}));
     const deleteButton = view.dom.querySelector<HTMLButtonElement>('.cm-invalid-embed__control[aria-label="Remove image"]');
     expect(deleteButton).not.toBeNull();
 
@@ -556,7 +562,7 @@ describe('embedLivePreview — remove', () => {
   it('undo restores a deleted broken embed, redo removes it again', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
-    const doc = 'See: ![[missing.png]]';
+    const doc = '![[missing.png]]';
     const state = EditorState.create({
       doc,
       extensions: [history(), markdownLanguageExtension(), embedLivePreview({
@@ -587,7 +593,7 @@ describe('embedLivePreview — controls: copyUrl threading', () => {
   it("Copy link/Set-as-cover receive the vault-relative embed path (copyUrl), never the resolved app:// URL", () => {
     let captured: OpenImageMenuParams | null = null;
     const view = mountView(
-      'x ![[Projects/A/hero.png]]',
+      'x\n![[Projects/A/hero.png]]',
       resolverFor({
         'Projects/A/hero.png': imageResolution('app://vault/Projects/A/hero.png', 'Projects/A/hero.png', 'hero.png'),
       }),
@@ -634,7 +640,7 @@ describe('embedLivePreview — controls: copyUrl threading', () => {
   it("double-clicking the image (opening ImageOverlay) also receives copyUrl as its own image-click callback's third argument — what ImageOverlay's own resource resolution resolves against", () => {
     const calls: Array<[string, string, string | undefined]> = [];
     const view = mountView(
-      'x ![[Projects/A/hero.png]]',
+      'x\n![[Projects/A/hero.png]]',
       resolverFor({
         'Projects/A/hero.png': imageResolution('app://vault/Projects/A/hero.png', 'Projects/A/hero.png', 'hero.png'),
       }),
@@ -664,7 +670,7 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
   // coverage), not something this test suite needs to re-prove.
   it('two valid embeds on separate lines render independently, no whitespace inserted', () => {
     const view = mountView(
-      'x ![[one.png]]\ny ![[two.png]]',
+      '![[one.png]]\n![[two.png]]',
       resolverFor({
         'one.png': imageResolution('app://vault/one.png', 'one.png', 'one.png'),
         'two.png': imageResolution('app://vault/two.png', 'two.png', 'two.png'),
@@ -674,12 +680,12 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
     const imgs = [...view.dom.querySelectorAll('img.tok-image')] as HTMLImageElement[];
     expect(imgs).toHaveLength(2);
     expect(imgs.map((img) => img.src).sort()).toEqual(['app://vault/one.png', 'app://vault/two.png']);
-    expect(view.state.doc.toString()).toBe('x ![[one.png]]\ny ![[two.png]]');
+    expect(view.state.doc.toString()).toBe('![[one.png]]\n![[two.png]]');
   });
 
   it('a valid embed followed by a missing one on the next line: the first renders working, the second renders broken, independently', () => {
     const view = mountView(
-      'x ![[valid.png]]\ny ![[missing.png]]',
+      '![[valid.png]]\n![[missing.png]]',
       resolverFor({ 'valid.png': imageResolution('app://vault/valid.png', 'valid.png', 'valid.png') })
     );
 
@@ -689,65 +695,34 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
 
   it('deleting one embed does not affect its neighbor', () => {
     const view = mountView(
-      'x ![[one.png]]\ny ![[two.png]]',
+      '![[one.png]]\n![[two.png]]',
       resolverFor({
         'one.png': imageResolution('app://vault/one.png', 'one.png', 'one.png'),
         'two.png': imageResolution('app://vault/two.png', 'two.png', 'two.png'),
       })
     );
 
-    view.dispatch({ changes: { from: 0, to: 'x ![[one.png]]\n'.length, insert: '' } });
+    view.dispatch({ changes: { from: 0, to: '![[one.png]]\n'.length, insert: '' } });
     settleAllProbes();
 
-    expect(view.state.doc.toString()).toBe('y ![[two.png]]');
+    expect(view.state.doc.toString()).toBe('![[two.png]]');
     expect(getImg(view)?.src).toBe('app://vault/two.png');
   });
 
-  it('Phase 2: two consecutive embeds (no separator) are independent through the first-leave lifecycle', () => {
+  it('renders two same-line embeds only after an explicit line separation', () => {
     const ONE = '![[one.png]]';
     const TWO = '![[two.png]]';
     const resolve = resolverFor({
       'one.png': imageResolution('app://vault/one.png', 'one.png', 'one.png'),
       'two.png': imageResolution('app://vault/two.png', 'two.png', 'two.png'),
     });
-    const view = mountView('', resolve, 0);
-
-    // Type both embeds back to back, caret tracking each insertion's own
-    // end explicitly — CM6's default selection mapping does not advance
-    // the caret through an insertion made at/after its own old position,
-    // so this is load-bearing, not decoration (see imageLivePreview.test.ts's
-    // identical note on its own equivalent helper).
-    view.dispatch({ changes: { from: 0, insert: ONE }, selection: { anchor: ONE.length } });
-    expect(getImg(view)).toBeNull();
-
-    view.dispatch({ changes: { from: ONE.length, insert: TWO }, selection: { anchor: ONE.length + TWO.length } });
+    const view = mountView(ONE + TWO, resolve);
+    expect(view.dom.querySelectorAll('img.tok-image')).toHaveLength(0);
+    expect(view.state.doc.toString()).toBe(ONE + TWO);
+    view.dispatch({ changes: { from: ONE.length, insert: '\n' }, selection: { anchor: 0 } });
     settleAllProbes();
-
-    // #1's caret moved past its own boundary as a direct consequence of
-    // typing #2 right after it — its own first leave, independent of #2.
-    // #2's own caret is still at its own end — still pending.
-    const images = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
-    expect(images.length).toBe(1);
-    expect(images[0]!.src).toBe('app://vault/one.png');
-    expect(view.dom.textContent).toContain(TWO);
-
-    // Leave #2 as well.
-    view.dispatch({
-      changes: { from: view.state.doc.length, insert: ' ' },
-      selection: { anchor: view.state.doc.length + 1 },
-    });
-    settleAllProbes();
-    const bothImages = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
-    expect(bothImages.length).toBe(2);
-    expect(bothImages[0]!.src).toBe('app://vault/one.png');
-    expect(bothImages[1]!.src).toBe('app://vault/two.png');
-
-    // Navigating back into either already-rendered embed must not reveal
-    // raw Markdown for it — navigation is not editing.
-    view.dispatch({ selection: { anchor: 3 } }); // inside "one.png"
-    expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
-    view.dispatch({ selection: { anchor: ONE.length + 3 } }); // inside "two.png"
-    expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
+    expect(view.dom.querySelectorAll('img.tok-image')).toHaveLength(2);
+    expect(view.state.doc.toString()).toBe(ONE + '\n' + TWO);
   });
 });
 
@@ -756,7 +731,7 @@ describe('embedLivePreview — lifecycle (Resource Sync/Reconciliation implicati
     let resolve: ResolveEmbedImage = resolverFor({
       'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png'),
     });
-    const view = mountView(`x ${HERO}`, (path, alias) => resolve(path, alias));
+    const view = mountView(`x\n${HERO}`, (path, alias) => resolve(path, alias));
     expect(getImg(view)).not.toBeNull();
 
     // The resource was renamed/moved externally — a real ResolveEmbedImage
@@ -776,7 +751,7 @@ describe('embedLivePreview — lifecycle (Resource Sync/Reconciliation implicati
     let resolve: ResolveEmbedImage = resolverFor({
       'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png'),
     });
-    const view = mountView(`x ${HERO}`, (path, alias) => resolve(path, alias));
+    const view = mountView(`x\n${HERO}`, (path, alias) => resolve(path, alias));
     expect(getImg(view)).not.toBeNull();
 
     resolve = resolverFor({});
@@ -787,7 +762,7 @@ describe('embedLivePreview — lifecycle (Resource Sync/Reconciliation implicati
 
   it('restored resource: an embed resolves again once its exact original path is valid again', () => {
     let resolve: ResolveEmbedImage = resolverFor({});
-    const view = mountView(`x ${HERO}`, (path, alias) => resolve(path, alias));
+    const view = mountView(`x\n${HERO}`, (path, alias) => resolve(path, alias));
     expect(view.dom.querySelector('.cm-invalid-embed')).not.toBeNull();
 
     resolve = resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') });
