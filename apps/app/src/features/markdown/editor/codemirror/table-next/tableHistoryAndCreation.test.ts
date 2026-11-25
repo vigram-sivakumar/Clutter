@@ -6,6 +6,7 @@ import { markdownGrammarFor } from '@core/vault/ingest/grammar/markdownGrammarEx
 import { createPastedTable } from './tableCreatePaste';
 import { bookmark, restoredSelection, tableSelectionHistory, tableSelectionTransition } from './tableSelectionHistory';
 import { createTableTransaction } from './tableTransaction';
+import { createCellTransaction, diffCellText } from './tableCellTransaction';
 import { readTable } from './tableModel';
 import { edgeScroll } from './tableDragScroll';
 const grammar = parser.configure(markdownGrammarFor(false));
@@ -31,6 +32,23 @@ describe('table-next history bookmarks and creation', () => {
     expect(redo(t)).toBe(true);
     expect(t.state.doc.toString()).toBe(changed);
     expect(restoredSelection(t.last!)).toEqual(after);
+  });
+  it('restores caret-free cell selection through grouped typing undo and redo', () => {
+    const doc = '| A | B |\n| --- | --- |\n| x | y |';
+    const t = target(doc);
+    const at = { row: 1, col: 0 };
+    const mark = bookmark(0, { kind: 'cell', cell: at });
+    for (const [old, next] of [['x', 'xy'], ['xy', 'xyz']] as const) {
+      t.dispatch(createCellTransaction(t.state, 0, at, old, diffCellText(old, next), parse, 'input.type',
+        tableSelectionTransition.of({ before: mark, after: mark }))!);
+    }
+    expect(undoDepth(t.state)).toBe(1);
+    expect(undo(t)).toBe(true);
+    expect(t.state.doc.toString()).toBe(doc);
+    expect(restoredSelection(t.last!)).toEqual(mark);
+    expect(redo(t)).toBe(true);
+    expect(readTable(t.state.doc.toString(), 0, parse).model.rows[0]?.[0]).toBe('xyz');
+    expect(restoredSelection(t.last!)).toEqual(mark);
   });
   it('never restores a nested editor from a history bookmark', () => {
     expect(bookmark(4, { kind: 'editing', cell: { row: 0, col: 1 } })).toEqual({ tableFrom: 4, interaction: { kind: 'cell', cell: { row: 0, col: 1 } } });

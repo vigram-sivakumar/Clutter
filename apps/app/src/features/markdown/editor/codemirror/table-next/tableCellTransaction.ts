@@ -1,4 +1,4 @@
-import { ChangeSet, EditorState, Transaction, type ChangeSpec } from '@codemirror/state';
+import { ChangeSet, EditorState, Transaction, type ChangeSpec, type StateEffect } from '@codemirror/state';
 import { applyTableCommand } from './tableCommands';
 import { modelsEqual, readTable, TableEngineError, type ParseMarkdown, type TableSnapshot } from './tableModel';
 
@@ -31,7 +31,8 @@ export function createCellTransaction(
   previousCellText: string,
   changes: ChangeSet,
   parse: ParseMarkdown,
-  userEvent = 'input.type'
+  userEvent = 'input.type',
+  effect?: StateEffect<unknown>
 ): Transaction | null {
   if (state.readOnly) throw new TableEngineError('Read-only document');
   const source = state.doc.toString();
@@ -55,9 +56,9 @@ export function createCellTransaction(
     editableCell(expectedDoc, after, address).text !== nextText) {
     throw new TableEngineError('Cell edit would alter table structure');
   }
-  const tr = state.update({ changes: mapped, userEvent });
+  const tr = state.update({ changes: mapped, userEvent, ...(effect ? { effects: effect } : {}) });
   if (tr.newDoc.toString() !== expectedDoc || tr.annotation(Transaction.addToHistory) === false ||
-    tr.annotation(Transaction.userEvent) !== userEvent) {
+    tr.annotation(Transaction.userEvent) !== userEvent || (effect !== undefined && !tr.effects.includes(effect))) {
     throw new TableEngineError('Cell transaction did not survive editor filters unchanged');
   }
   return tr;

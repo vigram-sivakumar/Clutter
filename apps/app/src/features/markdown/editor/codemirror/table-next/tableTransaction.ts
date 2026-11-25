@@ -29,7 +29,7 @@ export function createTableTransaction(state: EditorState, tableFrom: number, co
 }
 
 export function executeTableCommand(view: EditorView, tableFrom: number, command: TableCommand, parse: ParseMarkdown, effect?: StateEffect<unknown>): boolean {
-  const tr = createTableTransaction(view.state, tableFrom, command, parse);
+  const tr = createTableTransaction(view.state, tableFrom, command, parse, effect);
   if (!tr) return false;
   view.dispatch(tr);
   return true;

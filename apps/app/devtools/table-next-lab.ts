@@ -157,13 +157,13 @@ class LabTable {
     if (this.mount) this.mount.dataset.interaction = this.interaction.kind;
   }
 
-  private select(next: TableInteraction) {
+  private select(next: TableInteraction, preventScroll = false) {
     current = this;
     this.close();
     this.interaction = next;
     this.paint();
     const at = focusCell(next);
-    if (at) this.table?.rows[at.row]?.cells[at.col]?.focus({ preventScroll: true });
+    if (at) this.table?.rows[at.row]?.cells[at.col]?.focus({ preventScroll });
   }
 
   /** Click is still click-to-edit. Crossing into another cell while held
@@ -200,7 +200,7 @@ class LabTable {
         const selection = doc.getSelection();
         if (selection?.anchorNode && host.contains(selection.anchorNode)) selection.removeAllRanges();
       }
-      this.select({ kind: 'range', anchor, head });
+      this.select({ kind: 'range', anchor, head }, true);
     };
     const tick = () => {
       if (abort.signal.aborted || !win || !scrollport) return;
@@ -368,7 +368,9 @@ class LabTable {
   private apply(address: CellAddress, old: string, changes: ChangeSet, event: string): boolean {
     if (!this.root || !this.snapshot) return false;
     try {
-      const tr = createCellTransaction(this.root.state, this.snapshot.from, address, old, changes, parse, event);
+      const mark = bookmark(this.snapshot.from, { kind: 'cell', cell: address });
+      const tr = createCellTransaction(this.root.state, this.snapshot.from, address, old, changes, parse, event,
+        tableSelectionTransition.of({ before: mark, after: mark }));
       if (tr) this.root.dispatch(tr);
       report('Cell edit committed to root history');
       return true;
