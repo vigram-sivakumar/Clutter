@@ -1,5 +1,5 @@
 import { EditorState, Transaction } from '@codemirror/state';
-import { EditorView, keymap, ViewPlugin } from '@codemirror/view';
+import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, undo, redo } from '@codemirror/commands';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
@@ -38,6 +38,9 @@ export class TableCellEditor {
       doc: range.text,
       selection: { anchor: range.text.length },
       extensions: [
+        // The root's drawSelection theme hides native descendant carets.
+        // Each nested view must own its cursor and selection layers as well.
+        drawSelection(),
         keymap.of([
           { key: 'Mod-z', run: () => { this.close(); undo(this.root); return true; } },
           { key: 'Mod-Shift-z', run: () => { this.close(); redo(this.root); return true; } },

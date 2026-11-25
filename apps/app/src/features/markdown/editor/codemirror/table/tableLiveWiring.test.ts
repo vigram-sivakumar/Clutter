@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { history, undo, redo } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { EditorState, StateEffect } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, drawSelection } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { TableActiveCellController } from './tableActiveCellController';
@@ -157,6 +157,32 @@ describe('table live wiring — DOM structure', () => {
 });
 
 describe('engine editable cell projection', () => {
+  it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
+    const view = mount(TABLE, false, undefined, true);
+    // The real createEditorView foundation supplies drawSelection to the root.
+    view.dispatch({ effects: StateEffect.appendConfig.of(drawSelection()) });
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(nested.hasFocus).toBe(true);
+    expect(view.hasFocus).toBe(false);
+    expect(nested.dom.classList.contains('cm-focused')).toBe(true);
+    expect(nested.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
+    expect(nested.scrollDOM.querySelector(':scope > .cm-selectionLayer')).not.toBeNull();
+    view.dom.classList.add('cm-table-selection-active');
+    // Root-only suppression must never target this nested layer.
+    expect(nested.scrollDOM.querySelector('.cm-cursorLayer')!.matches(
+      '.cm-editor.cm-focused.cm-table-selection-active > .cm-scroller > .cm-cursorLayer')).toBe(false);
+    nested.dispatch({ selection: { anchor: 1 }, changes: { from: 1, insert: 'x' } });
+    expect(nested.state.selection.main.head).toBe(1);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(nested.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
+    clickCell(findCell(view, 'Designer'));
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(nested.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
+  });
+
   it('reuses one nested editor across imported cells and preserves exact root history', () => {
     const doc = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n\nAfter';
     const view = mount(doc, false, undefined, true);
