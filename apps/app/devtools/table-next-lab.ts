@@ -1,4 +1,4 @@
-import { history, historyKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { parser } from '@lezer/markdown';
 import { ChangeSet, EditorState, StateField, Transaction, type Range } from '@codemirror/state';
@@ -142,6 +142,7 @@ class LabTable {
               { key: 'Mod-z', run: () => this.stepHistory(false) },
               { key: 'Mod-Shift-z', run: () => this.stepHistory(true) },
               { key: 'Escape', run: () => { this.finish(); return true; } },
+              ...defaultKeymap,
             ]),
           ],
         }),
@@ -265,7 +266,7 @@ const root = new EditorView({
     doc: initial, selection: { anchor: initial.length },
     extensions: [
       markdown({ extensions: grammar, addKeymap: false }), history({ minDepth: 1000 }),
-      drawSelection(), EditorView.lineWrapping, field, keymap.of(historyKeymap),
+      drawSelection(), EditorView.lineWrapping, field, keymap.of([...historyKeymap, ...defaultKeymap]),
       EditorView.updateListener.of(update => refresh(update.view)),
     ],
   }),
