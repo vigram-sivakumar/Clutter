@@ -1,4 +1,6 @@
 import { buildSelectionActionMenu, SELECTION_ITEM_ACTION_IDS } from '@core/presentation/resourceActions/buildSelectionActionMenu';
+import type { ToastApi } from '@components/toast/ToastProvider';
+import { runSelectionBatch, type SelectionBatchAction } from './selectionBatchFeedback';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 
 import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
@@ -16,6 +18,7 @@ export interface SelectionMenuOps {
   total: number;
   selectAll(): void;
   clear(): void;
+  toast?: ToastApi;
 }
 
 /**
@@ -55,6 +58,15 @@ export function buildSelectionContextMenu(
   const deleteMessages = new Set(items.map((item) => item?.deleteConfirmationMessage));
   const archiveConfirms = items.some((item) => item?.archiveConfirmationMessage !== undefined);
 
+  const run = (action: SelectionBatchAction, targets: readonly (ResourceTopBarActionsProps | null)[], fallback: (item: ResourceTopBarActionsProps | null) => void, destination?: string | null) => {
+    const unique = uniqueResources(targets);
+    // A selection of one keeps the same dialogs, copy and feedback as its own menu.
+    if (items.length > 1 && ops.toast && unique.every((item) => item?.batch)) {
+      return runSelectionBatch(ops.toast, action, unique.map((item) => item!.batch!), destination);
+    }
+    return runForEach(unique, fallback);
+  };
+
   return {
     menu: buildSelectionActionMenu({ count: items.length, total: ops.total, supported, allFavorite }),
     handlers: {
@@ -63,17 +75,13 @@ export function buildSelectionContextMenu(
       // The final state is the same for all: Remove when every one is a favorite, otherwise Add — and only items not
       // already there are toggled, so none ends up flipped the wrong way.
       'toggle-favorite': () =>
-        runForEach(items, (item) => {
-          if ((item?.isFavorite === true) === allFavorite) {
-            item?.handlers?.['toggle-favorite']?.();
-          }
-        }),
+        run(allFavorite ? 'unfavorite' : 'favorite', items.filter((item) => (item?.isFavorite === true) === allFavorite), (item) => item?.handlers?.['toggle-favorite']?.()),
       // Once per resource (several entries can lead to the same one), and never for one that has been archived since
       // the selection was made — its own archive would only fail.
-      archive: () => runForEach(archivable(items), (item) => item?.handlers?.['archive']?.()),
+      archive: () => run('archive', archivable(items), (item) => item?.handlers?.['archive']?.()),
       // Restore returns each item that is still in the archive to where it was; one that has been restored since is skipped.
-      restore: () => runForEach(restorable(items), (item) => item?.handlers?.['restore']?.()),
-      delete: () => runForEach(items, (item) => item?.handlers?.['delete']?.()),
+      restore: () => run('restore', restorable(items), (item) => item?.handlers?.['restore']?.()),
+      delete: () => run('delete', items, (item) => item?.handlers?.['delete']?.()),
     },
     // The existing Delete confirmation (title, copy, button), told how many items it is about. A lone item keeps its own.
     ...(supported.has('delete')
@@ -86,8 +94,18 @@ export function buildSelectionContextMenu(
     archiveConfirmationTitle: archiveConfirms ? SELECTION_ARCHIVE_CONFIRMATION_TITLE : undefined,
     archiveConfirmationMessage: archiveConfirms ? SELECTION_ARCHIVE_CONFIRMATION_MESSAGE : undefined,
     moveDestinations: destinations,
-    onMove: destinations ? (destinationFolderId) => items.forEach((item) => item?.onMove?.(destinationFolderId)) : undefined,
+    onMove: destinations ? (destinationFolderId) => run('move', items, (item) => item?.onMove?.(destinationFolderId), destinationFolderId) : undefined,
   };
+}
+
+function uniqueResources<T extends ResourceTopBarActionsProps | null>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (item?.resourceId === undefined) return true;
+    if (seen.has(item.resourceId)) return false;
+    seen.add(item.resourceId);
+    return true;
+  });
 }
 
 /** The items a restore should run for: one per resource, skipping any that is no longer archived at this moment. */

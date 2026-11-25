@@ -1,3 +1,4 @@
+import { buildSelectionBatchItem } from './selectionBatchFeedback';
 import type { Application } from '@core/application/Application';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
@@ -43,7 +44,9 @@ export function buildCollectionItemMenu(
   const resource =
     entry.type === 'folder' ? application.vault.getFolder(id) : application.vault.getPage(id);
 
-  return resource ? buildResourceContextMenu(resource, buildResourceMenuOptions(application, resource, ops)) : null;
+  if (!resource) return null;
+  const menu = buildResourceContextMenu(resource, buildResourceMenuOptions(application, resource, ops));
+  return menu ? { ...menu, batch: buildSelectionBatchItem(application, entry.type === 'folder' ? 'folder' : 'page', id) } : null;
 }
 
 /**
@@ -102,6 +105,12 @@ export function buildAssetItemMenu(
         }
       : undefined,
     handlers: buildAssetMenuHandlers(actions, id),
+    resourceId: id,
+    isArchived: () => {
+      const live = application.vault.getResource(id);
+      return live !== undefined && application.vault.isResourceEffectivelyArchived(live);
+    },
+    batch: buildSelectionBatchItem(application, 'asset', id),
     moveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
     onMove: (destinationFolderId) => actions.onMoveResource?.(id, destinationFolderId),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, 'assets'),
@@ -152,6 +161,7 @@ export function buildArchivedResourceItemMenu(
     },
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     resourceId: resource.id,
+    batch: buildSelectionBatchItem(application, 'asset', resource.id),
     // Read live: a file restored or deleted since the selection was made is no longer in the archive.
     isArchived: () => {
       const live = vault.getResource(resource.id);

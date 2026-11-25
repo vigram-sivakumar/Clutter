@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { useToast } from '@components/toast/ToastProvider';
 import type { CollectionSelection } from '@features/collection/selection/useCollectionSelection';
 
 import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
@@ -28,6 +29,7 @@ export function useCollectionSelectionMenu(
   selection: CollectionSelection,
   resolveFor: (id: string) => ResourceTopBarActionsProps | null
 ): CollectionSelectionMenu {
+  const toast = useToast();
   const [open, setOpen] = useState<{
     menu: ResourceTopBarActionsProps;
     point: ContextMenuPoint;
@@ -65,6 +67,7 @@ export function useCollectionSelectionMenu(
         total: current.total,
         selectAll: current.selectAll,
         clear: current.clear,
+        toast,
       });
       // The key has no menu to choose from, so it always asks first (the menu's Move to archive asks only where the
       // existing rule does: a folder with contents).
@@ -84,7 +87,7 @@ export function useCollectionSelectionMenu(
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [selection.active]);
+  }, [selection.active, toast]);
 
   return {
     handle: (id, point) => {
@@ -97,7 +100,7 @@ export function useCollectionSelectionMenu(
       }
       seqRef.current += 1;
       setOpen({
-        menu: buildSelectionContextMenu(ids.map(resolveFor), { total: selection.total, selectAll: selection.selectAll, clear: selection.clear }),
+        menu: buildSelectionContextMenu(ids.map(resolveFor), { total: selection.total, selectAll: selection.selectAll, clear: selection.clear, toast }),
         point,
         seq: seqRef.current,
       });

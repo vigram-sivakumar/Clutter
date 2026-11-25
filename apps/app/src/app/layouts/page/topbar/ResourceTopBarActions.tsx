@@ -69,6 +69,8 @@ export interface ResourceTopBarActionsProps {
    * action once per resource however many selected entries lead to it.
    */
   resourceId?: string;
+  /** Awaitable, toast-free operations for a selection; single-item handlers keep their own feedback. */
+  batch?: import('../body/selectionBatchFeedback').SelectionBatchItem;
   /**
    * Whether the resource is archived (or inside an archived folder) RIGHT NOW — read when called, not when the
    * menu was built. A selection's menu asks before archiving each item, so a stale selection (an item archived
