@@ -365,3 +365,28 @@ Passed 214 frontend tests across AppShell, window close, unsaved changes and rec
 Published and verified on 25 November 2026. The Markdown policy and website source at `0d298c06ce1997c6cdb7d2fb6c66545fdfa801b5` have matching wording and the publication date as their effective date. They describe support correspondence retention and deletion requests, and explain that local file protection depends on the Mac's security settings and Clutter adds no file encryption.
 
 Cloudflare Pages deployed the committed static site to production. The public privacy URL returned HTTP 200 and matched the committed HTML byte for byte, as did the deployment URL. The homepage and contact page matched their pre-deployment content. The application release remained 0.0.10. [Live privacy policy](https://clutter-privacy.pages.dev/privacy/) · [Verified deployment](https://c62889de.clutter-privacy.pages.dev/privacy/)
+
+## Final consolidated validation — 25 November 2026
+
+Validated application revision `9b677ed3` on `release/apple-silicon-beta` in an isolated checkout. This section supersedes earlier requests to reserve the full regression suite and universal preflight.
+
+| Check | Result |
+| --- | --- |
+| Full frontend regression suite | 18,440 tests passed across 978 files. |
+| Native regression suite | 287 library tests, seven command-permission tests and the native HTTP redirect IPC test passed. Three library entries are ignored by default. The descriptor probe executes through its parent test. The separate volume smoke and volume-full tests were not rerun in this consolidation. |
+| Release checks | Passed shell and Python syntax, six bundle comparator tests, version alignment, the Sparkle-enabled frontend build, native permission and updater checks, and Updates Worker type checking and all 10 tests. |
+| Unsplash Worker | Type checking and all 116 tests passed. |
+| Universal App Store preflight | Passed after the release checks using the updater-free frontend and native configuration. Verified arm64 and x86_64 executable slices, ad-hoc signature, sandbox, atomic writer, privacy manifest and icons. Bundled font and PDF.js licence notices and quarantine status were checked separately. |
+
+The execution sandbox initially refused compression, Trash and test-runner IPC operations. Native and release checks passed when rerun with host permissions. A missing isolated Worker dependency installation was restored before the final release check. Existing unused-code warnings and the frontend chunk-size warning remain.
+
+### Remaining readiness work
+
+- Complete the production dependency licence inventory and required acknowledgements.
+- Prepare screenshots, listing copy and review notes, and resolve the export-compliance declaration.
+- Confirm account-level Cloudflare logging, Logpush and retention against the published policy.
+- Review the release branch and accepted limitations before any merge decision.
+- After Apple Developer enrolment, verify Developer ID and App Store signing, notarization, Gatekeeper, installer Team ID pinning, package validation and signing/channel migration.
+- Intel runtime verification remains deferred. Signed-feed migration, remote publication concurrency, performance work, legacy cleanup and standalone verifier improvements retain their existing dispositions.
+
+The published policy and signing-key recovery gate remain complete. This consolidation made documentation changes only.
