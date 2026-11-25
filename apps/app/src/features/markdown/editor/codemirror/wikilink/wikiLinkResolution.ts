@@ -8,8 +8,8 @@ import type { SystemIcon } from '@shared/icon';
  *
  * `resolve`, `displayLabel`, and `activate` are bundled into one injected
  * call rather than three the editor composes itself. This is a pragmatic
- * simplification for this one concrete kind: the alias-fallback precedence
- * chain (local alias > target's primary frontmatter alias > filename, per
+ * simplification for this one concrete kind: the display-label precedence
+ * chain (explicit reference label > filename, per
  * docs/editor-architecture-decisions.md) is computed entirely on the
  * app-layer side of this boundary, where `Vault`/`EffectivePageState`
  * access actually lives — the editor never sees a path resolve to

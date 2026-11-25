@@ -163,18 +163,20 @@ describe('createWikiLinkResolver', () => {
     expect(resolution.displayLabel).toBe('Page');
   });
 
-  it('display label precedence: local alias > primary frontmatter alias > filename', () => {
+  it('display label precedence: local alias > filename, regardless of frontmatter aliases', () => {
     const page = makePage({
       id: 'p1',
       path: '/vault/Page.md',
       name: 'Page',
-      analysis: { headings: [], aliases: [{ value: 'Primary Alias' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      analysis: { headings: [], aliases: [{ value: 'Primary Alias' }, { value: 'Other Alias' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
     });
     const vault = makeVault([page]);
     const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
 
     expect(resolve('Page', 'Local Alias').displayLabel).toBe('Local Alias');
-    expect(resolve('Page', null).displayLabel).toBe('Primary Alias');
+    expect(resolve('Page', null).displayLabel).toBe('Page');
+    expect(resolve('Page', 'Other Alias').displayLabel).toBe('Other Alias');
+    expect(resolve('Primary Alias', null)).toMatchObject({ status: 'resolved', pageId: 'p1', displayLabel: 'Page' });
   });
 
   it('falls back to alias-based resolution only after a literal path match fails', () => {
@@ -190,7 +192,7 @@ describe('createWikiLinkResolver', () => {
     const resolution = resolve('Alpha', null);
 
     expect(resolution.status).toBe('resolved');
-    expect(resolution.displayLabel).toBe('Alpha');
+    expect(resolution.displayLabel).toBe('Page');
   });
 
   it('returns ambiguous, never a silent pick, when multiple pages share an alias', () => {
@@ -696,19 +698,18 @@ describe('wiki-links with a heading or block reference (Note#Heading, Note#^bloc
     return { vault, resolve, open, create };
   }
 
-  it('Note (no fragment) is unchanged: resolved to the page, labelled by its primary alias as before', () => {
+  it('Note (no fragment) resolves to the page, labelled by its filename', () => {
     const { resolve } = setup();
 
-    expect(resolve('Projects/Alpha', null)).toMatchObject({ status: 'resolved', pageId: 'p1', displayLabel: 'Al' });
+    expect(resolve('Projects/Alpha', null)).toMatchObject({ status: 'resolved', pageId: 'p1', displayLabel: 'Alpha' });
   });
 
   it.each([
-    // The label follows the existing precedence — local alias > the page's primary frontmatter alias ("Al")
-    // > filename — with the heading / block appended unless the link carries its own display text.
-    ['Projects/Alpha#Decisions', null, 'Al › Decisions'],
+    // Explicit display text wins; otherwise use the filename with the heading / block appended.
+    ['Projects/Alpha#Decisions', null, 'Alpha › Decisions'],
     ['Projects/Alpha#Action Items', 'View actions', 'View actions'],
-    ['Projects/Alpha#^decision-1', null, 'Al › ^decision-1'],
-    ['Projects/Alpha#  Decisions ', null, 'Al › Decisions'],
+    ['Projects/Alpha#^decision-1', null, 'Alpha › ^decision-1'],
+    ['Projects/Alpha#  Decisions ', null, 'Alpha › Decisions'],
   ])('%s resolves to the page by its note part, with the right label', (path, alias, label) => {
     const { resolve } = setup();
 

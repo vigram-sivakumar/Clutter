@@ -134,17 +134,15 @@ export function createWikiLinkResolver(
   } = {}
 ): ResolveWikiLink {
   function resolvedTo(page: Page, localAlias: string | null, fragment: string | null): WikiLinkResolution {
-    // Display-label precedence: local alias > target's primary frontmatter
-    // alias (the first declared alias) > filename
-    // (docs/editor-architecture-decisions.md, "WikiLink resolution,
-    // aliases, and display"). A heading / block reference then reads as
+    // Display-label precedence: explicit reference label > note filename.
+    // Frontmatter aliases are for discovery and resolution, not automatic relabelling.
+    // A heading / block reference then reads as
     // `Note › Heading` — the same shape a heading embed's header uses — unless
     // the link carries its own display text.
-    const primaryAlias = page.analysis.aliases[0]?.value;
     // A Daily Note's filename is its ISO date; shown through the shared date formatter so it follows the
     // Date format preference. Display only — the link target and stored Markdown keep the ISO name.
     const fileLabel = VaultPath.pageName(page.path);
-    const noteLabel = primaryAlias ?? (page.type === 'daily-note' ? formatDailyNoteTitle(fileLabel) : fileLabel);
+    const noteLabel = page.type === 'daily-note' ? formatDailyNoteTitle(fileLabel) : fileLabel;
     const displayLabel = localAlias ?? (fragment === null ? noteLabel : `${noteLabel} › ${fragment.trim()}`);
     // The single shared source of truth for a resolved page's own
     // identity icon/emoji — the exact same computation

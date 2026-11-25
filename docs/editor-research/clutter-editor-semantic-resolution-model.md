@@ -29,6 +29,8 @@ At the no-metadata baseline: display derives from the last path segment with the
 
 ## 3. Target page aliases — challenged, not assumed
 
+> Superseded on 2026-11-25: the first-alias display fallback proposed in sections 3–6 and 10 is no longer the product decision. Explicit reference text wins; otherwise use the target filename (formatted date for Daily Notes). Alias discovery and resolution remain unchanged. See the current [editor architecture decisions](../editor-architecture-decisions.md#wikilink-resolution-aliases-and-display).
+
 **None of A, B, C as pure options is right. The correct answer is closest to C, stated precisely: for a bare reference (no local alias), the display label is the target's current primary frontmatter alias if one exists, else its filename — recomputed live on every render, never written to any buffer.**
 
 Why not A (aliases only for search): throws away real value. A page could never present a friendlier name anywhere unless every single reference to it is hand-edited — defeating much of the point of having page-level aliases at all.
