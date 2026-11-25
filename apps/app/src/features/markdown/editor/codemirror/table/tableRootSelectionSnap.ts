@@ -1,5 +1,4 @@
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
-import type { SyntaxNode } from '@lezer/common';
 
 import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';

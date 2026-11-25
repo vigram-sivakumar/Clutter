@@ -201,8 +201,9 @@ export async function setSpaceProfileAvatar(
   if (change?.type === 'emoji') {
     avatar = change;
   } else if (change?.type === 'image') {
-    avatar = await copyManagedSpaceAvatar(fileSystem, rootPath, change.sourcePath);
-    createdAsset = `${rootPath}/${avatar.src}`;
+    const image = await copyManagedSpaceAvatar(fileSystem, rootPath, change.sourcePath);
+    createdAsset = `${rootPath}/${image.src}`;
+    avatar = image;
   }
 
   try {
