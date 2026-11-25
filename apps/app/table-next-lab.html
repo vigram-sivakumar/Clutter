@@ -10,9 +10,13 @@ a{color:#a9c7ff} button{font:inherit;padding:7px 12px} .toolbar{display:flex;fle
 #editor{border:1px solid #62666e;border-radius:6px;padding:16px;min-height:220px;background:#292b30}
 #editor .cm-editor{font:inherit;color:inherit} #editor .cm-content{caret-color:currentColor}
 #editor .cm-cursor{border-left-color:#fff} #editor .cm-selectionBackground{background:#3c5274!important}
-.table-projection{padding:12px 0} .table-scroll{max-width:100%;overflow-x:auto}
-.table-scroll table{border-collapse:collapse;table-layout:fixed;width:max-content}
-.table-scroll td,.table-scroll th{border:1px solid #62666e;padding:8px;min-width:90px;max-width:320px;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-weight:normal}
+/* Keep CodeMirror's flex content from growing to the intrinsic table
+   width. The table's own scrollport, not the root editor, owns overflow. */
+#editor > .cm-editor > .cm-scroller > .cm-content{flex:1 1 0%;width:0;min-width:0}
+.table-projection{padding:12px 0;box-sizing:border-box;width:100%;min-width:0;max-width:100%}
+.table-scroll{display:block;width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scroll-behavior:auto}
+.table-scroll table{border-collapse:collapse;table-layout:fixed;max-width:none}
+.table-scroll td,.table-scroll th{border:1px solid #62666e;padding:8px;box-sizing:border-box;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-weight:normal}
 .table-scroll th{font-weight:600;background:#383b43}
 .table-scroll .cell-selected{background:#334a6a;box-shadow:inset 0 0 0 1px #8eb6ff}.table-scroll .cell-selected:focus{outline:2px solid #8eb6ff;outline-offset:-2px}.table-scroll .cell-editing{outline:1px solid #8eb6ff;outline-offset:-1px}
 .table-scroll .cm-editor,.table-scroll textarea{width:100%;box-sizing:border-box;font:inherit;background:transparent;color:inherit;border:0;padding:0;resize:none}

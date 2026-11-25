@@ -15,7 +15,7 @@ import { renderInlineMarkdown } from '../src/features/markdown/editor/codemirror
 
 import { bookmark, restoredSelection, tableSelectionHistory, tableSelectionTransition, type SelectionBookmark } from '../src/features/markdown/editor/codemirror/table-next/tableSelectionHistory';
 import { createPastedTable } from '../src/features/markdown/editor/codemirror/table-next/tableCreatePaste';
-import { edgeScroll } from '../src/features/markdown/editor/codemirror/table-next/tableDragScroll';
+import { dragScrollTarget, edgeScroll, visibleScrollBounds } from '../src/features/markdown/editor/codemirror/table-next/tableDragScroll';
 
 const grammar = markdownGrammarFor(false);
 const configured = parser.configure(grammar);
@@ -124,6 +124,9 @@ class LabTable {
         }
       });
     }
+    // Give the table a real, deterministic overflow width even when new
+    // columns are empty. The surrounding scrollport stays viewport-sized.
+    this.table.style.width = Array.from({ length: cols }, (_, c) => snapshot.model.columnWidths?.[c] ?? 180).reduce((sum, width) => sum + width, 0) + 'px';
     rows.forEach((row, r) => row.forEach((text, c) => {
       const td = this.table!.rows[r]!.cells[c]!;
       td.style.width = (snapshot.model.columnWidths?.[c] ?? 180) + 'px';
@@ -183,6 +186,7 @@ class LabTable {
     const startedEditing = this.active?.host === host;
     const pointer = event.pointerId;
     let x = event.clientX, y = event.clientY;
+    const originX = x, originY = y;
     let frame = 0;
     const win = doc.defaultView;
     const scrollport = this.table?.parentElement;
@@ -204,18 +208,26 @@ class LabTable {
     };
     const tick = () => {
       if (abort.signal.aborted || !win || !scrollport) return;
-      if (moved) {
-        const rect = scrollport.getBoundingClientRect();
-        const left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
-        const top = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
-        const dx = edgeScroll(x, left, right);
-        const dy = edgeScroll(y, 0, win.innerHeight);
-        if (dx) scrollport.scrollLeft += dx;
-        if (dy) win.scrollBy(0, dy);
-        if ((dx || dy) && right > left && bottom > top) {
-          const updated = scrollport.getBoundingClientRect();
-          hit(Math.max(left + 1, Math.min(right - 1, x)),
-            Math.max(Math.max(0, updated.top) + 1, Math.min(Math.min(win.innerHeight, updated.bottom) - 1, y)));
+      const bounds = () => visibleScrollBounds(scrollport.getBoundingClientRect(),
+        scrollport.clientWidth, scrollport.clientHeight, win.innerWidth, win.innerHeight);
+      const visible = bounds();
+      if (visible) {
+        const dx = edgeScroll(x, visible.left, visible.right, 48, 28);
+        const dy = edgeScroll(y, 0, win.innerHeight, 48, 28);
+        // When only one wide cell is visible, allow scrolling before
+        // crossing a cell boundary, once dragged outside the client area.
+        const outside = x <= visible.left || x >= visible.right || y <= 0 || y >= win.innerHeight;
+        const dragged = Math.hypot(x - originX, y - originY) >= 5;
+        if (moved || (dragged && outside)) {
+          const oldLeft = scrollport.scrollLeft;
+          const oldTop = win.scrollY;
+          if (dx) scrollport.scrollLeft += dx;
+          if (dy) win.scrollBy(0, dy);
+          const updated = bounds();
+          if (updated && (scrollport.scrollLeft !== oldLeft || win.scrollY !== oldTop)) {
+            const target = dragScrollTarget(x, y, updated);
+            hit(target.x, target.y);
+          }
         }
       }
       frame = win.requestAnimationFrame(tick);

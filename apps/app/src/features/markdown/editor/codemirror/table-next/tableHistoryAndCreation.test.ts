@@ -8,7 +8,7 @@ import { bookmark, restoredSelection, tableSelectionHistory, tableSelectionTrans
 import { createTableTransaction } from './tableTransaction';
 import { createCellTransaction, diffCellText } from './tableCellTransaction';
 import { readTable } from './tableModel';
-import { edgeScroll } from './tableDragScroll';
+import { dragScrollTarget, edgeScroll, visibleScrollBounds } from './tableDragScroll';
 const grammar = parser.configure(markdownGrammarFor(false));
 const parse = (text: string) => grammar.parse(text);
 function target(doc: string, anchor = 0) {
@@ -76,6 +76,13 @@ describe('table-next history bookmarks and creation', () => {
   it('declines fenced code and existing table interiors', () => {
     expect(createPastedTable(target('~~~\ncode\n~~~', 6).state, [['A', 'B']], parse)).toBeNull();
     expect(createPastedTable(target('| A | B |\n| --- | --- |', 3).state, [['A', 'B']], parse)).toBeNull();
+  });
+  it('clips drag targets to the visible scrollport client area, not the table width or scrollbar', () => {
+    const bounds = visibleScrollBounds({ left: 20, top: 40 }, 300, 150, 250, 180)!;
+    expect(bounds).toEqual({ left: 20, right: 250, top: 40, bottom: 180 });
+    expect(dragScrollTarget(500, 500, bounds)).toEqual({ x: 249, y: 179 });
+    expect(dragScrollTarget(-20, -30, bounds)).toEqual({ x: 21, y: 41 });
+    expect(visibleScrollBounds({ left: 300, top: 0 }, 100, 100, 250, 180)).toBeNull();
   });
   it('edge scroll is symmetric, bounded and zero in the interior', () => {
     expect(edgeScroll(50, 0, 100)).toBe(0);
