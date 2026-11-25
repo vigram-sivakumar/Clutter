@@ -167,7 +167,7 @@ class LabTable {
     if (event.isComposing || event.defaultPrevented) return;
     const consume = () => { event.preventDefault(); event.stopPropagation(); };
     if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
-    if (event.key === 'Escape') { consume(); this.finish(); return; }
+    if (event.key === 'Escape') { consume(); this.clearSelection(); return; }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
       consume(); this.stepHistory(event.shiftKey); return;
     }
@@ -191,7 +191,9 @@ class LabTable {
     }
     if (!event.metaKey && !event.ctrlKey && !event.altKey && [...event.key].length === 1) {
       consume();
-      // A printable key replaces the focused cell, not the whole range.
+      // Replacement typing is only defined for a single selected cell.
+      // Leave multi-cell selections unchanged until their UX is agreed.
+      if (this.interaction.kind !== 'cell') return;
       try {
         const before = this.currentCell(at).text;
         this.root?.dispatch({ annotations: isolateHistory.of('full') });
@@ -309,6 +311,15 @@ class LabTable {
     active.nested?.destroy();
     const row = active.address.row === 0 ? this.snapshot?.model.header : this.snapshot?.model.rows[active.address.row - 1];
     active.host.textContent = row?.[active.address.col] ?? '';
+  }
+
+  /** Escape from selection is a deselection, not navigation to root text. */
+  private clearSelection() {
+    this.close();
+    this.interaction = noInteraction;
+    this.paint();
+    const focused = this.mount?.ownerDocument.activeElement;
+    if (focused instanceof HTMLElement && this.mount?.contains(focused)) focused.blur();
   }
 
   private finish() {
