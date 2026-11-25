@@ -1,4 +1,3 @@
-import { TableEngineError } from './tableModel';
 import { tableCellEditor } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
@@ -52,12 +51,15 @@ export class TableProjection extends WidgetType {
     } else {
       this.paint(root, _view, previous.snapshot);
     }
+    if (this.cellEditing) _view.plugin(tableCellEditor)?.paintWidget(root);
     return true;
   }
 
   private paint(root: HTMLElement, view: EditorView, previous?: TableSnapshot): void {
     const { model, from } = this.snapshot;
     root.dataset.tableFrom = String(from);
+    if (this.cellEditing) root.dataset.tableEngineCells = 'true';
+    else delete root.dataset.tableEngineCells;
     const wrapper = root.firstElementChild as HTMLElement;
     wrapper.classList.toggle('cm-table-wrapper-selected', this.selected);
     wrapper.classList.toggle('cm-table-wrapper--explicit-widths', !!model.columnWidths);
@@ -90,22 +92,17 @@ export class TableProjection extends WidgetType {
         if (!view.plugin(tableCellEditor)?.owns(host) && markdown !== priorValues?.[column]) host.innerHTML = renderInlineMarkdown(markdown, { styled: true });
         (host as HTMLElement).dataset.cell = index + ',' + column;
         if (this.cellEditing) {
-          (host as HTMLElement).onmousedown = event => {
-            if (view.plugin(tableCellEditor)?.owns(host)) return;
-            event.preventDefault();
-            event.stopPropagation();
-            try {
-              view.plugin(tableCellEditor)?.activate(Number(root.dataset.tableFrom),
-                { row: index, col: column }, host as HTMLElement, event);
-            } catch (error) {
-              if (!(error instanceof TableEngineError)) throw error;
-            }
-          };
+          (host as HTMLElement).tabIndex = -1;
+          (host as HTMLElement).onmousedown = event => view.plugin(tableCellEditor)?.click(
+            Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
+          (host as HTMLElement).onkeydown = event => view.plugin(tableCellEditor)?.selectedKey(
+            Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
         }
         const alignment = model.alignments[column];
         cell.className = alignment === 'none' ? '' : 'cm-table-widget-align-' + alignment;
       });
     });
+    if (this.cellEditing) view.plugin(tableCellEditor)?.paintWidget(root);
   }
 
   override ignoreEvent(): boolean { return false; }

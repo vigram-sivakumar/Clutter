@@ -156,6 +156,86 @@ describe('table live wiring — DOM structure', () => {
   });
 });
 
+describe('engine staged keyboard interaction (M5 candidate)', () => {
+  const doc = 'Before\n\n' + TABLE + '\n\nAfter';
+  const host = (view: EditorView, row: number, col: number) =>
+    view.dom.querySelector<HTMLElement>(`[data-table-engine-cells="true"] [data-cell="${row},${col}"]`)!;
+  const key = (target: Element, name: string, shiftKey = false, ctrlKey = false) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, ctrlKey, bubbles: true, cancelable: true }));
+  const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
+    .map(cell => (cell as HTMLElement).dataset.cell);
+
+  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, Enter reuses the nested editor', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Role'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    key(nested.contentDOM, 'Tab');
+    expect(selected(view)).toEqual(['1,0']);
+    expect(nested.dom.isConnected).toBe(false);
+    expect(document.activeElement).toBe(host(view, 1, 0));
+    key(host(view, 1, 0), 'Tab', true);
+    expect(selected(view)).toEqual(['0,1']);
+    key(host(view, 0, 1), 'Enter');
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toBe('Role');
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('Escape selects the active cell, Shift+arrows extend a reverse range, arrows collapse from head', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Designer'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    key(nested.contentDOM, 'Escape');
+    expect(selected(view)).toEqual(['1,1']);
+    key(host(view, 1, 1), 'ArrowLeft', true);
+    key(host(view, 1, 0), 'ArrowUp', true);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    key(host(view, 0, 0), 'ArrowRight');
+    expect(selected(view)).toEqual(['0,1']);
+    key(host(view, 0, 1), 'Escape');
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('Shift+click extends from the active cell and outside click clears', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Designer'));
+    host(view, 0, 0).dispatchEvent(new MouseEvent('mousedown', { shiftKey: true, bubbles: true, cancelable: true }));
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect(view.plugin(tableCellEditor)!.nested!.dom.isConnected).toBe(false);
+    key(host(view, 0, 0), 'x');
+    expect(view.state.doc.toString()).toBe(doc);
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(selected(view)).toEqual([]);
+  });
+
+  it('Tab at the last cell transfers focus to surrounding root Markdown', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Designer'));
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Tab');
+    expect(selected(view)).toEqual([]);
+    expect(view.hasFocus).toBe(true);
+    expect(view.state.selection.main.head).toBeGreaterThan(doc.indexOf('Designer'));
+  });
+
+  it('selected-cell typing replaces that cell, Delete clears a range without shifting neighbours', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    key(nested.contentDOM, 'Escape');
+    key(host(view, 1, 0), 'x');
+    expect(nested.state.doc.toString()).toBe('x');
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'x'));
+    key(nested.contentDOM, 'Escape');
+    key(host(view, 1, 0), 'ArrowRight', true);
+    key(host(view, 1, 1), 'Delete');
+    expect(selected(view)).toEqual(['1,0','1,1']);
+    expect(view.state.doc.toString()).toContain('|  |  |');
+    expect(view.state.doc.toString()).toContain('| Name | Role |');
+  });
+});
+
 describe('engine editable cell projection', () => {
   it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
     const view = mount(TABLE, false, undefined, true);

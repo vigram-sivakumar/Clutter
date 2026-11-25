@@ -695,3 +695,21 @@
 .cm-editor .cm-table-widget ::selection {
   background: transparent;
 }
+
+/* Staged engine selection: a single perimeter derived from the rectangular
+ * bounds. Inset paint changes no cell dimensions or CM6 block geometry. */
+.cm-editor [data-table-engine-cells="true"] .cm-table-engine-selected {
+  --engine-top: 0px;
+  --engine-bottom: 0px;
+  --engine-left: 0px;
+  --engine-right: 0px;
+  box-shadow: inset 0 var(--engine-top) 0 var(--border-focus),
+    inset 0 var(--engine-bottom) 0 var(--border-focus),
+    inset var(--engine-left) 0 0 var(--border-focus),
+    inset var(--engine-right) 0 0 var(--border-focus);
+}
+.cm-editor [data-table-engine-cells="true"] .cm-table-engine-top { --engine-top: 2px; }
+.cm-editor [data-table-engine-cells="true"] .cm-table-engine-bottom { --engine-bottom: -2px; }
+.cm-editor [data-table-engine-cells="true"] .cm-table-engine-left { --engine-left: 2px; }
+.cm-editor [data-table-engine-cells="true"] .cm-table-engine-right { --engine-right: -2px; }
+.cm-editor [data-table-engine-cells="true"] [data-cell]:focus { outline: none; }

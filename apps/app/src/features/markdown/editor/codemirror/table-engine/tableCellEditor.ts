@@ -7,6 +7,9 @@ import { createCellTransaction, editableCell, type CellAddress } from './tableCe
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction } from './tableTransaction';
 import { bookmark, tableSelectionTransition } from './tableSelectionHistory';
+import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
+  type Direction, type TableInteraction } from './tableInteraction';
+import { clearSelectedCommand } from './tableClipboard';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
 
@@ -16,7 +19,167 @@ export class TableCellEditor {
   private active: { tableFrom: number; cell: CellAddress; from: number; to: number } | null = null;
   private forwarding = false;
 
-  constructor(readonly root: EditorView) {}
+  // The interaction owns logical selection. The active source span above is
+  // only the mapped address of the mounted nested document.
+  private interaction: TableInteraction = noInteraction;
+  private interactionTable: number | null = null;
+
+  constructor(readonly root: EditorView) {
+    root.dom.ownerDocument.addEventListener('mousedown', this.outsideClick, true);
+  }
+
+  private outsideClick = (event: MouseEvent): void => {
+    if (this.interactionTable === null) return;
+    const target = event.target;
+    if (target instanceof Element &&
+      this.root.dom.contains(target) && target.closest('[data-table-engine-cells="true"]')) return;
+    this.close();
+  };
+
+  private hostAt(tableFrom: number, cell: CellAddress): HTMLElement | null {
+    return this.root.dom.querySelector<HTMLElement>(
+      `[data-table-engine-cells="true"][data-table-from="${tableFrom}"] [data-cell="${cell.row},${cell.col}"]`);
+  }
+
+  private snapshot(tableFrom: number) {
+    return readTable(this.root.state.doc.toString(), tableFrom, parse);
+  }
+
+  private shape(tableFrom: number) {
+    const { model } = this.snapshot(tableFrom);
+    return { rows: model.rows.length + 1, cols: model.header.length };
+  }
+
+  // The projection owns DOM; the controller paints only derived interaction
+  // attributes on the stable hosts. No root selection or document mutation.
+  paintWidget(widget: HTMLElement): void {
+    const hosts = widget.querySelectorAll<HTMLElement>('[data-cell]');
+    const from = Number(widget.dataset.tableFrom);
+    let bounds: ReturnType<typeof selectionBounds> = null;
+    let focus: CellAddress | null = null;
+    if (this.interactionTable === from && this.interaction.kind !== 'editing') {
+      try {
+        bounds = selectionBounds(this.interaction, this.shape(from));
+        focus = focusCell(this.interaction);
+      } catch (error) {
+        if (!(error instanceof TableEngineError)) throw error;
+      }
+    }
+    for (const host of hosts) {
+      const [row, col] = host.dataset.cell!.split(',').map(Number);
+      const selected = !!bounds && row! >= bounds.top && row! <= bounds.bottom &&
+        col! >= bounds.left && col! <= bounds.right;
+      host.tabIndex = selected && focus?.row === row && focus?.col === col ? 0 : -1;
+      const cell = host.parentElement!;
+      cell.classList.toggle('cm-table-engine-selected', selected);
+      cell.classList.toggle('cm-table-engine-top', selected && row === bounds?.top);
+      cell.classList.toggle('cm-table-engine-bottom', selected && row === bounds?.bottom);
+      cell.classList.toggle('cm-table-engine-left', selected && col === bounds?.left);
+      cell.classList.toggle('cm-table-engine-right', selected && col === bounds?.right);
+    }
+  }
+
+  private paintSelection(): void {
+    this.root.dom.querySelectorAll<HTMLElement>('[data-table-engine-cells="true"]').forEach(widget => this.paintWidget(widget));
+  }
+
+  private select(tableFrom: number, interaction: TableInteraction): boolean {
+    const cell = focusCell(interaction);
+    if (!cell || !isValidCell(cell, this.shape(tableFrom))) return false;
+    const host = this.hostAt(tableFrom, cell);
+    if (!host) return false;
+    this.close();
+    this.interactionTable = tableFrom;
+    this.interaction = interaction;
+    this.paintSelection();
+    host.focus();
+    return true;
+  }
+
+  private navigateTab(backwards: boolean): boolean {
+    if (this.interactionTable === null) return false;
+    const from = this.interactionTable;
+    const next = tabInteraction(this.interaction, this.shape(from), backwards);
+    if (next.kind !== 'none') return this.select(from, next);
+    const snapshot = this.snapshot(from);
+    this.close();
+    const anchor = backwards ? Math.max(0, snapshot.from - 1) :
+      Math.min(this.root.state.doc.length, snapshot.to + 1);
+    this.root.dispatch({ selection: { anchor }, scrollIntoView: true });
+    this.root.focus();
+    return true;
+  }
+
+  private exitEdit(): boolean {
+    if (!this.active) return false;
+    return this.select(this.active.tableFrom, { kind: 'cell', cell: this.active.cell });
+  }
+
+  click(tableFrom: number, cell: CellAddress, host: HTMLElement, event: MouseEvent): void {
+    if (event.button !== 0) return;
+    if (this.owns(host)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      if (event.shiftKey && this.interactionTable === tableFrom && this.interaction.kind !== 'none') {
+        this.select(tableFrom, extendInteraction(this.interaction, this.shape(tableFrom), cell));
+      } else {
+        this.activate(tableFrom, cell, host, event);
+      }
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+    }
+  }
+
+  selectedKey(tableFrom: number, cell: CellAddress, host: HTMLElement, event: KeyboardEvent): void {
+    if (event.target !== host || event.isComposing || event.defaultPrevented ||
+      this.interactionTable !== tableFrom || this.interaction.kind === 'none' || this.interaction.kind === 'editing') return;
+    const consume = () => { event.preventDefault(); event.stopPropagation(); };
+    try {
+      if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
+      if (event.key === 'Escape') { consume(); this.close(); host.blur(); return; }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        consume(); this.close(); (event.shiftKey ? redo : undo)(this.root); return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+        consume(); this.select(tableFrom, { kind: 'table', cell }); return;
+      }
+      if (event.key === 'Enter' || event.key === 'F2') {
+        consume(); this.activate(tableFrom, cell, host); return;
+      }
+      const directions: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+      const direction = directions[event.key];
+      if (direction) {
+        consume(); this.select(tableFrom, arrowInteraction(this.interaction, this.shape(tableFrom), direction, event.shiftKey)); return;
+      }
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        consume();
+        const command = clearSelectedCommand(this.snapshot(tableFrom).model, this.interaction);
+        if (!command) return;
+        const mark = bookmark(tableFrom, this.interaction);
+        const tr = createTableTransaction(this.root.state, tableFrom, command, parse,
+          tableSelectionTransition.of({ before: mark, after: mark }));
+        if (tr) {
+          this.forwarding = true;
+          try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+        }
+        return;
+      }
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && [...event.key].length === 1) {
+        consume();
+        // Match the validated prototype candidate: replace a single selected
+        // cell, but do not silently replace a multi-cell range.
+        if (this.interaction.kind !== 'cell') return;
+        this.activate(tableFrom, cell, host);
+        if (!this.nested || !this.active) return;
+        const length = this.nested.state.doc.length;
+        this.nested.dispatch({ changes: { from: 0, to: length, insert: event.key },
+          selection: { anchor: event.key.length }, userEvent: 'input.type' });
+      }
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+    }
+  }
 
   owns(host: Element): boolean { return !!this.nested && host.contains(this.nested.dom); }
 
@@ -34,6 +197,9 @@ export class TableCellEditor {
     const source = this.root.state.doc.toString();
     const range = editableCell(source, snapshot, cell);
     this.active = { tableFrom, cell, from: range.from, to: range.to };
+    this.interactionTable = tableFrom;
+    this.interaction = { kind: 'editing', cell };
+    this.paintSelection();
     const state = EditorState.create({
       doc: range.text,
       selection: { anchor: range.text.length },
@@ -44,7 +210,9 @@ export class TableCellEditor {
         keymap.of([
           { key: 'Mod-z', run: () => { this.close(); undo(this.root); return true; } },
           { key: 'Mod-Shift-z', run: () => { this.close(); redo(this.root); return true; } },
-          { key: 'Escape', run: () => { this.close(); return true; } },
+          { key: 'Tab', run: () => this.navigateTab(false) },
+          { key: 'Shift-Tab', run: () => this.navigateTab(true) },
+          { key: 'Escape', run: () => this.exitEdit() },
           ...defaultKeymap,
         ]),
       ],
@@ -87,7 +255,15 @@ export class TableCellEditor {
 
   sync(transactions: readonly Transaction[]): void {
     for (const tr of transactions) {
-      if (!this.active || !tr.docChanged) continue;
+      if (!tr.docChanged) continue;
+      if (!this.active) {
+        if (this.interactionTable !== null && !this.forwarding) {
+          // A source mutation outside the controller may change logical
+          // addresses. Do not preserve a stale range on that revision.
+          this.close();
+        }
+        continue;
+      }
       if (!this.forwarding) {
         let touched = false;
         tr.changes.iterChangedRanges((from, to) => {
@@ -98,6 +274,7 @@ export class TableCellEditor {
       this.active.from = tr.changes.mapPos(this.active.from, -1);
       this.active.to = tr.changes.mapPos(this.active.to, 1);
       this.active.tableFrom = tr.changes.mapPos(this.active.tableFrom, 1);
+      this.interactionTable = this.active.tableFrom;
     }
   }
 
@@ -105,6 +282,9 @@ export class TableCellEditor {
     const host = this.nested?.dom.parentElement;
     this.nested?.dom.remove();
     this.active = null;
+    this.interaction = noInteraction;
+    this.interactionTable = null;
+    this.paintSelection();
     if (host) {
       // The next projection paints current Markdown. Force an update when only focus changed.
       const root = host.closest<HTMLElement>('.cm-table-widget');
@@ -116,7 +296,11 @@ export class TableCellEditor {
     }
   }
 
-  destroy(): void { this.nested?.destroy(); this.nested = null; this.active = null; }
+  destroy(): void {
+    this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
+    this.nested?.destroy(); this.nested = null; this.active = null;
+    this.interaction = noInteraction; this.interactionTable = null;
+  }
 }
 
 export const tableCellEditor = ViewPlugin.fromClass(class extends TableCellEditor {
