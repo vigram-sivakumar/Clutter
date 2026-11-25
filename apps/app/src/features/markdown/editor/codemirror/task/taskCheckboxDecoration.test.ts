@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { history, redo, undo } from '@codemirror/commands';
+import { history, redo, undo, deleteCharBackward, deleteCharForward } from '@codemirror/commands';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -184,10 +184,10 @@ describe('taskCheckboxDecoration: rendering', () => {
 });
 
 describe('taskCheckboxDecoration: atomic caret behavior', () => {
-  it('the TaskMarker range is registered in EditorView.atomicRanges', () => {
+  it('the complete rendered task prefix is registered in EditorView.atomicRanges', () => {
     const view = mountView('- [ ] Task');
     const taskMarker = findNode(view.state, 'TaskMarker')!;
-    expect(isAtomicAt(view, taskMarker.from, taskMarker.to)).toBe(true);
+    expect(isAtomicAt(view, 0, taskMarker.to)).toBe(true);
   });
 
   it('while the caret is in the text, a position strictly inside the marker is unreachable by ordinary caret motion', () => {
@@ -195,7 +195,7 @@ describe('taskCheckboxDecoration: atomic caret behavior', () => {
     const taskMarker = findNode(view.state, 'TaskMarker')!;
     // The whole marker is one atomic span, so CM6 treats any interior position as unreachable via
     // single-step caret motion (the span only stops being atomic while the caret touches it, see below).
-    expect(isAtomicAt(view, taskMarker.from, taskMarker.to)).toBe(true);
+    expect(isAtomicAt(view, 0, taskMarker.to)).toBe(true);
     expect(taskMarker.from + 1).toBeLessThan(taskMarker.to);
   });
 
@@ -388,5 +388,52 @@ describe('taskCheckboxDecoration: compatibility with Enter/Backspace editing', (
     expect(hasCheckboxAt(view, 0, false)).toBe(true);
     expect(hasCheckboxAt(view, 1, false)).toBe(true);
     expect(hasCheckboxAt(view, 2, false)).toBe(true);
+  });
+});
+
+describe('task selection across the hidden list prefix', () => {
+  it.each(['- [ ] Text', '* [x] Text', '+ [ ] Text', '12. [x] Text'])(
+    'selecting the rendered checkbox and text deletes the whole prefix: %s',
+    (doc) => {
+      const view = mountView(doc, true);
+      const taskMarker = findNode(view.state, 'TaskMarker')!;
+      // Model the mouse drag endpoint at the left edge of the checkbox widget.
+      view.dispatch({ selection: EditorSelection.range(doc.length, taskMarker.from) });
+      expect(view.state.selection.main.anchor).toBe(doc.length);
+      expect(view.state.selection.main.head).toBe(0);
+      expect(deleteCharForward(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('');
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(doc);
+      view.destroy();
+    }
+  );
+
+  it('Backspace also removes the whole selected task while keeping neighbouring lines', () => {
+    const doc = 'Before\n\n- [ ] Text\n\nAfter';
+    const view = mountView(doc);
+    const marker = findNode(view.state, 'TaskMarker')!;
+    const line = view.state.doc.lineAt(marker.from);
+    view.dispatch({ selection: EditorSelection.range(line.to, marker.from) });
+    expect(deleteCharBackward(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('Before\n\n\n\nAfter');
+    view.destroy();
+  });
+
+  it('text-only deletion preserves the task prefix', () => {
+    const view = mountView('- [ ] Text');
+    view.dispatch({ selection: EditorSelection.range(10, 6) });
+    expect(view.state.selection.main.from).toBe(6);
+    deleteCharBackward(view);
+    expect(view.state.doc.toString()).toBe('- [ ] ');
+    view.destroy();
+  });
+
+  it('intentional raw-source selection is not widened', () => {
+    const view = mountView('- [ ] Text');
+    view.dispatch({ selection: EditorSelection.cursor(2) });
+    view.dispatch({ selection: EditorSelection.range(2, 10) });
+    expect(view.state.selection.main.from).toBe(2);
+    view.destroy();
   });
 });

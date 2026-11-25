@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import { Prec, type Extension, type Range } from '@codemirror/state';
+import { EditorSelection, EditorState, Prec, type Extension, type Range } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -111,13 +111,58 @@ function buildDecorations(view: EditorView): { decorations: DecorationSet; atomi
         const widget = new TaskCheckboxWidget(isTaskMarkerChecked(raw));
         const checkboxRange = Decoration.replace({ widget }).range(taskMarker.from, taskMarker.to);
         ranges.push(checkboxRange);
-        atomicRanges.push(checkboxRange);
+        // One visible checkbox represents the entire concealed list/checkbox prefix.
+        // Keep the two visual decorations for widget hit-testing, but never expose their seam as a selection boundary.
+        atomicRanges.push(Decoration.mark({}).range(marker.from, taskMarker.to));
       },
     });
   }
 
   return { decorations: Decoration.set(ranges, true), atomic: Decoration.set(atomicRanges, true) };
 }
+
+/**
+ * Mouse selection can land on the seam between the invisible ListMark and
+ * the visible checkbox even when native atomic cursor movement skips it.
+ * Normalize a range crossing a rendered prefix to its outer boundaries.
+ * A caret, or a selection within intentionally revealed source, stays editable.
+ */
+const taskPrefixSelection = EditorState.transactionFilter.of((tr) => {
+  if (tr.docChanged || !tr.selection) return tr;
+  const state = tr.startState;
+  let changed = false;
+  const ranges = tr.selection.ranges.map((range) => {
+    if (range.empty) return range;
+    let { from, to } = range;
+    const originalFrom = from;
+    const originalTo = to;
+    syntaxTree(state).iterate({
+      from: Math.max(0, originalFrom - 1),
+      to: Math.min(state.doc.length, originalTo + 1),
+      enter(node) {
+        if (node.name !== 'ListItem') return;
+        const task = taskMarkerOfListItem(node.node, state);
+        if (!task) return;
+        const marker = node.node.firstChild!;
+        const prefix = { from: marker.from, to: task.to };
+        if (isTokenEngaged(state, prefix)) return;
+        // Expand only when the selection crosses the rendered prefix.
+        // Text-only selections and selections entirely inside raw syntax are untouched.
+        if (originalFrom > prefix.from && originalFrom < prefix.to && originalTo >= prefix.to) {
+          from = prefix.from;
+        }
+        if (originalTo > prefix.from && originalTo < prefix.to && originalFrom <= prefix.from) {
+          to = prefix.to;
+        }
+      },
+    });
+    if (from === originalFrom && to === originalTo) return range;
+    changed = true;
+    return range.anchor <= range.head ? EditorSelection.range(from, to) : EditorSelection.range(to, from);
+  });
+  if (!changed) return tr;
+  return [tr, { selection: EditorSelection.create(ranges, tr.selection.mainIndex), sequential: true }];
+});
 
 interface TaskCheckboxPlugin extends PluginValue {
   decorations: DecorationSet;
@@ -151,5 +196,5 @@ export function taskCheckboxDecoration(): Extension {
 
   const atomic = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none);
 
-  return Prec.high([plugin, atomic]);
+  return Prec.high([plugin, atomic, taskPrefixSelection]);
 }
