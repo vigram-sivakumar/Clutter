@@ -9,6 +9,9 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedLivePreview } from './embedLivePreview';
 import { embedCompletionSource } from './embedCompletionSource';
 import { embedAutocomplete } from './embedAutocomplete';
+import { pasteRouting } from '../paste/pasteRouting';
+import { embedObjectSelectionField } from './embedObjectSelection';
+import { StateEffect } from '@codemirror/state';
 import type { OnImageClick, OnOpenImageMenu, OpenImageMenuParams } from '../image/ImageWidget';
 import type { EmbedImageResolution, ResolveEmbedImage } from './embedImageResolution';
 import type { GetEmbedSuggestions } from './embedSuggestion';
@@ -969,5 +972,39 @@ describe('embedLivePreview — Flow C: editing an existing Embed (![[image.png]]
     expect(completionStatus(view.state)).not.toBeNull();
     expect(getImg(view)).toBeNull();
     expect(view.dom.querySelector('.cm-invalid-embed')).toBeNull();
+  });
+});
+
+describe('imported media selection', () => {
+  it('renders and selects every pasted image in one undoable change', async () => {
+    const view = mountView('', resolverFor({
+      'Attachments/a.png': imageResolution('app://vault/Attachments/a.png', 'Attachments/a.png', 'a'),
+      'Attachments/b.png': imageResolution('app://vault/Attachments/b.png', 'Attachments/b.png', 'b'),
+    }));
+    view.dispatch({ effects: StateEffect.appendConfig.of(pasteRouting(() => ({
+      importFile: async (file) => 'Attachments/' + file.name,
+      onFailed: vi.fn(),
+    }))) });
+    const files = ['a.png', 'b.png'].map((name, index) => {
+      const file = new File([new Uint8Array([index + 1])], name, { type: 'image/png' });
+      Object.defineProperty(file, 'arrayBuffer', { value: async () => new Uint8Array([index + 1]).buffer });
+      return file;
+    });
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: { files, getData: () => '' } });
+    view.contentDOM.dispatchEvent(event);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    settleAllProbes();
+    const expected = '![[Attachments/a.png]]\n![[Attachments/b.png]]';
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(view.dom.querySelectorAll('img.tok-image')).toHaveLength(2);
+    expect(view.dom.querySelectorAll('.cm-embed-object-selected')).toHaveLength(2);
+    expect(view.dom.classList.contains('cm-embed-object-selection-active')).toBe(true);
+    expect(view.state.field(embedObjectSelectionField)).not.toBeNull();
+    undo(view);
+    expect(view.state.doc.toString()).toBe('');
+    redo(view);
+    expect(view.state.doc.toString()).toBe(expected);
+    view.destroy();
   });
 });

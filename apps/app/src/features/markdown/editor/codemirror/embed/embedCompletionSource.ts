@@ -34,7 +34,7 @@ export const EMBED_TRIGGER_PATTERN = /!\[\[[^\]|\n]*$/;
  * Shared `apply()` body — both a resource/heading suggestion insert the
  * same way, differing only in what `insert` text they compose (a
  * resource's own `path`, or `${pagePart}#${heading}` for a heading
- * suggestion — see `toCompletion`/`toHeadingCompletion`). Every
+ * suggestion — see `toCompletion`/`toHeadingCompletion`).
  * Media is rendered and selected; note and heading embeds retain their existing line-below behaviour.
  */
 function applyEmbedInsert(insert: string, view: EditorView, from: number, to: number, selectMedia = false): void {

@@ -12,13 +12,13 @@ import { SUPPORTED_TYPE } from './pasteClassification';
 
 /** What the editor needs from the app to keep a pasted file: store it, and say what could not be stored. */
 export interface PasteAssets {
-  /** Stores one pasted image/PDF and returns its vault-relative reference (`Assets/<name>`). Rejects when it can't. */
+  /** Stores one pasted image/PDF and returns its local media reference. Rejects when it can't. */
   readonly importFile: (file: { name: string; type: string }, bytes: Uint8Array) => Promise<string>;
   /** Called once with the names of files that were not stored — the rest of the paste is still inserted. */
   readonly onFailed: (names: readonly string[]) => void;
   /**
    * Called once when files were stored but the editor could no longer take them, so nothing was inserted: they are
-   * kept in Assets/. Receives how many were stored and why — `closed` (the user left the note) or `readOnly`
+   * kept in the Space. Receives how many were stored and why — `closed` (the user left the note) or `readOnly`
    * (the note was archived or locked while the files were being stored).
    */
   readonly onNotInserted?: (stored: number, reason: 'closed' | 'readOnly') => void;
@@ -107,7 +107,7 @@ function blockBoundaries(state: EditorState, at: { readonly from: number; readon
 /**
  * Pasting content that carries files — screenshots, copied images, PDFs, and rich HTML with embedded images
  * (Notion, Anytype, web pages). Each image/PDF is stored as an asset (the app's own import) and an embed —
- * `![[Assets/<name>]]`, the syntax the editor already renders for images and PDFs — is inserted in the order
+ * `![[Attachments/<name>]]`, the syntax the editor already renders for images and PDFs — is inserted in the order
  * it appeared. One undoable `input.paste` transaction.
  *
  * Two sources, files first: the clipboard's own `files` (text that came with them is kept before the embeds),
@@ -158,7 +158,7 @@ export function embedPasted(view: EditorView, data: DataTransfer, assets: PasteA
     // Checked after the last await, against the live view: the editor is torn down when the user leaves the note
     // (it is remounted per note, and a dispatch on a torn-down view still reaches its change listener — which could
     // write into whichever note is open now), and it is re-configured read-only in place when the note is archived
-    // (`switchEditorMode`), which `view.state` reflects at once. The stored files stay in Assets/ (as after an undo);
+    // (`switchEditorMode`), which `view.state` reflects at once. The stored files stay in the Space (as after an undo);
     // nothing is inserted anywhere, and the app is told (`onNotInserted`) — a failed import is `onFailed`, never this.
     const closed = !view.dom.isConnected;
     if (closed || view.state.readOnly || !view.state.facet(EditorView.editable)) {
