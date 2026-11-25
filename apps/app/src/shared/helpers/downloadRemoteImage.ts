@@ -1,6 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { exportWriteBytes, pickExportDestination } from './nativeExport';
-import { appFetch } from './appFetch';
+import { downloadRemoteBytes } from './downloadRemoteBytes';
+
+const MAX_REMOTE_IMAGE_EXPORT_BYTES = 50 * 1024 * 1024;
 
 /**
  * Best-effort filename suggestion for the Save dialog, taken from the
@@ -38,8 +40,7 @@ export async function downloadRemoteImage(url: string): Promise<boolean> {
     return false;
   }
 
-  const response = await appFetch(url);
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const { bytes } = await downloadRemoteBytes(url, MAX_REMOTE_IMAGE_EXPORT_BYTES);
   await exportWriteBytes(destination, bytes);
 
   return true;

@@ -60,4 +60,34 @@ describe('fetchRemoteAsset', () => {
 
     await expect(fetchRemoteAsset('https://x.com/big.jpg')).rejects.toThrow(/too large/);
   });
+
+  it.each([null, '10'])('cancels an oversized stream before EOF with Content-Length %s', async (length) => {
+    const chunk = new Uint8Array(MAX_REMOTE_ASSET_BYTES / 5);
+    const cancel = vi.fn();
+    const pull = vi.fn((controller: ReadableStreamDefaultController<Uint8Array>) => {
+      controller.enqueue(chunk);
+    });
+    appFetchMock.mockResolvedValue(
+      new Response(new ReadableStream({ pull, cancel }, { highWaterMark: 0 }), {
+        headers: length === null ? undefined : { 'content-length': length },
+      })
+    );
+
+    await expect(fetchRemoteAsset('https://x.com/big.jpg')).rejects.toThrow(/too large/);
+    expect(pull).toHaveBeenCalledTimes(6);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it('uses the same deadline for stalled body reads and normalizes cancellation', async () => {
+    appFetchMock.mockImplementation(async (_url: string, { signal }: { signal: AbortSignal }) =>
+      new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1]));
+          signal.addEventListener('abort', () => controller.error('Request cancelled'), { once: true });
+        },
+      }))
+    );
+
+    await expect(fetchRemoteAsset('https://x.com/slow.jpg', 20)).rejects.toThrow(/Timed out/);
+  });
 });

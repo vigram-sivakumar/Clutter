@@ -382,11 +382,13 @@ export function AppLayout({
 
   // "Download" of a remote image: reported to Unsplash (when it is a photo picked from there) only once the file was written.
   function downloadRemote(url: string): void {
-    void downloadRemoteImage(url).then((saved) => {
-      if (saved) {
-        application.reportUnsplashDownload(url);
-      }
-    });
+    void downloadRemoteImage(url)
+      .then((saved) => {
+        if (saved) {
+          application.reportUnsplashDownload(url);
+        }
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t download the image', error));
   }
 
   function startSaveToVault(url: string): void {

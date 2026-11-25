@@ -807,11 +807,13 @@ export function PageHost({
       downloadResourceById(resolved.resourceId);
       return;
     }
-    void downloadRemoteImage(url).then((saved) => {
-      if (saved) {
-        application.reportUnsplashDownload(url);
-      }
-    });
+    void downloadRemoteImage(url)
+      .then((saved) => {
+        if (saved) {
+          application.reportUnsplashDownload(url);
+        }
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t download the image', error));
   }
   // "Save to vault" for a remote image embedded in the note: the same flow, and result dialog, as the
   // asset menu's (AppLayout owns it). The editor only offers it for a remote URL.

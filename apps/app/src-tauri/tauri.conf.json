@@ -53,6 +53,9 @@
     }
   },
   "plugins": {
+    "http": {
+      "scopeRedirects": true
+    },
     "fs": {
       "requireLiteralLeadingDot": false
     }
