@@ -7,7 +7,7 @@ import type { Vault } from '../../vault/models/Vault';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
 import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
-import { moveZoneOfPath, type MovePickerZone, type MoveZone } from '../../vault/initialize/ReservedResources';
+import { isManagedAttachmentPath, moveZoneOfPath, type MovePickerZone, type MoveZone } from '../../vault/initialize/ReservedResources';
 import { isRemoteAssetsInCatalogEnabled } from '../../featureFlags';
 import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
@@ -332,7 +332,7 @@ export class MembershipSelector {
   }
 
   public isVisibleFolder(folder: Folder): boolean {
-    return !this.isHiddenName(folder.name);
+    return !this.isHiddenName(folder.name) && !isManagedAttachmentPath(this.vault.root, folder.path);
   }
 
   public isVisiblePage(page: Pick<EffectivePage | Page, 'name'>): boolean {
@@ -506,6 +506,11 @@ export class MembershipSelector {
         this.isVisiblePage(page) &&
         !this.isArchivedPage(page)
     );
+  }
+
+  /** The intentional library; other indexed media remain available for reference resolution. */
+  public getAssetLibrary(): Asset[] {
+    return this.getAllAssets().filter((asset) => asset.source === 'local' && moveZoneOfPath(this.vault.root, asset.resource.path) === 'assets');
   }
 
   /**

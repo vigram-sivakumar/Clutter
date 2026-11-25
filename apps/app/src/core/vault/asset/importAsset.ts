@@ -50,11 +50,11 @@ export async function writeToFreeAssetName(
   destinationFolderPath: string | undefined,
   write: (destinationAbsolutePath: string) => Promise<void>
 ): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
-  return retryDestinationCollision(async () => {
+  return serializeMediaImport(vaultRoot, () => retryDestinationCollision(async () => {
     const destination = await resolveAssetDestination(fileSystem, vaultRoot, fileName, destinationFolderPath);
     await write(destination.destinationAbsolutePath);
     return destination;
-  });
+  }));
 }
 
 /**
@@ -81,12 +81,14 @@ export async function resolveAssetDestination(
   const entries = await fileSystem.readDirectory(assetsDir);
   // Compared ignoring case: the common file systems (macOS, Windows) would put
   // `Photo.jpg` and `photo.jpg` in the same file.
-  const existingNames = new Set(
-    entries.filter((entry) => !entry.isDirectory).map((entry) => entry.name.toLowerCase())
-  );
+  const existingNames = new Set(entries.map((entry) => mediaNameKey(entry.name)));
+  // Private infrastructure is not part of the media namespace. All user-content media is.
+  if (!assetsDir.startsWith(`${vaultRoot}/.clutter/`)) {
+    await collectMediaNames(fileSystem, vaultRoot, vaultRoot, existingNames);
+  }
 
   const uniqueBaseName = resolveCollisionFreeName(baseName, (candidate) =>
-    existingNames.has(`${candidate}${extension}`.toLowerCase())
+    existingNames.has(mediaNameKey(`${candidate}${extension}`))
   );
   const destinationFileName = `${uniqueBaseName}${extension}`;
 
@@ -95,6 +97,32 @@ export async function resolveAssetDestination(
     // Vault-relative: `Assets/photo.png`, or `Assets/Trips/photo.png` for a folder inside it.
     reference: `${assetsDir.slice(vaultRoot.length + 1)}/${destinationFileName}`,
   };
+}
+
+/** Case-insensitive, canonically normalized comparison, including macOS decomposed names. */
+export function mediaNameKey(name: string): string {
+  return name.normalize('NFC').toLowerCase();
+}
+
+const importQueues = new Map<string, Promise<unknown>>();
+function serializeMediaImport<T>(root: string, run: () => Promise<T>): Promise<T> {
+  const previous = importQueues.get(root) ?? Promise.resolve();
+  const next = previous.then(run);
+  const settled = next.catch(() => undefined);
+  importQueues.set(root, settled);
+  void settled.then(() => { if (importQueues.get(root) === settled) importQueues.delete(root); });
+  return next;
+}
+
+/** Use the same supported-resource classification as VaultScanner; no note parsing or byte reads. */
+async function collectMediaNames(fileSystem: VaultFileSystem, root: string, directory: string, names: Set<string>): Promise<void> {
+  for (const entry of await fileSystem.readDirectory(directory)) {
+    if (entry.isDirectory) {
+      if (entry.path !== `${root}/.clutter`) await collectMediaNames(fileSystem, root, entry.path, names);
+    } else if (classifySupportedResourceFile(entry.name) !== null) {
+      names.add(mediaNameKey(entry.name));
+    }
+  }
 }
 
 const EXTENSION_BY_MIME_TYPE: Readonly<Record<string, string>> = {

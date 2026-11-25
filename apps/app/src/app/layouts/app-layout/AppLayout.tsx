@@ -484,7 +484,7 @@ export function AppLayout({
   function listCoverPickerAssets(): CoverPickerAsset[] {
     const prefix = `${application.vault.root}/`;
     const result: CoverPickerAsset[] = [];
-    for (const asset of application.membershipSelector.getAllAssets()) {
+    for (const asset of application.membershipSelector.getAssetLibrary()) {
       if (asset.kind !== 'image') continue;
       if (asset.source === 'local') {
         const { path } = asset.resource;

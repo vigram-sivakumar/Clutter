@@ -215,11 +215,11 @@ describe('Application.importCoverAsset', () => {
 
     const reference = await application.importCoverAsset('/external/photo.png');
 
-    expect(reference).toBe('Assets/photo.png');
-    expect(fileSystem.getFileSync(`${vaultRoot}/Assets/photo.png`)).toBe('bytes');
+    expect(reference).toBe('Attachments/photo.png');
+    expect(fileSystem.getFileSync(`${vaultRoot}/Attachments/photo.png`)).toBe('bytes');
     // Registered in the Vault immediately — no watcher event involved (a copy's
     // single echo is suppressed as a self-write).
-    expect(application.vault.getResourceByPath(`${vaultRoot}/Assets/photo.png`)).toBeDefined();
+    expect(application.vault.getResourceByPath(`${vaultRoot}/Attachments/photo.png`)).toBeDefined();
   });
 });
 

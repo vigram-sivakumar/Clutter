@@ -91,15 +91,15 @@ describe('importAsset', () => {
     expect(await fileSystem.exists(`${ROOT}/Assets/photo.png`)).toBe(false);
   });
 
-  it('names collisions against THAT folder only, not against Assets/', async () => {
+  it('names collisions across the Space, not just the destination', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     fileSystem.seedFile('/external/photo.png', 'new');
     await fileSystem.createDirectory(`${ROOT}/Assets`);
     await fileSystem.createDirectory(`${ROOT}/Assets/Trips`);
     fileSystem.seedFile(`${ROOT}/Assets/photo.png`, 'top-level');
-    fileSystem.seedFile(`${ROOT}/Assets/Trips/photo.png`, 'in-folder');
+    fileSystem.seedFile(`${ROOT}/Assets/Trips/photo 2.png`, 'in-folder');
 
-    expect(await importAsset(fileSystem, ROOT, '/external/photo.png', `${ROOT}/Assets/Trips`)).toBe('Assets/Trips/photo 2.png');
+    expect(await importAsset(fileSystem, ROOT, '/external/photo.png', `${ROOT}/Assets/Trips`)).toBe('Assets/Trips/photo 3.png');
   });
 
   it('still creates Assets/ itself when importing to it for the first time', async () => {

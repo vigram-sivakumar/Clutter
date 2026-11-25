@@ -109,6 +109,7 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
     type: 'folder',
     path: 'Templates',
   },
+  { type: 'folder', path: 'Attachments' },
   {
     type: 'file',
     path: WORKSPACE_STATE_RELATIVE_PATH,
@@ -138,9 +139,15 @@ export const RESERVED_FOLDER_IDS = {
   archive: 'Archive',
   inbox: 'Inbox',
   templates: 'Templates',
+  attachments: 'Attachments',
 } as const;
 
 export type ReservedFolderId = keyof typeof RESERVED_FOLDER_IDS;
+
+export function isManagedAttachmentPath(root: string, path: string): boolean {
+  const directory = `${root}/${RESERVED_FOLDER_IDS.attachments}`;
+  return path === directory || VaultPath.isDescendantOf(path, directory);
+}
 
 export function reservedFolderRelativePath(id: ReservedFolderId): string {
   return RESERVED_FOLDER_IDS[id];

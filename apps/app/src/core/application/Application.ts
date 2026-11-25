@@ -96,6 +96,7 @@ import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUr
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { ensureSpaceAccessIfDesktop } from '../vault/providers/ensureSpaceAccessIfDesktop';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { RESERVED_FOLDER_IDS } from '../vault/initialize/ReservedResources';
 import { classifySupportedResourceFile } from '../vault/ingest/SupportedResourceKind';
 import { isClutterInternalPath } from '../vault/initialize/ReservedResources';
 import { findCoverCredit } from './page/coverCredit';
@@ -1207,7 +1208,7 @@ export class Application {
   }
 
   /**
-   * Stores a file from the clipboard (an image or PDF, as bytes) in `Assets/` and registers it with the
+   * Stores note media in Attachments/ unless an explicit Assets destination is supplied and registers it with the
    * Vault like any imported asset. Returns the vault-relative reference a Markdown embed uses.
    */
   public importPastedAsset(name: string, mimeType: string, bytes: Uint8Array, destinationFolderPath?: string): Promise<string> {
@@ -1225,13 +1226,15 @@ export class Application {
   }
 
   private async runImportPastedAsset(name: string, mimeType: string, bytes: Uint8Array, destinationFolderPath?: string): Promise<string> {
-    this.assertAssetDestinationWritable(destinationFolderPath);
+    const destination = destinationFolderPath ?? `${this.rootPath}/${RESERVED_FOLDER_IDS.attachments}`;
+    this.assertAssetDestinationWritable(destination);
+    if (destinationFolderPath === undefined) await this.folderOperations.ensureReservedFolder('attachments');
     const reference = await importAssetBytes(
       this.fileSystem,
       this.rootPath,
       pastedAssetFileName(name, mimeType),
       bytes,
-      destinationFolderPath
+      destination
     );
 
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
@@ -1735,7 +1738,7 @@ export class Application {
   }
 
   /**
-   * Copies an external image into `{vaultRoot}/Assets/` and returns the
+   * Copies an external image into `{vaultRoot}/Attachments/` and returns the
    * vault-relative reference for frontmatter storage. Non-Gate write —
    * same carve-out as TagOperations' `.clutter/*` writes.
    *

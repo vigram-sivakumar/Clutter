@@ -208,5 +208,5 @@ export function getSystemLocationForFolder(
 
   const id = reservedFolderIdForName(folder.name);
 
-  return id && id !== 'clutter' ? id : undefined;
+  return id && id !== 'clutter' && id !== 'attachments' ? id : undefined;
 }

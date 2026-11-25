@@ -997,7 +997,7 @@ export function PageHost({
         file.name,
         file.type,
         new Uint8Array(await file.arrayBuffer()),
-        destinationFolderPath
+        destinationFolderPath ?? `${vault.root}/${ASSETS_DIRECTORY_NAME}`
       );
     });
     reportUpload(toast, result);
@@ -1080,7 +1080,7 @@ export function PageHost({
   // files that live in a folder inside Assets/, which show in that folder instead.
   const assetsOfPage = (folderId: string | null): Asset[] =>
     application.membershipSelector
-      .getAllAssets()
+      .getAssetLibrary()
       .filter((asset) =>
         folderId === null
           ? asset.source === 'local' && !application.membershipSelector.isInAssetsSubfolder(asset.resource)
@@ -1774,7 +1774,7 @@ export function PageHost({
     },
     onNotInserted: (stored: number, reason: 'closed' | 'readOnly') =>
       toast.show({
-        text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to Assets, but not added to the note${reason === 'readOnly' ? ' because it’s read-only' : ''}`,
+        text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to this Space, but not added to the note${reason === 'readOnly' ? ' because it’s read-only' : ''}`,
       }),
   };
 

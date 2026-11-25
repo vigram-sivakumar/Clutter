@@ -26,37 +26,37 @@ describe('ensureAssetsDirectory', () => {
 });
 
 describe('importCoverAsset', () => {
-  it('copies the source into Assets/ and returns a vault-relative reference', async () => {
+  it('copies the source into Attachments/ and returns a vault-relative reference', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const sourcePath = '/Users/me/Downloads/photo.png';
     fileSystem.seedFile(sourcePath, 'image-bytes');
 
     const reference = await importCoverAsset(fileSystem, ROOT, sourcePath);
 
-    expect(reference).toBe('Assets/photo.png');
-    expect(fileSystem.getFileSync(`${ROOT}/Assets/photo.png`)).toBe('image-bytes');
+    expect(reference).toBe('Attachments/photo.png');
+    expect(fileSystem.getFileSync(`${ROOT}/Attachments/photo.png`)).toBe('image-bytes');
     expect(fileSystem.getFileSync(sourcePath)).toBe('image-bytes');
   });
 
-  it('creates Assets/ on first import', async () => {
+  it('creates Attachments/ on first import', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     fileSystem.seedFile('/external/photo.png', 'bytes');
 
     await importCoverAsset(fileSystem, ROOT, '/external/photo.png');
 
-    expect(await fileSystem.exists(`${ROOT}/Assets`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Attachments`)).toBe(true);
   });
 
   it('resolves filename collisions with the numeric suffix convention', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     fileSystem.seedFile('/external/photo.png', 'first');
-    await fileSystem.createDirectory(`${ROOT}/Assets`);
-    fileSystem.seedFile(`${ROOT}/Assets/photo.png`, 'existing');
+    await fileSystem.createDirectory(`${ROOT}/Attachments`);
+    fileSystem.seedFile(`${ROOT}/Attachments/photo.png`, 'existing');
 
     const reference = await importCoverAsset(fileSystem, ROOT, '/external/photo.png');
 
-    expect(reference).toBe('Assets/photo 2.png');
-    expect(fileSystem.getFileSync(`${ROOT}/Assets/photo 2.png`)).toBe('first');
+    expect(reference).toBe('Attachments/photo 2.png');
+    expect(fileSystem.getFileSync(`${ROOT}/Attachments/photo 2.png`)).toBe('first');
   });
 
   it('preserves the original file extension', async () => {
@@ -65,7 +65,7 @@ describe('importCoverAsset', () => {
 
     const reference = await importCoverAsset(fileSystem, ROOT, '/external/scan.jpeg');
 
-    expect(reference).toBe('Assets/scan.jpeg');
+    expect(reference).toBe('Attachments/scan.jpeg');
   });
 });
 

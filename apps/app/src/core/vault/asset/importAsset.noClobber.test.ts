@@ -77,23 +77,12 @@ describe('importAsset — a name taken between choosing it and writing it', () =
     expect(fileSystem.getFileSync(`${ROOT}/Assets/Trips/photo.png`)).toBe(THEIRS);
   });
 
-  it('a name that keeps being refused ends in the refusal, not in a replacement, after a bounded number of tries', async () => {
-    // A folder is named like the file: the listing (files only) cannot see it, so every attempt picks the same name.
+  it('treats a same-named directory as occupied and never replaces it', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     await fileSystem.createDirectory(`${ROOT}/Assets/photo.png`);
     fileSystem.seedFile('/external/photo.png', 'my image');
-    let writes = 0;
-    const original = fileSystem.copyFile.bind(fileSystem);
-    fileSystem.copyFile = async (from, to) => {
-      writes += 1;
-      return original(from, to);
-    };
-
-    await expect(importAsset(fileSystem, ROOT, '/external/photo.png')).rejects.toBeInstanceOf(DestinationExistsError);
-
-    expect(writes).toBe(MAX_DESTINATION_ATTEMPTS);
+    expect(await importAsset(fileSystem, ROOT, '/external/photo.png')).toBe('Assets/photo 2.png');
     expect(await fileSystem.exists(`${ROOT}/Assets/photo.png`)).toBe(true);
-    expect(fileSystem.getFileSync('/external/photo.png')).toBe('my image');
   });
 
   it('a failure that is not a collision is not retried and nothing is left behind', async () => {
