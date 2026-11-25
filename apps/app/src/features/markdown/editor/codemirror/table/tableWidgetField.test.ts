@@ -12,6 +12,8 @@ import { tableWidgetDecoration } from './tableWidgetField';
 
 import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
 import { tableRectangularNormalization } from './tableRectangularNormalization';
+import { tableRootSelectionSnap } from './tableRootSelectionSnap';
+import { tableActivationNormalization } from './tableActivationNormalization';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { insertRowBelowSelection } from './tableRowInsertion';
 import { insertColumnRightSelection } from './tableColumnInsertion';
@@ -1197,4 +1199,36 @@ describe('tableWidgetField — rendered projection survives structural history',
     }
   });
 
+});
+describe('production table history filter stack', () => {
+  it('round trips repeated quick-add column and row commands independently, preserving exact source', () => {
+    const doc = 'Before\n\n| | | |\n| - | - | - |\n| | | |\n\nAfter';
+    const parent = document.body.appendChild(document.createElement('div'));
+    const view = new EditorView({ parent, state: EditorState.create({
+      doc, selection: { anchor: doc.length },
+      extensions: [markdownLanguageExtension(), tableSelectionField, tableSelectionDeletionHistory(),
+        tableRootSelectionSnap(), tableActivationNormalization(), tableRectangularNormalization(),
+        history(), tableWidgetDecoration()],
+    }) });
+    try {
+      const snapshots = [doc];
+      const tableFrom = doc.indexOf('|');
+      for (let i = 0; i < 3; i++) {
+        expect(insertColumnRightSelection(view, { kind: 'column', tableFrom, columnIndex: 2 + i }, false, true)).toBe(true);
+        snapshots.push(view.state.doc.toString());
+        expect(insertRowBelowSelection(view, { kind: 'row', tableFrom, rowIndex: 1 + i }, false)).toBe(true);
+        snapshots.push(view.state.doc.toString());
+      }
+      for (let i = snapshots.length - 2; i >= 0; i--) {
+        expect(undo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(snapshots[i]);
+        expect(findAllTables(view.state)).toHaveLength(1);
+      }
+      for (let i = 1; i < snapshots.length; i++) {
+        expect(redo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(snapshots[i]);
+        expect(findAllTables(view.state)).toHaveLength(1);
+      }
+    } finally { view.destroy(); parent.remove(); }
+  });
 });

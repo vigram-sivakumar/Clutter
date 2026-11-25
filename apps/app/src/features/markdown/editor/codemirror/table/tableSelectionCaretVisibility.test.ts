@@ -96,3 +96,15 @@ describe('tableSelectionCaretVisibility', () => {
     expect(view.state.selection.eq(before)).toBe(true);
   });
 });
+
+it('hides the oversized root caret immediately and corrects a filter-bypassing selection without editing source', async () => {
+  const doc = 'Before\n\n' + TABLE + '\n\nAfter';
+  const view = mountRootView(doc);
+  const pos = doc.indexOf('| Name');
+  view.dispatch({ selection: { anchor: pos }, filter: false });
+  expect(view.dom.classList.contains('cm-table-root-caret-unsafe')).toBe(true);
+  await Promise.resolve();
+  expect(view.state.selection.main.head).toBe(pos - 1);
+  expect(view.dom.classList.contains('cm-table-root-caret-unsafe')).toBe(false);
+  expect(view.state.doc.toString()).toBe(doc);
+});

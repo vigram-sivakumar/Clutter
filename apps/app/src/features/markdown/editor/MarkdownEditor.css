@@ -2177,3 +2177,8 @@
 .cm-editor .cm-reveal-line--visible {
   background-color: var(--md-reveal-highlight-surface);
 }
+
+/* Suppress only the root cursor while its source position is inside a replaced table. */
+.cm-editor.cm-table-root-caret-unsafe > .cm-scroller > .cm-cursorLayer {
+  visibility: hidden !important;
+}

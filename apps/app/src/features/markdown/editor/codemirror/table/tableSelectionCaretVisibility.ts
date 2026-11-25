@@ -1,7 +1,8 @@
-import type { Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { Transaction, type Extension } from '@codemirror/state';
+import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 
 import { tableSelectionField } from './tableSelection';
+import { correctedTableRootSelection, rootCaretTouchesHiddenTable } from './tableRootSelectionSnap';
 
 /**
  * Hides the root editor's own visual caret while a `TableSelection`
@@ -42,8 +43,32 @@ import { tableSelectionField } from './tableSelection';
 const TABLE_SELECTION_ACTIVE_CLASS = 'cm-table-selection-active';
 
 export function tableSelectionCaretVisibility(): Extension {
-  return EditorView.updateListener.of((update) => {
-    const active = (update.state.field(tableSelectionField, false) ?? null) !== null;
-    update.view.dom.classList.toggle(TABLE_SELECTION_ACTIVE_CLASS, active);
+  return ViewPlugin.fromClass(class {
+    private destroyed = false;
+    private scheduled = false;
+    constructor(private readonly view: EditorView) {
+      this.sync();
+    }
+    update(_update: ViewUpdate) {
+      this.sync();
+    }
+    private sync() {
+      const state = this.view.state;
+      const selected = (state.field(tableSelectionField, false) ?? null) !== null;
+      const unsafe = rootCaretTouchesHiddenTable(state);
+      this.view.dom.classList.toggle(TABLE_SELECTION_ACTIVE_CLASS, selected);
+      this.view.dom.classList.toggle('cm-table-root-caret-unsafe', unsafe);
+      // History dispatches filter:false. Correct only selection after that
+      // transaction (and on initial mount), without changing document/history.
+      if (selected || !unsafe || this.scheduled || !correctedTableRootSelection(state)) return;
+      this.scheduled = true;
+      queueMicrotask(() => {
+        this.scheduled = false;
+        if (this.destroyed || !this.view.dom.isConnected || this.view.state.field(tableSelectionField, false)) return;
+        const selection = correctedTableRootSelection(this.view.state);
+        if (selection) this.view.dispatch({ selection, annotations: Transaction.addToHistory.of(false) });
+      });
+    }
+    destroy() { this.destroyed = true; }
   });
 }

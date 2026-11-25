@@ -1,3 +1,4 @@
+import { isolateHistory } from '@codemirror/commands';
 import type { ChangeSpec } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
@@ -69,6 +70,7 @@ function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelectio
     changes,
     selection: view.state.selection.map(changeSet),
     ...(nextSelection ? { effects: [tableSelectionChanged.of(nextSelection)] } : {}),
+    annotations: isolateHistory.of('full'),
     scrollIntoView: nextSelection !== undefined,
   });
 }

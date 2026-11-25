@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { selectAll } from '@codemirror/commands';
-import { EditorState } from '@codemirror/state';
+import { isolateHistory, selectAll } from '@codemirror/commands';
+import { Annotation, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -129,9 +129,8 @@ describe('tableRootSelectionSnap — paste creating a complete table in one tran
 
     const table = findEnclosingTable(tr.state, before.length)!;
     expect(table).not.toBeNull();
-    // Nothing follows the table at all — `table.to` (document end) is the only valid target.
-    expect(tr.state.selection.main.head).toBe(table.to);
-    expect(tr.state.selection.main.head).toBe(tr.state.doc.length);
+    // A preceding text line is a safer caret target than a terminal widget.
+    expect(tr.state.selection.main.head).toBe(table.from - 1);
   });
 
   it('places the cursor after a table pasted directly above existing following text', () => {
@@ -270,5 +269,34 @@ describe('tableRootSelectionSnap — Ctrl+A / Select All spans table widgets (Mi
 
     expect(state.selection.main.anchor).toBe(state.selection.main.head);
     expectOutsideAnyTable(state, state.selection.main.head);
+  });
+});
+
+describe('root table selection transaction identity', () => {
+  it('retains arbitrary annotations and history isolation when snapping a structural edit', () => {
+    const marker = Annotation.define<boolean>();
+    const doc = 'Before\n\n' + BASIC_TABLE + '\n\nAfter';
+    const state = makeState(doc);
+    const table = findEnclosingTable(state, doc.indexOf('| a |'))!;
+    const tr = state.update({
+      changes: { from: table.to, insert: '\n| 3 | 4 |' },
+      selection: { anchor: table.from + 2 },
+      annotations: [marker.of(true), isolateHistory.of('full'), Transaction.addToHistory.of(false)],
+      userEvent: 'input',
+    });
+    expect(tr.annotation(marker)).toBe(true);
+    expect(tr.annotation(isolateHistory)).toBe('full');
+    expect(tr.annotation(Transaction.addToHistory)).toBe(false);
+    expect(tr.isUserEvent('input')).toBe(true);
+    expect(tr.state.doc.toString()).toContain('| 3 | 4 |');
+    expectOutsideAnyTable(tr.state, tr.state.selection.main.head);
+  });
+
+  it('skips the concealed width metadata line', () => {
+    const doc = BASIC_TABLE + '\n{table-col-widths="200,200"}\n\nAfter';
+    const state = makeState(doc);
+    const tr = state.update({ selection: { anchor: doc.indexOf('{table-col-widths') + 3 } });
+    expect(tr.state.selection.main.head).toBe(doc.indexOf('\n\nAfter') + 1);
+    expect(tr.state.doc.toString()).toBe(doc);
   });
 });

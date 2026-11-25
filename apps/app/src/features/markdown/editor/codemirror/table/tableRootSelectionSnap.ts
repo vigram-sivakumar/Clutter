@@ -1,7 +1,8 @@
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { findEnclosingTable } from './tableGeometry';
+import { findAllTables, findEnclosingTable } from './tableGeometry';
+import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';
 
 /**
  * Centralized invariant enforcement for "root selection is never inside a
@@ -152,87 +153,58 @@ import { findEnclosingTable } from './tableGeometry';
  * mapping for an arbitrary position inside a single-DOM-node block-replace
  * widget is not something this change has verified is safe to rely on.
  */
+/** Shared by ordinary transactions and the view's post-history correction. */
+export function correctedTableRootSelection(state: EditorState): EditorSelection | null {
+  const range = state.selection.main;
+  const anchor = snapPosition(state, range.anchor, range.empty);
+  const head = snapPosition(state, range.head, range.empty);
+  if (anchor === range.anchor && head === range.head) return null;
+  return EditorSelection.create(state.selection.ranges.map((r, i) =>
+    i === state.selection.mainIndex ? EditorSelection.range(anchor, head) : r
+  ), state.selection.mainIndex);
+}
+
 export function tableRootSelectionSnap(): Extension {
   return EditorState.transactionFilter.of((tr) => {
-    if (!tr.selection) {
-      return tr;
-    }
-
-    const range = tr.selection.main;
-    const collapsed = range.anchor === range.head;
-    const anchor = snapPosition(tr.state, range.anchor, collapsed);
-    const head = snapPosition(tr.state, range.head, collapsed);
-
-    if (anchor === range.anchor && head === range.head) {
-      return tr;
-    }
-
-    // `changes` must be carried over explicitly here (unlike
-    // `tokenSelectionSnap`'s equivalent return, which can omit it): that
-    // one only ever replaces a non-doc-changing transaction, where an
-    // omitted `changes` defaults to a no-op over `tr.startState`'s own
-    // (unchanged) length regardless. This filter also replaces
-    // doc-changing transactions (paste) — omitting `changes` here would
-    // default to a no-op sized against `tr.startState`'s *pre-paste*
-    // length, which the corrected, *post-paste* selection position can
-    // easily exceed (`RangeError: Selection points outside of document`,
-    // confirmed directly).
-    return {
-      changes: tr.changes,
-      selection: EditorSelection.single(anchor, head),
-      effects: tr.effects,
-      scrollIntoView: tr.scrollIntoView,
-    };
+    if (!tr.selection && !tr.docChanged) return tr;
+    const selection = correctedTableRootSelection(tr.state);
+    // Compose with the original transaction. Reconstructing it drops private
+    // annotations (history isolation, addToHistory, external-sync and cell
+    // forwarding), which can turn a structural edit into an incorrect history
+    // group or cause a host sync to be treated as a new user edit.
+    return selection ? [tr, { selection, sequential: true }] : tr;
   });
 }
 
-/**
- * The table whose replaced range `pos` violates the root-selection
- * invariant for — `[table.from, table.to)` in the ordinary case, plus the
- * one extra boundary position `findEnclosingTable` itself doesn't flag:
- * `pos === table.to` with a real line still following it (see this file's
- * own top doc comment for why that position isn't actually safe here,
- * unlike for an inline token). Checking `pos - 1` against `findEnclosingTable`
- * reuses that same tree-resolution rather than re-deriving "which table
- * ends here" independently — `pos - 1` is unambiguously the table's own
- * last real (hidden) character whenever `pos` is its `.to`.
- */
-function findViolatedTable(state: EditorState, pos: number): SyntaxNode | null {
-  const enclosing = findEnclosingTable(state, pos);
-  if (enclosing) {
-    return enclosing;
+function findHiddenTableRange(state: EditorState, pos: number): { from: number; to: number } | null {
+  const enclosing = findEnclosingTable(state, pos)
+    ?? (pos > 0 ? findEnclosingTable(state, pos - 1) : null);
+  if (enclosing && pos <= enclosing.to) {
+    const attr = resolveExistingAttributeLineRange(state, { node: enclosing, from: enclosing.from, to: enclosing.to });
+    return { from: enclosing.from, to: attr?.to ?? enclosing.to };
   }
-  if (pos > 0 && pos < state.doc.length) {
-    const preceding = findEnclosingTable(state, pos - 1);
-    if (preceding && preceding.to === pos) {
-      return preceding;
-    }
+  // An explicit-width table also owns its concealed metadata line.
+  // Never park a root caret in that line or edit it as ordinary text.
+  for (const table of findAllTables(state)) {
+    const attr = resolveExistingAttributeLineRange(state, table);
+    if (attr && pos >= attr.from && pos <= attr.to) return { from: table.from, to: attr.to };
   }
   return null;
 }
 
+export function rootCaretTouchesHiddenTable(state: EditorState): boolean {
+  return state.selection.main.empty && findHiddenTableRange(state, state.selection.main.head) !== null;
+}
+
 function snapPosition(state: EditorState, pos: number, collapsed: boolean): number {
-  const table = findViolatedTable(state, pos);
-  if (!table) {
-    return pos;
-  }
-
-  // A non-collapsed selection may rest exactly at the table's own boundary
-  // — see this file's own top doc comment for why that's safe (no caret is
-  // ever drawn for a non-empty range) and why a genuinely interior position
-  // is deliberately not included here.
-  if (!collapsed && (pos === table.from || pos === table.to)) {
-    return pos;
-  }
-
+  const table = findHiddenTableRange(state, pos);
+  if (!table) return pos;
+  // Noncollapsed selections can include the whole hidden source.
+  if (!collapsed && (pos === table.from || pos === table.to)) return pos;
   const after = table.to < state.doc.length ? table.to + 1 : table.to;
-
-  // No position before the table exists when it opens the document —
-  // `after` is the only valid target left.
-  if (table.from === 0) {
-    return after;
-  }
-
   const before = table.from - 1;
+  if (before < 0) return after;
+  // Prefer a real editable line to an invisible terminal table boundary.
+  if (collapsed && table.to === state.doc.length) return before;
   return pos - before <= after - pos ? before : after;
 }
