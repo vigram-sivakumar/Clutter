@@ -11,7 +11,6 @@ import {
 import { readLaunchSidebarTab } from '../features/settings/sidebar-setting/defaultSidebarTab';
 import { readStartupBehavior } from '../features/settings/startup-setting/startupPreference';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
-import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
 import { useToast } from '../components/toast/ToastProvider';
 import {
@@ -592,12 +591,11 @@ function AppShellContent() {
     const ticket = ++ticketRef.current;
     const isStale = () => ticketRef.current !== ticket;
 
-    const prepare = (path: string) =>
-      // Table-column normalization applies to what's written to disk (the durable representation),
-      // not to the live editing session — see `PageOperations`'s own constructor doc comment for why
-      // this is injected here, the one place UI and the Composition Root already meet, rather than
-      // imported inside `core/application/`.
-      Application.bootstrap(path, normalizeAllTablesInMarkdown);
+    // Persist the same Markdown the editor owns. Formatting a second copy at
+    // autosave creates a different durable representation and can invalidate
+    // history when filesystem reconciliation brings that representation back.
+    // Table formatting remains an explicit editor command.
+    const prepare = (path: string) => Application.bootstrap(path);
 
     async function commit(prepared: Application): Promise<void> {
       if (isStale()) {

@@ -1401,10 +1401,15 @@ export class VaultSyncService {
     const session = this.documentRegistry.get(pageId);
 
     if (session && !session.isDirty) {
+      const fingerprint = this.vault.getPage(pageId)?.sourceFingerprint;
+      // A duplicate watcher event or directory rescan of the exact revision
+      // already acknowledged by the session is not an external body edit.
+      // This also protects an older session whose durable representation was
+      // formatted at save time from feeding that formatting into undo history.
+      if (fingerprint !== undefined && fingerprint === session.diskFingerprint) return;
       this.applyExternalRevision(session, markdown);
-      // A clean session now corresponds to what is on disk; a dirty one keeps the version it started from, so its
-      // next save is recognised as a conflict instead of overwriting this (ADR-063).
-      session.diskFingerprint = this.vault.getPage(pageId)?.sourceFingerprint;
+      // A clean session now corresponds to what is on disk; a dirty one keeps the version it started from.
+      session.diskFingerprint = fingerprint;
     }
   }
 

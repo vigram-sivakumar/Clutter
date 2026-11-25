@@ -1,3 +1,4 @@
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import { describe, expect, it, vi } from 'vitest';
 import { VaultSyncService } from './VaultSyncService';
 import { Vault } from '../models/Vault';
@@ -1311,6 +1312,30 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
 });
 
 describe('VaultSyncService: sync correctness', () => {
+  it('does not replace the live body on a rescan of an already acknowledged durable revision, but adopts a new external revision', async () => {
+    const live = '| A | B |\n| - | - |\n| 1 | 2 |';
+    const durable = '| A   | B   |\n| --- | --- |\n| 1   | 2   |';
+    const existing = buildPage('Note.md', live, 'note-1');
+    const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
+    const session = documentRegistry.open(existing.id, live);
+    const saved = '---\nid: note-1\n---\n' + durable;
+    session.diskFingerprint = contentIdentity(saved);
+    const revision = session.currentRevision;
+    fileSystem.seedFile(`${ROOT}/Note.md`, saved);
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+    expect(vault.getPage(existing.id)?.source.markdown).toBe(durable);
+    expect(session.currentRevision).toBe(revision);
+    expect(session.currentRevision.markdown).toBe(live);
+    expect(session.isDirty).toBe(false);
+    const external = durable + '\n\nExternally edited';
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\n' + external);
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+    expect(session.currentRevision.markdown).toBe(external);
+    expect(session.isDirty).toBe(false);
+  });
+
   it('dirty session protection: an external change replaces the Vault page but does not overwrite unsaved local edits', async () => {
     const existing = buildPage('Note.md', 'Original body', 'note-1');
     const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
