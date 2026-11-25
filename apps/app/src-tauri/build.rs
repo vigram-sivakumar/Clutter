@@ -4,6 +4,7 @@
 /// fails the build of the tests if this list, the handler and the capability ever disagree.
 const APP_COMMANDS: &[&str] = &[
     "frontend_ready",
+    "align_traffic_lights",
     "sparkle_update",
     "frontend_failed",
     "set_dock_badge",

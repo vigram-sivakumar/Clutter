@@ -30,6 +30,7 @@ mod space_folder;
 mod vault_entries;
 mod startup_notice;
 mod documents_permission;
+mod traffic_lights;
 mod vault_asset_scope;
 mod vault_watcher;
 
@@ -208,6 +209,7 @@ pub fn run() {
         .manage(app_menu::ZoomState::default())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            traffic_lights::align_traffic_lights,
             sparkle_update::sparkle_update,
             frontend_failed,
             dock_badge::set_dock_badge,

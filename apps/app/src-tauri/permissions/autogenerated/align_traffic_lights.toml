@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-align-traffic-lights"
+description = "Enables the align_traffic_lights command without any pre-configured scope."
+commands.allow = ["align_traffic_lights"]
+
+[[permission]]
+identifier = "deny-align-traffic-lights"
+description = "Denies the align_traffic_lights command without any pre-configured scope."
+commands.deny = ["align_traffic_lights"]
