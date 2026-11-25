@@ -4,7 +4,7 @@ Private maintainer runbook. Keep in the private source repository, not on the pu
 
 ## Status
 
-On 25 November 2026 the release owner reported `BACKUP WRITTEN AND IMAGE EJECTED` for the encrypted backup `Clutter-Sparkle-Backup.dmg` on the external drive. The original production Keychain item remains in place. The isolated restore/signature drill has not yet been completed. Do not treat a successful export or a mount as proof of recovery.
+On 25 November 2026, the release owner reported successful encrypted offline backup and isolated recovery on a personal Mac. The read-only restore matched the published public key, produced a signature that independently verified on a disposable file, removed the temporary Keychain entry and ejected the encrypted image. The production identity was preserved. The portable drill used a unique temporary account label. The replacement-machine procedure below retains the production account label for an intentional migration.
 
 ## What to keep
 
@@ -23,6 +23,7 @@ These instructions do not depend on the original machine, its temporary drill sc
 Use a fresh macOS login on a compatible Mac with Xcode command-line tools, Git and the normal Clutter build prerequisites. Clone the trusted private repository; use the release branch until consolidation, or its successor once merged. From the repository root, run the following commands in one Terminal session. Do not run a release command yet: the direct builder can initialize a new key when no pin exists.
 
 ```bash
+set +x
 umask 077
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/clutter-key-recovery.XXXXXXXX")"
 bash apps/app/scripts/prepare-sparkle-sdk.sh "$WORK/cache" "$WORK/sdk"
@@ -44,13 +45,14 @@ Adjust the app path if necessary. If an intentional future key rotation occurs, 
 
 Disconnect networking for the restore. In Finder open the encrypted DMG, preferably mount read-only using `hdiutil attach -readonly` followed by the quoted DMG path. Enter the password into the macOS prompt, never as a command-line argument. Identify the exported key file within the mounted encrypted volume by its filename. The exact filename from the original local drill must be confirmed by the owner; do not guess or open it to inspect its contents.
 
-Use the Sparkle import option (not the default key-generation operation). Type the following prefix with a trailing space, drag the exported key file from the mounted image into Terminal, then press Enter:
+Use the Sparkle import option (not the default key-generation operation). Set KEY_FILE to the exported file's path on the mounted image. Keep the import output suppressed because an invalid input can cause Sparkle to include it in an error message.
 
 ```bash
-"$KEY_TOOL" --account "$ACCOUNT" -f 
+KEY_FILE='/Volumes/ENCRYPTED_VOLUME/Clutter-Sparkle-Recovery.key'
+"$KEY_TOOL" --account "$ACCOUNT" -f "$KEY_FILE" >/dev/null 2>&1
 ```
 
-The command must contain the file path on the same line. Do not copy the exported key into an unencrypted temporary directory. Stop if the import fails. Compare the restored public key without displaying private material:
+Do not copy the exported key into an unencrypted temporary directory. Stop if the import exits unsuccessfully. Compare the restored public key without displaying private material:
 
 ```bash
 ACTUAL="$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')"
@@ -87,7 +89,7 @@ print("RECOVERED KEY SIGNATURE VERIFIED")
 SWIFT
 ```
 
-Stop if the verifier fails. These manual commands have been derived from the checked-in release scripts and official Sparkle import documentation; execute and confirm them during the real recovery drill before marking the runbook validated.
+Stop if the verifier fails. The owner verified the equivalent isolated workflow using the portable kit. Use the public-key and signature checks when restoring on a replacement release machine.
 
 ### 4. Complete the correct recovery mode
 
