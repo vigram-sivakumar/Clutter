@@ -3,7 +3,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useInitialLoadingFrame } from './useInitialLoadingFrame';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] }));
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 
@@ -14,7 +14,7 @@ describe('initial loading presentation', () => {
       { initialProps: { opening: true, ready: false, interrupted: false } });
     tick(100);
     rerender({ opening: false, ready: true, interrupted: false });
-    tick(699);
+    tick(1399);
     expect(result.current).toBe('holding');
     tick(1);
     expect(result.current).toBe('fading');

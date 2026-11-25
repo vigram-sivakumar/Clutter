@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export const STARTUP_LOADER_MIN_MS = 800;
+export const STARTUP_LOADER_MIN_MS = 1500;
 export const STARTUP_LOADER_FADE_MS = 150;
 type Phase = 'holding' | 'fading' | 'done';
 
