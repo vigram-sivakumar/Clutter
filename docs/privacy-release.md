@@ -4,6 +4,26 @@ The working record of Clutter's privacy readiness for the Mac App Store, as of 2
 
 Where something could not be verified from the repository or this machine, it says so. Nothing here is legal advice.
 
+## Current Cloudflare verification — 25 November 2026
+
+This section supersedes the historical settings and publication statements below. Read-only API checks used the account selected by the existing Wrangler login. No service configuration or policy was changed.
+
+| Surface | Verified deployed state |
+| --- | --- |
+| Updates Worker | Logpush false, observability null, no tail consumers. Only the release R2 bucket is bound. The deployed JavaScript matches the repository dry-run bundle byte-for-byte. |
+| Unsplash proxy Worker | Logpush false, observability null, no tail consumers. Bindings are the allowed origins, per-client rate limiter and the Unsplash secret. The deployed JavaScript matches the repository dry-run bundle byte-for-byte. |
+| Privacy Pages project | Web Analytics tag absent and analytics token unconfigured. No Analytics Engine datasets or service bindings are configured for production or preview. Production remains the approved 25 November deployment. |
+| Public website | Homepage, privacy and contact returned successfully through curl and contain no script tags or analytics markers. The privacy page matches the committed HTML byte-for-byte. |
+| Account-wide Logpush jobs | The API returned HTTP 403, code 10000. The existing login cannot enumerate account jobs. Both reviewed Workers independently report Logpush false. Dashboard confirmation remains open. |
+
+The update Worker writes no application request logs. The Unsplash proxy emits event names and upstream status only, uses the client IP for rate limiting, and does not persist search history. The deployed script comparison confirms that the reviewed behavior is live.
+
+Cloudflare documents Workers Logs as an opt-in persistent log facility. Neither deployed Worker enables it. The absence of Workers Logs does not establish a zero-retention guarantee for Cloudflare's independent operational or security processing. Its privacy policy uses purpose-dependent retention, and the rate-limit binding documentation specifies its counting window without establishing a retention period for client keys. The published Clutter policy already explains provider receipt of IP/request information and processing and retention under provider policies. This review found no disclosure change needed.
+
+The dashboard opens at a sign-in page in the available browser. Completing the account-wide Logpush check requires the owner to sign in. The historical DPA acceptance status remains unverified. This review does not change the existing conservative App Privacy answer sheet or close the account-wide confirmation.
+
+[Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) · [Workers Logpush](https://developers.cloudflare.com/workers/observability/logs/logpush/) · [Rate limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) · [Cloudflare privacy and retention](https://www.cloudflare.com/privacypolicy/)
+
 ## Final privacy position
 
 Clutter has no accounts, analytics, telemetry, tracking, advertising or sync, and keeps notes and attachments in folders the user chooses. Notes are never transmitted. What leaves the device is:

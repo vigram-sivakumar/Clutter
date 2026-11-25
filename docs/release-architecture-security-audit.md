@@ -400,3 +400,11 @@ The existing font, PDF.js and direct-channel Sparkle notices omitted other runti
 The universal credential-independent App Store preflight passed with the new resource mapping. The packaged acknowledgements matched the checked-in file byte-for-byte. Each inventory entry has licence text coverage and source URLs. Lockfile SHA-256 values are recorded with the inventory. The prior consolidated regression results remain applicable to the unchanged product behavior.
 
 See the [licence review](third-party-dependency-licenses.md) and [component inventory](third-party-dependency-inventory.json). Remaining readiness work includes Cloudflare account logging and retention, listing materials, the export-compliance declaration and final branch review. Apple Developer work remains on hold.
+
+## Cloudflare logging and retention verification — 25 November 2026
+
+The deployed Updates and Unsplash Workers report Logpush false, observability null and no tail consumers. Each deployed JavaScript module matches its repository dry-run bundle byte-for-byte. Privacy Pages has no configured Web Analytics tag or token. Public homepage, privacy and contact responses have no script tags, and the served privacy HTML matches its committed source.
+
+The published provider disclosures remain consistent with these settings. Cloudflare's independent operational retention and rate-limit key retention have no verified fixed period. No policy change was identified.
+
+Account-wide Logpush enumeration remains open because the current API login returned HTTP 403. The available browser is at the Cloudflare sign-in page. Both Workers have their own Logpush setting disabled, but that does not establish the absence of account-wide jobs. Confirm through the dashboard after owner sign-in. The historical DPA acceptance status remains unverified. See the [current privacy review](privacy-release.md#current-cloudflare-verification--25-november-2026).
