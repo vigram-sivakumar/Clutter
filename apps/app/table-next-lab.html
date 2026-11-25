@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clutter table editing lab</title>
+<style>
+body{font:14px system-ui,sans-serif;margin:32px auto;padding:0 24px;max-width:960px;color:#eee;background:#202124}
+a{color:#a9c7ff} button{font:inherit;padding:7px 12px} .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+#editor{border:1px solid #62666e;border-radius:6px;padding:16px;min-height:220px;background:#292b30}
+#editor .cm-editor{font:inherit;color:inherit} #editor .cm-content{caret-color:currentColor}
+#editor .cm-cursor{border-left-color:#fff} #editor .cm-selectionBackground{background:#3c5274!important}
+.table-projection{padding:12px 0} .table-scroll{max-width:100%;overflow-x:auto}
+.table-scroll table{border-collapse:collapse;table-layout:fixed;width:max-content}
+.table-scroll td,.table-scroll th{border:1px solid #62666e;padding:8px;min-width:90px;max-width:320px;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-weight:normal}
+.table-scroll th{font-weight:600;background:#383b43}
+.table-scroll td:focus,.table-scroll th:focus{outline:2px solid #8eb6ff;outline-offset:-2px}
+.table-scroll .cm-editor,.table-scroll textarea{width:100%;box-sizing:border-box;font:inherit;background:transparent;color:inherit;border:0;padding:0;resize:none}
+.table-scroll .cm-content{padding:0} .table-scroll .cm-line{padding:0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#17181c;padding:16px;border-radius:6px}
+#status{min-height:20px;color:#b5d5ff} #stats{color:#bbb}
+</style>
+</head>
+<body>
+<h1>Table editing lab</h1>
+<p>Disposable fixture. No vault, autosave or production table extensions. Active editor: <strong id="mode"></strong>.</p>
+<p><a href="?cell=codemirror">Nested CodeMirror</a> · <a href="?cell=textarea">Lightweight textarea</a></p>
+<div class="toolbar"><button id="add-row">Add row</button><button id="add-column">Add column</button><button id="resize">Resize first column</button><button id="undo">Undo</button><button id="redo">Redo</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Click a cell to edit. Escape exits the cell.</p>
+<div id="editor"></div>
+<p id="stats"></p>
+<h2>Exact root Markdown</h2><pre id="source"></pre>
+<script type="module" src="/devtools/table-next-lab.ts"></script>
+</body>
+</html>

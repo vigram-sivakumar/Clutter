@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+import { parser } from '@lezer/markdown';
+import { EditorState, ChangeSet, Transaction } from '@codemirror/state';
+import { history, undo, redo, undoDepth, isolateHistory } from '@codemirror/commands';
+import { markdownGrammarFor } from '@core/vault/ingest/grammar/markdownGrammarExtensions';
+import { createCellTransaction, diffCellText, editableCell } from './tableCellTransaction';
+import { readTable, TableEngineError } from './tableModel';
+import { createTableTransaction } from './tableTransaction';
+
+const grammar = parser.configure(markdownGrammarFor(false));
+const parse = (text: string) => grammar.parse(text);
+const prefix = 'Before\n\n';
+const suffix = '\n\nAfter';
+const doc = prefix + '| A | B |\n| --- | --- |\n| one | two |' + suffix;
+const address = { row: 1, col: 0 };
+const start = prefix.length;
+
+function cell(state: EditorState) {
+  return editableCell(state.doc.toString(), readTable(state.doc.toString(), start, parse), address);
+}
+function setup() {
+  let state = EditorState.create({ doc, extensions: [history({ minDepth: 1000 })], selection: { anchor: doc.length } });
+  return { get state() { return state; }, dispatch(tr: Transaction) { state = tr.state; } };
+}
+
+describe('table-next minimal cell changes', () => {
+  it('maps multiple disjoint changes without rewriting padding or neighbouring cells', () => {
+    const target = setup();
+    const before = cell(target.state);
+    const changes = ChangeSet.of([{ from: 0, to: 1, insert: 'O' }, { from: 3, insert: '!' }], 3);
+    const tr = createCellTransaction(target.state, start, address, before.text, changes, parse)!;
+    const ranges: number[][] = [];
+    tr.changes.iterChanges((from, to) => ranges.push([from, to]));
+    expect(ranges).toEqual([[before.from, before.from + 1], [before.to, before.to]]);
+    expect(tr.newDoc.toString()).toBe(doc.replace('one', 'One!'));
+    expect(tr.annotation(Transaction.userEvent)).toBe('input.type');
+  });
+
+  it('accepts a trailing space then continued typing without losing raw text', () => {
+    const target = setup();
+    for (const next of ['one ', 'one more']) {
+      const before = cell(target.state).text;
+      target.dispatch(createCellTransaction(target.state, start, address, before, diffCellText(before, next), parse)!);
+      expect(cell(target.state).text).toBe(next);
+    }
+    expect(undoDepth(target.state)).toBe(1);
+    expect(undo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(doc);
+    expect(redo(target)).toBe(true);
+    expect(cell(target.state).text).toBe('one more');
+  });
+
+  it('supports an empty canonical cell and refuses stale text', () => {
+    const state = EditorState.create({ doc: doc.replace('one', '') });
+    expect(cell(state).text).toBe('');
+    const tr = createCellTransaction(state, start, address, '', diffCellText('', 'x'), parse)!;
+    expect(cell(tr.state).text).toBe('x');
+    expect(() => createCellTransaction(tr.state, start, address, '', diffCellText('', 'y'), parse)).toThrow('Stale cell revision');
+  });
+
+  it('rejects unsafe pipes and newlines before dispatch, but accepts escaped pipes', () => {
+    const target = setup();
+    for (const invalid of ['one|x', 'one\nx']) {
+      expect(() => createCellTransaction(target.state, start, address, 'one', diffCellText('one', invalid), parse)).toThrow(TableEngineError);
+    }
+    const next = 'one\\|x';
+    target.dispatch(createCellTransaction(target.state, start, address, 'one', diffCellText('one', next), parse)!);
+    expect(cell(target.state).text).toBe(next);
+  });
+
+  it('round-trips interleaved cell typing and structural actions in the root history', () => {
+    const target = setup();
+    const snapshots = [doc];
+    const type = (next: string) => {
+      const old = cell(target.state).text;
+      target.dispatch(createCellTransaction(target.state, start, address, old, diffCellText(old, next), parse)!);
+      target.dispatch(target.state.update({ annotations: isolateHistory.of('full') }));
+      snapshots.push(target.state.doc.toString());
+    };
+    type('edited');
+    target.dispatch(createTableTransaction(target.state, start, { kind: 'insertColumn', index: 2 }, parse)!);
+    snapshots.push(target.state.doc.toString());
+    type('edited again');
+    for (let i = snapshots.length - 2; i >= 0; i--) {
+      expect(undo(target)).toBe(true);
+      expect(target.state.doc.toString()).toBe(snapshots[i]);
+    }
+    for (let i = 1; i < snapshots.length; i++) {
+      expect(redo(target)).toBe(true);
+      expect(target.state.doc.toString()).toBe(snapshots[i]);
+    }
+  });
+
+  it('refuses changes that root filters reject', () => {
+    const state = EditorState.create({ doc, extensions: [EditorState.transactionFilter.of(() => [])] });
+    expect(() => createCellTransaction(state, start, address, 'one', diffCellText('one', 'two'), parse)).toThrow(TableEngineError);
+  });
+});
