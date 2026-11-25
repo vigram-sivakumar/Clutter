@@ -35,7 +35,8 @@ pub fn align_traffic_lights(window: WebviewWindow, center_y: f64, viewport_heigh
             point.y += if view.isFlipped() { offset } else { bounds.size.height - offset };
             for (index, kind) in [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton].into_iter().enumerate() {
                 let Some(button) = native.standardWindowButton(kind) else { eprintln!("[clutter-traffic] button {index} missing"); continue; };
-                let Some(parent) = button.superview() else { eprintln!("[clutter-traffic] button {index} parent missing"); continue; };
+                // SAFETY: the standard window button is retained and this callback runs on the AppKit main thread.
+                let Some(parent) = (unsafe { button.superview() }) else { eprintln!("[clutter-traffic] button {index} parent missing"); continue; };
                 let target = parent.convertPoint_fromView(point, Some(view));
                 let frame = button.frame();
                 let mut origin = frame.origin;
