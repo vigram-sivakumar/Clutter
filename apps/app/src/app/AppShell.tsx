@@ -36,6 +36,7 @@ import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FA
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
 import { StartupFrame } from './StartupFrame';
+import { LoadingBar } from '@components/loading-bar/LoadingBar';
 import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler, QUIT_MENU_EVENT, type UnsavedCloseChoice } from './windowCloseHandler';
@@ -1539,11 +1540,11 @@ function AppShellContent() {
     !application &&
     (recovering || (lostActiveSpace && recoveryDoneFor !== vaultPath))
   ) {
-    return <StartupFrame>Opening Clutter…</StartupFrame>;
+    return <StartupFrame loading><LoadingBar label="Opening Clutter…" /></StartupFrame>;
   }
 
   if (isLoading) {
-    return <StartupFrame>Opening Clutter…</StartupFrame>;
+    return <StartupFrame loading><LoadingBar label="Opening Clutter…" /></StartupFrame>;
   }
 
   if (!application) {

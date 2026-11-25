@@ -398,14 +398,14 @@ describe('AppShell: startup', () => {
     </ToastProvider>
   );
 
-    expect(await screen.findByText(OPENING)).toBeInTheDocument();
+    expect(await screen.findByRole('progressbar', { name: OPENING })).toBeInTheDocument();
     expect(screen.queryByTestId('open-root')).toBeNull();
 
     gate.resolve();
     expect(await screen.findByTestId('open-root')).toHaveTextContent(
       '/web-dev-vault'
     );
-    expect(screen.queryByText(OPENING)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
   });
 
   it('shows a full-screen error when the first Space fails to open', async () => {
@@ -440,7 +440,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       screen.getByText('Let’s create a space').closest('.dialog')
     ).not.toBeNull();
     expect(document.querySelector('.startup-frame')).not.toBeNull();
-    expect(screen.queryByText(OPENING)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
     expect(bootstrap).not.toHaveBeenCalled();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBeNull();
   });
@@ -521,7 +521,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     </ToastProvider>
   );
 
-    await screen.findByText(OPENING);
+    await screen.findByRole('progressbar', { name: OPENING });
     expect(
       document.querySelector('.startup-frame')!.getAttribute('data-backdrop')
     ).toBeNull();
@@ -586,7 +586,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     </ToastProvider>
   );
 
-    expect(await screen.findByText(OPENING)).toBeInTheDocument();
+    expect(await screen.findByRole('progressbar', { name: OPENING })).toBeInTheDocument();
     expect(screen.queryByText('Let’s create a space')).toBeNull();
 
     await act(async () => gate.resolve());
@@ -663,7 +663,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
         expect(bootstrap).toHaveBeenCalledWith('/Users/me/B', expect.anything())
       );
       // Still opening: the opening frame, no Welcome dialog, and nothing persisted yet.
-      expect(screen.getByText(OPENING)).toBeInTheDocument();
+      expect(screen.getByRole('progressbar', { name: OPENING })).toBeInTheDocument();
       expect(screen.queryByText(WELCOME)).toBeNull();
       expect(SAVED()).toBe(before);
 
@@ -938,7 +938,7 @@ describe('AppShell: Welcome dialog actions', () => {
 
       // Still opening: dialog up, nothing remembered yet, no "Opening Clutter…" frame.
       expectWelcomeStillShown();
-      expect(screen.queryByText(OPENING)).toBeNull();
+      expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
       expect(SAVED()).toBeNull();
 
       await act(async () => gate.resolve());
@@ -1935,7 +1935,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       );
 
       // Mid-switch: the opening frame (not the Welcome dialog, not the lost workspace); nothing persisted yet.
-      expect(screen.getByText(OPENING)).toBeInTheDocument();
+      expect(screen.getByRole('progressbar', { name: OPENING })).toBeInTheDocument();
       expect(screen.queryByText(WELCOME)).toBeNull();
       expect(screen.queryByTestId('open-root')).toBeNull();
       expect(SAVED()).toBe(before);
@@ -2185,7 +2185,7 @@ describe('AppShell: an open vault is lost and another registered vault takes ove
     await waitFor(() =>
       expect(bootstrap).toHaveBeenCalledWith('/Users/me/D', expect.anything())
     );
-    expect(screen.getByText(OPENING)).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: OPENING })).toBeInTheDocument();
     expect(welcome.shown).toBe(false);
 
     await act(async () => gate.resolve());
@@ -3476,7 +3476,7 @@ describe('AppShell: switching Spaces', () => {
     );
     // Still Space A: shown, not closed, no opening screen, and the other Space not yet opened.
     expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
-    expect(screen.queryByText(OPENING)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
     expect(first.close).not.toHaveBeenCalled();
     expect(events).not.toContain('open:/Other');
 
@@ -3485,7 +3485,7 @@ describe('AppShell: switching Spaces', () => {
     await waitFor(() =>
       expect(screen.getByTestId('open-root')).toHaveTextContent('/Other')
     );
-    expect(screen.queryByText(OPENING)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
   });
 
   it('closes the old Application before the new one opens, then leaves only the new one running', async () => {
@@ -3562,7 +3562,7 @@ describe('AppShell: switching Spaces', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('scan failed')
     );
     expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
-    expect(screen.queryByText(OPENING)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
     expect(first.close).not.toHaveBeenCalled();
     expect(created).toHaveLength(1);
     expect(
@@ -4071,7 +4071,7 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
       await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(EXFAT));
       expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
       expect(first.close).not.toHaveBeenCalled();
-      expect(screen.queryByText(OPENING)).toBeNull();
+      expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
       expect(screen.queryByText(WELCOME)).toBeNull();
       expect(created.map((app) => app.vault.root)).toEqual(['/web-dev-vault']);
       expect(REGISTRY().activePath).toBe('/web-dev-vault');
@@ -4093,7 +4093,7 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
       // Space A was never closed, sealed or replaced: the refusal happened while the next one was being prepared.
       expect(first.close).not.toHaveBeenCalled();
       expect(events).not.toContain('close:/web-dev-vault');
-      expect(screen.queryByText(OPENING)).toBeNull();
+      expect(screen.queryByRole('progressbar', { name: OPENING })).toBeNull();
       expect(screen.queryByText(WELCOME)).toBeNull();
       expect(created.map((app) => app.vault.root)).toEqual(['/web-dev-vault']);
       expect(REGISTRY().activePath).toBe('/web-dev-vault');
