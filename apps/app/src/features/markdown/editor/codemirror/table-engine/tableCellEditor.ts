@@ -1,6 +1,7 @@
 import { EditorState, Facet, Transaction } from '@codemirror/state';
 import { tableActiveCellChanged, type TableActiveCellController } from '../table/tableActiveCellController';
 import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
+import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
@@ -139,11 +140,12 @@ export class TableCellEditor {
   private releaseCompatibility(): void {
     const legacy = this.root.state.facet(tableEngineIntegration)[0]?.compatibilityController;
     const selection = this.root.state.field(tableSelectionField, false);
-    if (!legacy?.activeAnchor && !selection) return;
+    const armed = this.root.state.field(tableDeletionSelectionField, false) ?? null;
+    if (!legacy?.activeAnchor && !selection && armed === null) return;
     legacy?.deactivate();
     // Clear legacy selection/active decoration before the new host takes focus.
     // This is a source-neutral transition, not a second history entry.
-    this.root.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
+    this.root.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null), tableDeletionSelectionChanged.of(null)] });
   }
 
   private hostAt(tableFrom: number, cell: CellAddress): HTMLElement | null {
@@ -190,6 +192,12 @@ export class TableCellEditor {
       cell.classList.toggle('cm-table-engine-left', selected && col === bounds?.left);
       cell.classList.toggle('cm-table-engine-right', selected && col === bounds?.right);
     }
+    // The root owns coarse selection/deletion arming; the engine owns the
+    // more specific interaction. Suppress the coarse halo while editing or
+    // selecting cells, and restore it when that interaction closes.
+    widget.firstElementChild?.classList.toggle('cm-table-wrapper-selected',
+      widget.dataset.tableRootSelected === 'true' &&
+      !(this.interactionTable === from && this.interaction.kind !== 'none'));
     widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: bounds }));
   }
 
