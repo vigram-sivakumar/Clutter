@@ -149,12 +149,25 @@ export class TableProjection extends WidgetType {
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
       const clipboard = (event: ClipboardEvent) => view.plugin(tableCellEditor)?.clipboard(root, event);
+      const blockMouseDown = (event: MouseEvent) => {
+        const target = event.target;
+        if (event.button !== 0 || event.shiftKey || !(target instanceof Element) ||
+            target.closest('th, td, button, .cm-table-row-handle-hit, .cm-table-column-handle-hit, .cm-table-row-handle, .cm-table-column-handle')) return;
+        // Blank widget space is not a text line. Do not let WebKit focus
+        // the root contenteditable at the hidden table boundary.
+        if (view.plugin(tableCellEditor)?.selectBlock(Number(root.dataset.tableFrom))) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      };
+      root.addEventListener('mousedown', blockMouseDown);
       root.addEventListener('copy', clipboard, true);
       root.addEventListener('cut', clipboard, true);
       root.addEventListener('paste', clipboard, true);
       root.addEventListener('pointerdown', pointerDown, true);
       root.addEventListener('click', click, true);
       dragDisposers.set(root, () => {
+        root.removeEventListener('mousedown', blockMouseDown);
         root.removeEventListener('copy', clipboard, true);
         root.removeEventListener('cut', clipboard, true);
         root.removeEventListener('paste', clipboard, true);
