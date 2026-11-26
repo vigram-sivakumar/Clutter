@@ -13,7 +13,7 @@ import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
 import type { PasteAssets } from './codemirror/paste/assetPaste';
 import { findAllTables } from './codemirror/table/tableGeometry';
-import { tableSelectionChanged, tableSelectionField } from './codemirror/table/tableSelection';
+import { tableSelectionField } from './codemirror/table/tableSelection';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 
 /**
@@ -137,13 +137,28 @@ function activateCell(root: EditorView, text: string): void {
   });
 }
 
-function selectRange(root: EditorView, anchor: readonly [number, number], head: readonly [number, number]): void {
+/** Use real cell activation and Shift+Arrow extension, never a legacy state effect. */
+function selectRange(root: EditorView, anchor: readonly [number, number], head: readonly [number, number]): HTMLElement {
   const table = findAllTables(root.state)[0]!;
-  act(() =>
-    root.dispatch({
-      effects: tableSelectionChanged.of({ kind: 'range', tableFrom: table.from, anchor: { row: anchor[0], col: anchor[1] }, head: { row: head[0], col: head[1] } }),
-    })
-  );
+  const controller = root.plugin(tableCellEditor)!;
+  const host = (row: number, col: number) => root.dom.querySelector<HTMLElement>(
+    `[data-table-engine-cells="true"][data-table-from="${table.from}"] [data-cell="${row},${col}"]`)!;
+  const key = (target: Element, name: string, shiftKey = false) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true, cancelable: true }));
+  act(() => {
+    expect(controller.enterCell(table.from, { row: anchor[0], col: anchor[1] }, 'start')).toBe(true);
+    key(controller.nested!.contentDOM, 'Escape');
+    let row = anchor[0], col = anchor[1];
+    while (col !== head[1]) {
+      key(host(row, col), col < head[1] ? 'ArrowRight' : 'ArrowLeft', true);
+      col += col < head[1] ? 1 : -1;
+    }
+    while (row !== head[0]) {
+      key(host(row, col), row < head[0] ? 'ArrowDown' : 'ArrowUp', true);
+      row += row < head[0] ? 1 : -1;
+    }
+  });
+  return host(head[0], head[1]);
 }
 
 const TABLE = '| A | B |\n| --- | --- |\n| a1 | b1 |\n| a2 | b2 |';
@@ -189,9 +204,7 @@ async function paste(setup: Setup, payload: Payload, on: 'root' | 'cell' = 'root
   act(() =>
     root.dispatch({ selection: setup.selection ? { anchor: setup.selection[0], head: setup.selection[1] } : { anchor: setup.caret ?? root.state.doc.length } })
   );
-  if (setup.range) {
-    selectRange(root, setup.range[0], setup.range[1]);
-  }
+  const selectedHost = setup.range ? selectRange(root, setup.range[0], setup.range[1]) : null;
   let target = root;
   if (setup.cell) {
     activateCell(root, setup.cell);
@@ -219,7 +232,7 @@ async function paste(setup: Setup, payload: Payload, on: 'root' | 'cell' = 'root
   const depthBefore = undoDepth(root.state);
   const event = pasteEvent(payload);
   act(() => {
-    target.contentDOM.dispatchEvent(event);
+    (selectedHost ?? target.contentDOM).dispatchEvent(event);
   });
   await sleep();
 
@@ -265,11 +278,11 @@ vi.mock('./codemirror/paste/pasteClassification', async (importOriginal) => {
 describe('A. table range selection — which handler takes the paste', () => {
   const SELECTED: Setup = { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] };
 
-  it('[intentional] an HTML table of plain cells fills the selected cells (tablePaste), without input.paste', async () => {
+  it('[intentional] an HTML table fills the engine selection through one table transaction', async () => {
     const o = await paste(SELECTED, { html: htmlTable([['x1', 'y1'], ['x2', 'y2']]), text: TSV });
 
     expect(o.doc).toBe(FILLED);
-    expect(o.userEvents).toEqual([null]);
+    expect(o.userEvents).toEqual(['input.table']);
     expect(o.stored).toEqual([]);
   });
 
@@ -283,13 +296,13 @@ describe('A. table range selection — which handler takes the paste', () => {
 
     expect(o.doc).toBe(FILLED);
     expect(o.stored).toEqual([]);
-    expect(o.userEvents).toEqual([null]);
+    expect(o.userEvents).toEqual(['input.table']);
   });
 
-  it('[behaviour] rich HTML that is not a table fills the selected cells with its plain text', async () => {
+  it('[behaviour] rich HTML that is not a table pastes plain text into the selection\'s top-left cell', async () => {
     const o = await paste(SELECTED, { html: '<p>hello <b>bold</b></p>', text: 'hello bold' });
 
-    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| hello bold | hello bold |\n| hello bold | hello bold |'));
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | b1 |'));
     expect(o.undoRestores).toBe(true);
     expect(o.redoRestores).toBe(true);
     expect(o.stored).toEqual([]);
@@ -310,35 +323,37 @@ describe('A. table range selection — which handler takes the paste', () => {
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] a file with rich HTML and cells selected: no embed; plain text fills the selection', async () => {
+  it('[behaviour] a file with rich HTML and cells selected: no embed; plain text pastes at top-left', async () => {
     const o = await paste(SELECTED, { files: [png()], html: '<p>hi <b>b</b></p>', text: 'hi b' });
 
-    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| hi b | hi b |\n| hi b | hi b |'));
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hi b | b1 |'));
     expect(o.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] a whole row selection is also a table paste target: plain text fills only that row', async () => {
+  it('[behaviour] a whole row selection pastes from its first cell', async () => {
     const fake = fakeAssets();
     const { container } = render(<MarkdownEditor pageId="page" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
     const root = rootOf(container);
     const table = findAllTables(root.state)[0]!;
-    act(() => root.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) }));
+    const controller = root.plugin(tableCellEditor)!;
+    act(() => { expect(controller.selectAxis(table.from, { row: 1, col: 0 }, 'row')).toBe(true); });
 
     act(() => {
-      root.contentDOM.dispatchEvent(pasteEvent({ html: '<p>hello <b>bold</b></p>', text: 'hello bold' }));
+      root.dom.querySelector('[data-table-engine-cells="true"] [data-cell="1,0"]')!
+        .dispatchEvent(pasteEvent({ html: '<p>hello <b>bold</b></p>', text: 'hello bold' }));
     });
     await sleep();
 
-    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | hello bold |'));
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | b1 |'));
     expect(fake.stored).toEqual([]);
-    expect(root.state.field(tableSelectionField)).toMatchObject({ kind: 'row', rowIndex: 1 });
+    expect(controller.currentAxisSelection()).toMatchObject({ kind: 'row', rowIndex: 1 });
   });
 
-  it('[behaviour] plain text with no tabs fills the entire selected range', async () => {
+  it('[behaviour] plain text with no tabs pastes into the top-left cell only', async () => {
     const o = await paste(SELECTED, { text: 'just text' });
 
-    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| just text | just text |\n| just text | just text |'));
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| just text | b1 |'));
     expect(o.undoRestores).toBe(true);
   });
 });
@@ -539,7 +554,7 @@ describe('D. undo, redo, selection and input.paste metadata, per strategy', () =
     ['rich HTML (pasteAssets)', PLAIN, { html: RICH, text: 'x' }, 'root', 'input.paste'],
     ['a file (pasteAssets, asynchronous)', PLAIN, { files: [png()], text: 'cap' }, 'root', 'input.paste'],
     ['a new table (tableCreatePaste)', PLAIN, { text: 'a\tb\nc\td' }, 'root', 'input.paste.table'],
-    ['a grid into a selected range (tablePaste)', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', null],
+    ['a grid into a selected range (tablePaste)', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', 'input.table'],
     ['a grid from an active cell (tableCellPaste)', { markdown: DOC_TABLE, cell: 'a1' }, { text: TSV }, 'cell', 'input.table'],
     ['plain text into an active cell (default paste in the nested editor)', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'zz' }, 'cell', 'input.paste'],
   ];
@@ -554,8 +569,7 @@ describe('D. undo, redo, selection and input.paste metadata, per strategy', () =
     expect(o.redoRestores).toBe(true);
   });
 
-  // Engine mutations identify their root history transaction. Compatibility
-  // range routing still uses its existing untagged transaction.
+  // Engine mutations identify their root history transaction.
   it.each(STRATEGIES)('the transaction metadata: %s', async (_name, setup, payload, target, userEvent) => {
     const o = await paste(setup, payload, target);
 
@@ -1404,7 +1418,6 @@ describe('K. the paste router', () => {
   }
 
   it.each<[string, Setup, Payload, 'root' | 'cell', PasteStrategy]>([
-    ['a selected range and a grid', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', 'tableRange'],
     ['a grid at a caret', PLAIN, { text: TSV }, 'root', 'tableCreate'],
     ['two bare HTML tables', PLAIN, { html: htmlTable([['a']]) + htmlTable([['b']]), text: 'a\nb' }, 'root', 'richHtml'],
     ['an image', PLAIN, { files: [png()], text: '' }, 'root', 'files'],
@@ -1420,6 +1433,17 @@ describe('K. the paste router', () => {
     ['an HTML table in a bullet item', { markdown: '- item', caret: 4 }, { html: TABLE_HTML, text: TSV }, 'root', 'default'],
   ])('%s: one decision, strategy %s', async (_name, setup, payload, on, expected) => {
     expect(await decisions(() => paste(setup, payload, on))).toEqual([expected]);
+  });
+
+  it('the engine owns range paste once, without root classification', async () => {
+    classify.mockClear();
+    const o = await paste({ markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV });
+    expect(classify).not.toHaveBeenCalled();
+    expect(o.doc).toBe(FILLED);
+    expect(o.userEvents).toEqual(['input.table']);
+    expect(o.undoSteps).toBe(1);
+    expect(o.undoRestores).toBe(true);
+    expect(o.redoRestores).toBe(true);
   });
 
   it.each([
