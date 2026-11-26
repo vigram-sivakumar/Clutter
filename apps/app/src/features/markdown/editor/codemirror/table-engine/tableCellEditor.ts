@@ -84,6 +84,15 @@ export class TableCellEditor {
     if (this.interactionTable === null) return;
     const target = event.target;
     if (target instanceof Element && target.closest('.cm-table-handle-menu')) return;
+    // The portaled backdrop is a sibling of the menu surface, not a
+    // descendant of the menu. Its mousedown precedes Overlay's click-to-
+    // dismiss callback. Let that callback close only the menu, not the
+    // selected axis. Other overlays and ordinary outside clicks are not
+    // exempt.
+    if (this.handleMenu && target instanceof Element) {
+      const backdrop = target.closest('.overlay__backdrop');
+      if (backdrop?.parentElement?.querySelector(':scope > .overlay__surface .cm-table-handle-menu')) return;
+    }
     if (target instanceof Element &&
       this.root.dom.contains(target) && target.closest('[data-table-engine-cells="true"]')) return;
     this.cancelDrag();
@@ -275,7 +284,17 @@ export class TableCellEditor {
     notify({ selection, engine: true });
   }
 
-  dismissHandleMenu(): void { this.handleMenu = null; }
+  dismissHandleMenu(): void {
+    const menu = this.handleMenu;
+    this.handleMenu = null;
+    // Explicit dismissal (Escape or backdrop) leaves the axis selected.
+    // Give keyboard ownership back to the selected cell host, not the
+    // decorative menu anchor, unless an action already closed the menu.
+    if (menu && this.matchesAxis(menu.selection)) {
+      const cell = focusCell(this.interaction);
+      if (cell) this.hostAt(menu.selection.tableFrom, cell)?.focus({ preventScroll: true });
+    }
+  }
 
   /** The original menu/drag surface supplies logical commands only.
    * No legacy selection field or mutation is used for an engine table. */

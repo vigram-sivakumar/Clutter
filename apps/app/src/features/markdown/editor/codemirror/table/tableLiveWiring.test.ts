@@ -750,6 +750,41 @@ describe('engine original table handles (M9b candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(TABLE);
   });
+  it.each(['row', 'column'] as const)('dismisses the %s menu backdrop without clearing the selected axis', axis => {
+    const notify = vi.fn<OnTableHandleMenuChange>();
+    const view = mountHistory(TABLE, notify);
+    const controller = view.plugin(tableCellEditor)!;
+    pointer('pointerdown', view.dom.querySelector(`.cm-table-${axis}-handle-hit`)!);
+    pointer('pointerup', document);
+    const selection = controller.currentAxisSelection();
+    expect(selection?.kind).toBe(axis);
+    expect(notify).toHaveBeenCalledWith({ selection, engine: true });
+
+    // Match Overlay's real portal structure and event order: the backdrop
+    // is a sibling of the surface, and click (not mousedown) dismisses it.
+    const portal = document.createElement('div');
+    portal.className = 'overlay';
+    portal.innerHTML = '<div class="overlay__backdrop"></div><div class="overlay__surface"><div class="overlay__content cm-table-handle-menu"><button>Menu item</button></div></div>';
+    document.body.append(portal);
+    const backdrop = portal.querySelector<HTMLElement>('.overlay__backdrop')!;
+    backdrop.addEventListener('click', () => { controller.dismissHandleMenu(); portal.remove(); });
+    try {
+      portal.querySelector('button')!.focus();
+      backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      expect(controller.currentAxisSelection()).toEqual(selection);
+      expect(notify).not.toHaveBeenCalledWith(null);
+      backdrop.click();
+      expect(portal.isConnected).toBe(false);
+      expect(controller.currentAxisSelection()).toEqual(selection);
+      expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(2);
+      expect(document.activeElement).toBe(view.dom.querySelector('[data-cell="0,0"]'));
+      expect(view.state.doc.toString()).toBe(TABLE);
+      expect(undoDepth(view.state)).toBe(0);
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      expect(controller.currentAxisSelection()).toBeNull();
+      expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(0);
+    } finally { portal.remove(); }
+  });
   it('reorders columns by their original handle and carries alignment and width metadata together', () => {
     const source = TABLE.replace('| --- | --- |', '| --- | :---: |') + '\n{table-col-widths="120,260"}';
     const view = mountHistory(source);
