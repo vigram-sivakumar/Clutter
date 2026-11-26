@@ -40,7 +40,7 @@ function activate(root: EditorView, cell: string) {
   const rows = getNavigableRows(table.node);
   const from = root.state.doc.toString().indexOf(cell);
   const row = rows.findIndex(r => r.from <= from && r.to >= from);
-  const col = getRowCellBounds(rows[row]!).findIndex(bounds => bounds.from <= from && bounds.to >= from);
+  const col = getRowCellBounds(rows[row]!).findIndex(bounds => bounds.leftDelimiterTo <= from && bounds.rightDelimiterFrom >= from);
   expect(controller.enterCell(table.from, { row, col }, 'start')).toBe(true);
   return controller;
 }
