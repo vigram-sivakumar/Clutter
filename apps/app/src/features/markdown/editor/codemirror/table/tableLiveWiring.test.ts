@@ -8,6 +8,7 @@ import type { TableCommand } from '../table-engine/tableCommands';
 import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
 import { completionStatus, currentCompletions } from '@codemirror/autocomplete';
+import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
@@ -1168,7 +1169,11 @@ describe('shared completion inside the active cell', () => {
     type(nested, input);
     await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
     expect(currentCompletions(nested.state).map(option => option.label)).toContain(label);
-    expect(nested.dom.querySelector('.cm-tooltip-autocomplete .completion-row')).not.toBeNull();
+    const popup = completionPopupDOM(nested)!;
+    expect(popup.querySelector('.completion-row')).not.toBeNull();
+    expect(document.body.contains(popup)).toBe(true);
+    expect(view.dom.contains(popup)).toBe(false);
+    expect(popup.closest('.cm-table-scroll')).toBeNull();
     await settle();
     press(nested, 'Enter');
     expect(controller.nested).toBe(nested);
@@ -1180,6 +1185,32 @@ describe('shared completion inside the active cell', () => {
     expect(view.state.doc.toString()).not.toMatch(stored);
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toMatch(stored);
+  });
+
+  it('accepts a portaled option by pointer without closing the active cell, then disposes the popup on cell switch', async () => {
+    const view = mount(source, false, undefined, { getTagSuggestions: () => () => ['Design'] });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, ' #des');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    await settle();
+    const popup = completionPopupDOM(nested)!;
+    const option = popup.querySelector('li[role="option"]')!;
+    expect(option).not.toBeNull();
+    option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(controller.nested).toBe(nested);
+    expect(view.state.doc.toString()).toContain('#Design');
+    expect(completionStatus(nested.state)).toBeNull();
+
+    type(nested, ' @');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    const secondPopup = completionPopupDOM(nested)!;
+    expect(secondPopup.isConnected).toBe(true);
+    expect(controller.enterCell(0, { row: 1, col: 1 }, 'end')).toBe(true);
+    expect(secondPopup.isConnected).toBe(false);
+    expect(controller.nested).not.toBe(nested);
+    expect(view.state.doc.toString()).toContain('| Other |');
   });
 
   it('dismisses completion on the first Escape without leaving the cell', async () => {
