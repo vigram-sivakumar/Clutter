@@ -158,32 +158,23 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('Enter and Shift-Enter select vertically within the same column without changing source or history', () => {
+  it('Enter and Shift-Enter edit vertically in the same column without changing source or history', () => {
     const source = doc.replace('| Vik | Designer |', '| Vik | Designer |\n| Sam | Writer |');
     const view = mount(source, false);
     const controller = view.plugin(tableCellEditor)!;
     const depth = undoDepth(view.state);
     const redo = redoDepth(view.state);
     clickCell(findCell(view, 'Role'));
-    const nested = controller.nested!;
-    key(nested.contentDOM, 'Enter');
-    expect(nested.dom.isConnected).toBe(false);
-    expect(controller.nested).toBeNull();
-    expect(selected(view)).toEqual(['1,1']);
-    expect(document.activeElement).toBe(host(view, 1, 1));
-    key(host(view, 1, 1), 'Enter');
-    expect(selected(view)).toEqual(['2,1']);
-    expect(document.activeElement).toBe(host(view, 2, 1));
-    expect(key(host(view, 2, 1), 'Enter')).toBe(false);
-    expect(selected(view)).toEqual(['2,1']);
-    expect(document.activeElement).toBe(host(view, 2, 1));
-    key(host(view, 2, 1), 'Enter', true);
-    expect(selected(view)).toEqual(['1,1']);
-    key(host(view, 1, 1), 'Enter', true);
-    expect(selected(view)).toEqual(['0,1']);
-    expect(key(host(view, 0, 1), 'Enter', true)).toBe(false);
-    expect(selected(view)).toEqual(['0,1']);
-    expect(document.activeElement).toBe(host(view, 0, 1));
+    const initial = controller.nested!;
+    for (const [backwards, expected] of [[false, 'Designer'], [false, 'Writer'], [true, 'Designer'], [true, 'Role']] as const) {
+      key(controller.nested!.contentDOM, 'Enter', backwards);
+      expect(controller.nested!.state.doc.toString()).toBe(expected);
+      expect(controller.nested!.state.selection.main.empty).toBe(true);
+      expect(controller.nested!.state.selection.main.head).toBe(0);
+      expect(selected(view)).toEqual([]);
+      expect(document.activeElement).toBe(controller.nested!.contentDOM);
+    }
+    expect(initial.dom.isConnected).toBe(false);
     expect(view.state.doc.toString()).toBe(source);
     expect(undoDepth(view.state)).toBe(depth);
     expect(redoDepth(view.state)).toBe(redo);
@@ -203,8 +194,9 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(TABLE);
     expect(undoDepth(view.state)).toBe(depth);
     key(nested.contentDOM, 'Enter', !backwards);
-    expect(controller.nested).toBeNull();
-    expect(selected(view)).toEqual([backwards ? '1,0' : '0,0']);
+    expect(controller.nested!.state.doc.toString()).toBe(backwards ? 'Vik' : 'Name');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
+    expect(selected(view)).toEqual([]);
     expect(view.state.doc.toString()).toBe(TABLE);
     expect(undoDepth(view.state)).toBe(depth);
   });
@@ -245,16 +237,15 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(selected(external)).toEqual([]);
   });
 
-  it('uses the filled selection for Select All, and restores the outline for partial selection', () => {
+  it('uses the range outline for Select All from editing and partial selection', () => {
     const view = mount(doc, false);
     const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
     const overlay = wrapper.querySelector('.cm-table-selection-overlay')!;
     clickCell(findCell(view, 'Vik'));
-    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
-    key(host(view, 1, 0), 'a', false, true);
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'a', false, true);
     expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
     expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(true);
-    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
     expect(document.activeElement).toBe(host(view, 1, 0));
     key(host(view, 1, 0), 'ArrowUp');
     expect(selected(view)).toEqual(['0,0']);
@@ -262,7 +253,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('uses the filled selection for a full cell range without changing the range semantics', () => {
+  it('uses the range outline for a full cell range without changing the range semantics', () => {
     const view = mount(doc, false);
     clickCell(findCell(view, 'Designer'));
     key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
@@ -270,7 +261,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     key(host(view, 1, 0), 'ArrowUp', true);
     expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
-    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).not.toBeNull();
     expect(view.state.doc.toString()).toBe(doc);
   });
 
@@ -464,6 +455,29 @@ describe('engine staged pointer selection (M6 candidate)', () => {
       h.hit.mockReturnValue(host(view, 0, 0));
       pointer(document, 'pointermove');
       expect(selected(view)).toEqual(['1,1']);
+      expect(view.state.doc.toString()).toBe(doc);
+    } finally { controller.cancelDrag(); h.restore(); }
+  });
+
+  it('starts and extends a range through cell padding, including the full table and back', () => {
+    const view = mount(doc, false);
+    const anchor = host(view, 0, 0);
+    const controller = view.plugin(tableCellEditor)!;
+    const h = hitTest(anchor.parentElement!);
+    try {
+      pointer(anchor.parentElement!, 'pointerdown');
+      clickCell(anchor.parentElement!);
+      h.hit.mockReturnValue(host(view, 1, 1).parentElement!);
+      expect(pointer(document, 'pointermove').defaultPrevented).toBe(true);
+      expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+      expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).not.toBeNull();
+      h.hit.mockReturnValue(host(view, 0, 1).parentElement!);
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['0,0','0,1']);
+      h.hit.mockReturnValue(anchor.parentElement!);
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['0,0']);
+      pointer(document, 'pointerup', 0);
       expect(view.state.doc.toString()).toBe(doc);
     } finally { controller.cancelDrag(); h.restore(); }
   });
