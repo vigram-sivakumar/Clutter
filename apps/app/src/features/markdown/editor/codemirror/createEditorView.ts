@@ -317,7 +317,9 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // `.cm-content { caret-color }` (editorTheme.ts) becomes irrelevant
       // for the caret itself once this hides the native one; `.cm-cursor`
       // styling (MarkdownEditor.css) is what's visible now.
-      drawSelection(),
+      // Object and text ranges should show a highlight, not a range-end caret.
+      // Collapsed text selections still draw their ordinary caret.
+      drawSelection({ drawRangeCursor: false }),
       // Triple-click selects the line's text, not its line break (see tripleClickLineSelection.ts).
       tripleClickLineSelection(),
       EditorView.lineWrapping,
