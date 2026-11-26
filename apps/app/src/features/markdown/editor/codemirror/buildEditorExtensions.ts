@@ -74,7 +74,7 @@ import type { PasteAssets } from './paste/assetPaste';
 import { pasteRouting } from './paste/pasteRouting';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
-import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
+import { selectNewMarkdownTable, tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -311,6 +311,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
       tableEngineIntegration.of({ getPasteAssets }),
       tableCellEditor,
       tableSelectionHistory,
+      selectNewMarkdownTable,
       EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory()),
       tableBoundaryNavigation(),
     ] : []),
