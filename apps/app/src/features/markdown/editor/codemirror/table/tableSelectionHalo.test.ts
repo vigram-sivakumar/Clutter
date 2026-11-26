@@ -220,7 +220,7 @@ describe('table selection halo — coexistence with whole-table deletion arming'
 });
 
 describe('table selection halo — suppressed during active-cell editing', () => {
-  it('does not show the halo for a table whose cell is currently active, even if the root selection still technically overlaps it', () => {
+  it('replaces the root selection when a cell becomes active', () => {
     const view = mount(BASIC_TABLE);
 
     // Simulate a stale full-document selection left over from before the
@@ -241,14 +241,12 @@ describe('table selection halo — suppressed during active-cell editing', () =>
 });
 
 describe('table selection halo — suppressed while a TableSelection exists', () => {
-  it('does not show the halo for a table with a column TableSelection, even if the root selection still technically overlaps it', () => {
+  it('replaces the root selection with an explicit column TableSelection', () => {
     const view = mount(BASIC_TABLE);
     const table = findAllTables(view.state)[0]!;
 
-    // Same "stale full-document selection" setup as the active-cell
-    // suppression test above — a `TableSelection` never itself moves the
-    // root selection either (`tableHandleOverlay.ts`'s own click
-    // dispatch), so this is the realistic way the two can coexist.
+    // Start with a root document selection and transfer ownership to
+    // the engine's column selection.
     selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
 
@@ -274,15 +272,28 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
     expect(view.dom.querySelector('.cm-table-row-selected')).not.toBeNull();
   });
 
-  it('clearing the TableSelection restores the halo if the root selection still overlaps the table', () => {
+  it('clearing a column selection does not resurrect a superseded root selection', () => {
     const view = mount(BASIC_TABLE);
     const table = findAllTables(view.state)[0]!;
     selectAll(view);
+    expect(view.state.selection.main.empty).toBe(false);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
     expect(view.plugin(tableCellEditor)!.selectAxis(table.from, { row: 0, col: 0 }, 'column')).toBe(true);
+    // The widget now owns selection exclusively; the previous root
+    // document range must not remain as a second live selection.
+    expect(view.state.selection.main.empty).toBe(true);
     expect(haloedTableFroms(view)).toHaveLength(0);
+    expect(view.dom.querySelector('.cm-table-column-selected')).not.toBeNull();
 
     view.plugin(tableCellEditor)!.close();
 
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    expect(view.dom.querySelector('.cm-table-column-selected')).toBeNull();
+    expect(view.state.doc.toString()).toBe(BASIC_TABLE);
+    // An explicit new root selection still paints the whole-table halo.
+    selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
   });
 
