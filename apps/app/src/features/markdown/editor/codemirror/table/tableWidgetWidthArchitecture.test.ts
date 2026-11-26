@@ -35,7 +35,8 @@ describe('automatic table sizing stylesheet', () => {
 
   it('reserves control space independently from the actual table dimensions', () => {
     const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
-    expect(scroll).toContain('calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
+    expect(scroll).toContain('--cm-table-inline-clearance: calc(2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
+    expect(scroll).toContain('--cm-table-scroll-width: calc(100% + var(--cm-table-inline-clearance))');
     expect(scroll).toContain('width: var(--cm-table-scroll-width)');
     expect(scroll).toContain('max-width: var(--cm-table-scroll-width)');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
@@ -67,6 +68,17 @@ describe('automatic table sizing stylesheet', () => {
     const table = rule('.cm-editor .cm-table-wrapper--auto-widths table');
     expect(table).toContain('table-layout: fixed');
     expect(table).toContain('width: 100%');
+  });
+
+  it('extends the scrollport only when minimum column widths exceed the prose width, capped by the page pane', () => {
+    const query = css.indexOf('@container clutter-page (min-width: 0px) {');
+    expect(query).toBeGreaterThanOrEqual(0);
+    const responsiveRule = css.slice(query, css.indexOf('}', query));
+    expect(responsiveRule).toContain('width: calc(max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) + var(--cm-table-inline-clearance))');
+    expect(responsiveRule).toContain('max-width: max(var(--cm-table-scroll-width), calc((100cqw + 100%) / 2))');
+    const pageCss = readFileSync(join(__dirname, '../../../../../app/layouts/page/Page.css'), 'utf8');
+    expect(pageCss).toContain('container: clutter-page / inline-size');
+    expect(pageCss).toContain('overflow-x: hidden');
   });
 
   it('anchors both controls outside the table and retains edge-specific hover', () => {
