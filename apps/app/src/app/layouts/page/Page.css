@@ -40,6 +40,9 @@
 } */
 
 .page__content {
+  /* Tables may extend from the centred prose column into the right-hand
+     page space. Query this pane, not the window (which includes sidebars). */
+  container: clutter-page / inline-size;
   position: relative;
   display: flex;
   flex-direction: column;
