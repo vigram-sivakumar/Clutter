@@ -7,6 +7,7 @@ import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange } from './ta
 import type { TableCommand } from '../table-engine/tableCommands';
 import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
+import { completionStatus, currentCompletions } from '@codemirror/autocomplete';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
@@ -1142,6 +1143,75 @@ describe('engine original table handles (M9b candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
+  });
+});
+
+describe('shared completion inside the active cell', () => {
+  const source = TABLE.replace('Vik', 'Before ').replace('Designer', 'Other');
+  const settle = () => new Promise<void>(resolve => setTimeout(resolve, 180));
+  function type(nested: EditorView, text: string): void {
+    const from = nested.state.selection.main.head;
+    nested.dispatch({ changes: { from, insert: text }, selection: { anchor: from + text.length }, userEvent: 'input.type' });
+  }
+  function press(nested: EditorView, key: string): void {
+    nested.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+
+  it.each([
+    [' #des', '#Design', /#Design/],
+    [' @tom', 'Tomorrow', /@\d{4}-\d{2}-\d{2}/],
+  ] as const)('accepts %s through the same completion popup and root transaction', async (input, label, stored) => {
+    const view = mount(source, false, undefined, { getTagSuggestions: () => () => ['Design'] });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, input);
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    expect(currentCompletions(nested.state).map(option => option.label)).toContain(label);
+    expect(nested.dom.querySelector('.cm-tooltip-autocomplete .completion-row')).not.toBeNull();
+    await settle();
+    press(nested, 'Enter');
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toMatch(stored);
+    expect(view.state.doc.toString()).toMatch(stored);
+    expect(view.state.doc.toString()).toContain('| Other |');
+    expect(completionStatus(nested.state)).toBeNull();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).not.toMatch(stored);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toMatch(stored);
+  });
+
+  it('dismisses completion on the first Escape without leaving the cell', async () => {
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, ' @');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    const before = view.state.doc.toString();
+    press(nested, 'Escape');
+    expect(completionStatus(nested.state)).toBeNull();
+    expect(controller.nested).toBe(nested);
+    expect(view.state.doc.toString()).toBe(before);
+    press(nested, 'Escape');
+    expect(controller.nested).toBeNull();
+    expect(view.state.doc.toString()).toBe(before);
+  });
+
+  it('routes ArrowDown to the popup instead of the next cell', async () => {
+    const view = mount(source, false, undefined, { getTagSuggestions: () => () => ['Design', 'Development'] });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, ' #de');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    await settle();
+    press(nested, 'ArrowDown');
+    press(nested, 'Enter');
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toContain('#Development');
+    expect(view.state.doc.toString()).toContain('#Development');
   });
 });
 
