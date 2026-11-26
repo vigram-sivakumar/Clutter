@@ -561,7 +561,7 @@ export class TableCellEditor {
   }
 
   /** Run after CM6 reconciles its block widgets, not during plugin update.
-   * History stores only intent; the current root source validates it. */
+   * Creation and history store only intent; the current root source validates it. */
   restoreHistory(): void {
     const mark = this.pendingHistory;
     if (mark === undefined) return;
@@ -730,7 +730,11 @@ export class TableCellEditor {
 
   sync(transactions: readonly Transaction[]): void {
     for (const tr of transactions) {
-      const mark = restoredSelection(tr);
+      const created = tr.docChanged && tr.isUserEvent('input') && !tr.isUserEvent('input.paste.table')
+        ? tr.effects.find(effect => effect.is(tableSelectionTransition) &&
+            effect.value.before === null && effect.value.after?.interaction.kind === 'table')
+        : undefined;
+      const mark = created?.is(tableSelectionTransition) ? created.value.after : restoredSelection(tr);
       if (mark !== undefined) this.pendingHistory = mark;
       if (!tr.docChanged) continue;
       if (!this.forwarding) {
