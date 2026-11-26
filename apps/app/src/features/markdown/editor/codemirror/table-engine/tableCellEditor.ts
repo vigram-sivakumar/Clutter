@@ -6,10 +6,10 @@ import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view'
 import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
-import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
+import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
+import { inlinePreviewExtensions, refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
-import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
+import { paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction, validatedRootEdit } from './tableTransaction';
@@ -28,6 +28,7 @@ const tableControls = 'button, .cm-table-row-handle, .cm-table-column-handle, .c
 /** Dependencies of the table editor. */
 export const tableEngineIntegration = Facet.define<{
   readonly getPasteAssets?: () => PasteAssets | undefined;
+  readonly resolvers?: ParticipantResolvers;
 }>();
 
 interface ActiveCell { tableFrom: number; cell: CellAddress; from: number; to: number }
@@ -794,15 +795,10 @@ export class TableCellEditor {
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
         EditorView.lineWrapping,
-        // Match prose marker engagement for basic inline styles. Keep
-        // reference widgets, navigation, block styling and Markdown's
-        // block keymap out of the single-cell editor for now.
+        // Same inline participants and WikiLink widget as the main editor.
+        // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
-        inlineLivePreviewRegion(new Map([...createInlineLivePreviewParticipants({
-          resolveTag: () => undefined,
-          resolveDate: () => undefined,
-        })].filter(([name]) => ['Emphasis', 'StrongEmphasis', 'Strikethrough', 'Highlight', 'InlineCode'].includes(name))),
-          { includeHeadings: false }),
+        inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false),
         formatShortcutsKeymap(),
         keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },
@@ -942,7 +938,8 @@ export class TableCellEditor {
       const [row, col] = (host.dataset.cell ?? '').split(',').map(Number);
       try {
         const snapshot = readTable(this.root.state.doc.toString(), Number(root?.dataset.tableFrom), parse);
-        host.innerHTML = renderInlineMarkdown([snapshot.model.header, ...snapshot.model.rows][row!]![col!]!, { styled: true });
+        paintInlineMarkdown(host, [snapshot.model.header, ...snapshot.model.rows][row!]![col!]!, this.root,
+          this.root.state.facet(tableEngineIntegration)[0]?.resolvers);
       } catch { host.textContent = ''; }
     }
   }
@@ -961,5 +958,10 @@ export class TableCellEditor {
 }
 
 export const tableCellEditor = ViewPlugin.fromClass(class extends TableCellEditor {
-  update(update: import('@codemirror/view').ViewUpdate) { this.sync(update.transactions); }
+  update(update: import('@codemirror/view').ViewUpdate) {
+    this.sync(update.transactions);
+    if (update.transactions.some(tr => tr.effects.some(effect => effect.is(refreshInlinePresentation)))) {
+      this.nested?.dispatch({ effects: refreshInlinePresentation.of(null) });
+    }
+  }
 });
