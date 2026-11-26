@@ -25,12 +25,31 @@ describe('automatic table sizing stylesheet', () => {
     expect(scroll).toContain('padding-bottom: 12px');
   });
 
-  it('keeps intrinsic tracks and content-sized columns', () => {
-    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout')).toContain('width: max-content');
-    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: max-content');
+  it('fills the available width with equally distributed bounded columns', () => {
+    const wrapper = rule('.cm-editor .cm-table-wrapper--auto-widths');
+    expect(wrapper).toContain('--cm-table-column-min: 110px');
+    expect(wrapper).toContain('--cm-table-column-max: 420px');
+    expect(wrapper).toContain('--cm-table-add-column-space: 0px');
+    const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
+    expect(layout).toContain('width: clamp(');
+    expect(layout).toContain('var(--cm-table-column-count) * var(--cm-table-column-min)');
+    expect(layout).toContain('var(--cm-table-column-count) * var(--cm-table-column-max)');
+    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: calc(100% - var(--cm-table-add-column-space))');
     const table = rule('.cm-editor .cm-table-wrapper--auto-widths table');
-    expect(table).toContain('table-layout: auto');
-    expect(table).toContain('width: max-content');
+    expect(table).toContain('table-layout: fixed');
+    expect(table).toContain('width: 100%');
+  });
+
+  it('keeps quick-add controls in layout and uses edge-specific hover', () => {
+    expect(rule('.cm-editor .cm-table-quick-add')).toContain('opacity: 0');
+    expect(css).toContain('.cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-row');
+    expect(css).toContain('.cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-row');
+    expect(css).toContain('.cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-column');
+    expect(css).toContain('.cm-table-quick-add:focus-visible');
+    const svg = rule('.cm-editor .cm-table-quick-add svg');
+    expect(svg).toContain('width: 16px');
+    expect(svg).toContain('height: 16px');
+    expect(svg).not.toContain('stroke-width');
   });
 
   it('retains bounded cell widths and wrapping', () => {
