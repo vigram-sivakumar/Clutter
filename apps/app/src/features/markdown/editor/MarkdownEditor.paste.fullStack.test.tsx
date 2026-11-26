@@ -1901,6 +1901,43 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(markdown);
   });
 
+  it('pastes a grid into a real reverse engine range, with one root history step and no legacy selection', () => {
+    const fake = fakeAssets();
+    const { container } = render(<MarkdownEditor pageId="engine-range-routing" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    const host = (row: number, col: number) => engineWidgets(root)[0]!.querySelector<HTMLElement>(`[data-cell="${row},${col}"]`)!;
+    const selected = () => Array.from(root.dom.querySelectorAll<HTMLElement>('.cm-table-engine-selected [data-cell]')).map(el => el.dataset.cell);
+    const key = (target: Element, name: string, shiftKey = false) => act(() => {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true, cancelable: true }));
+    });
+    activateCell(root, 'b2');
+    key(nestedOf(container)!.contentDOM, 'Escape');
+    key(host(2, 1), 'ArrowLeft', true);
+    key(host(2, 0), 'ArrowUp', true);
+    expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
+    expect(root.state.field(tableSelectionField, false)).toBeNull();
+    expect(nestedOf(container)).toBeNull();
+    const depth = undoDepth(root.state);
+    vi.mocked(classifyPaste).mockClear();
+    const event = pasteEvent({ text: TSV, files: [png()] });
+    act(() => host(1, 0).dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(true);
+    expect(vi.mocked(classifyPaste)).not.toHaveBeenCalled();
+    expect(root.state.doc.toString()).toBe(FILLED);
+    expect(undoDepth(root.state) - depth).toBe(1);
+    expect(fake.stored).toEqual([]);
+    expect(fake.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
+    expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
+    expect(root.state.field(tableSelectionField, false)).toBeNull();
+    act(() => undo(root));
+    expect(root.state.doc.toString()).toBe(DOC_TABLE);
+    expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
+    act(() => redo(root));
+    expect(root.state.doc.toString()).toBe(FILLED);
+    expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
+  });
+
   it('reports files skipped once for a selected engine axis and still pastes a companion grid', () => {
     const fake = fakeAssets();
     const { container } = render(<MarkdownEditor pageId="engine-file-feedback" markdown={TABLE} pasteAssets={fake.assets} />);
