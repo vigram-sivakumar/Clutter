@@ -1,3 +1,4 @@
+import { markBlockRange } from '../blockRangeSelection';
 import { EditorSelection } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
@@ -64,6 +65,7 @@ export class UnknownEmbedWidget extends WidgetType {
     // The only class added here — `renderInvalidEmbedCard` below adds its
     // own `.cm-invalid-embed`; nothing else, on purpose.
     container.classList.add('cm-media-block');
+    markBlockRange(container, view, this.pos, this.to);
     if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
 
     renderInvalidEmbedCard(container, {
