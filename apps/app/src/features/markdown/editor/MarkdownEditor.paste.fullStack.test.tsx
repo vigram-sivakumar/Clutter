@@ -1884,6 +1884,8 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     assertEngine(root);
     expect(engineWidgets(root)).toHaveLength(1);
     expect(root.dom.querySelectorAll('.cm-table-widget')).toHaveLength(2);
+    // Manual column resizing has been retired in both projections.
+    expect(root.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
     activateCell(root, 'compat-a');
     const legacy = nestedOf(container)!;
     expect(legacy.state.doc.toString()).toBe('compat-a');
