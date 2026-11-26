@@ -6,7 +6,6 @@ import type { TableActiveCellController } from './tableActiveCellController';
 import { findCellWrapper } from './tableBoundaryNavigation';
 import { beginCellDragTracking } from './tableCellRangeSelection';
 import { endOfCellContent, findAllTables, startOfCellContent } from './tableGeometry';
-import { attachTableColumnResizeHandles } from './tableColumnResizeHandle';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
@@ -443,11 +442,7 @@ export class TableWidget extends WidgetType {
         // belt-and-suspenders pairing already used for cell clicks, so a
         // later milestone's own handle click/drag handler doesn't have to
         // remember to revisit this check.
-        // `.cm-table-column-resize-hit` (`tableColumnResizeHandle.ts`) is
-        // exempted for the identical reason — without it, this handler's
-        // own `preventDefault`/`stopPropagation` below would run on every
-        // resize-handle interaction too.
-        if (target?.closest('td, th, .cm-table-column-handle-hit, .cm-table-row-handle-hit, .cm-table-column-resize-hit')) {
+        if (target?.closest('td, th, .cm-table-column-handle-hit, .cm-table-row-handle-hit')) {
           return;
         }
         event.preventDefault();
@@ -661,15 +656,6 @@ export class TableWidget extends WidgetType {
         this.selectedRowIndex,
         this.getOnTableHandleMenuChange
       );
-      // Column-boundary resize — a separate hit-target/gesture entirely
-      // (see `tableColumnResizeHandle.ts`'s own doc comment for why it
-      // cannot collide with the select/reorder handle above). Gated on
-      // `this.controller` for the same read-only-table reason.
-      //
-      // The outgoing widget restores scroll after the final replacement
-      // in the transaction chain. Resize boundaries position in a microtask
-      // first; the lifecycle restore runs in the following animation frame.
-      if (!this.automaticSizing) attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
     }
 
     // Column/row-selection outline (range outlines land later, reusing
