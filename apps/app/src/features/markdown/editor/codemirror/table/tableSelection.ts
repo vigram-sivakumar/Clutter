@@ -340,13 +340,13 @@ export const tableSelectionField = StateField.define<TableSelection | null>({
  */
 export const TABLE_HANDLE_MENU_CLASS = 'cm-table-handle-menu';
 
-export function attachTableOutsideClickHandling(view: EditorView, controller: TableActiveCellController): () => void {
+export function attachTableOutsideClickHandling(view: EditorView, controller?: TableActiveCellController): () => void {
   const handleMouseDown = (event: MouseEvent): void => {
-    const hasActiveCell = controller.activeAnchor !== null;
+    const hasActiveCell = controller?.activeAnchor != null;
     const hasSelection = (view.state.field(tableSelectionField, false) ?? null) !== null;
     const target = event.target;
     const clickedInsideActiveCell =
-      hasActiveCell && !!controller.nestedView && target instanceof Node && controller.nestedView.dom.contains(target);
+      hasActiveCell && !!controller?.nestedView && target instanceof Node && controller.nestedView.dom.contains(target);
     if (clickedInsideActiveCell) {
       return;
     }
@@ -368,7 +368,7 @@ export function attachTableOutsideClickHandling(view: EditorView, controller: Ta
 
     const clearsInteractionState = hasActiveCell || hasSelection;
     if (clearsInteractionState) {
-      controller.deactivate();
+      controller?.deactivate();
     }
 
     // The root-selection-collapse fallback (this function's own doc
