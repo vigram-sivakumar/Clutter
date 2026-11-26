@@ -26,28 +26,11 @@ import {
 import { caretBottomClearanceExtension } from './codemirror/caretBottomClearance';
 import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
-import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 import type { TableCommand } from './codemirror/table-engine/tableCommands';
-import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
-import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
-import { escapeTableCellText } from './codemirror/table/tablePaste';
-import { cellPasteRouting } from './codemirror/paste/pasteRouting';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
-import { clearTableSelection } from './codemirror/table/tableSelectionClear';
-import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
-import { duplicateSelectedColumn, insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
-import { deleteColumnSelection, deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
-import {
-  moveSelectedColumnLeft,
-  moveSelectedColumnRight,
-  moveSelectedRowDown,
-  moveSelectedRowUp,
-  resolveColumnMoveAvailability,
-  resolveRowMoveAvailability,
-} from './codemirror/table/tableRowColumnMove';
-import { resolveColumnAlignment, setSelectedColumnAlignment } from './codemirror/table/tableSetColumnAlignment';
-import { normalizeTableAt } from './codemirror/table/tableColumnNormalization';
+import { resolveColumnMoveAvailability, resolveRowMoveAvailability } from './codemirror/table/tableRowColumnMove';
+import { resolveColumnAlignment } from './codemirror/table/tableSetColumnAlignment';
 import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange, type TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
@@ -345,7 +328,6 @@ export const MarkdownEditor = forwardRef<
    * `null` before the first mount effect run, exactly like `viewRef`
    * itself.
    */
-  const tableActiveCellControllerRef = useRef<TableActiveCellController | null>(null);
   // The CURRENT mode, kept in a ref so everything captured at mount (the menu getters) reads the live value,
   // and the options the extension factory was built from, kept so a mode switch can rebuild the mode-dependent
   // groups on the live view.
@@ -710,232 +692,34 @@ export const MarkdownEditor = forwardRef<
     setTableHandleMenu(null);
   };
 
-  // Engine menu actions never fall through to the legacy source writer,
-  // including a stale/rejected engine command. Compatibility tables keep it.
-  const engineMenuAction = (view: EditorView, selection: TableHandleMenuSelection, action: (index: number) => TableCommand | 'clear'): boolean => {
-    if (!tableHandleMenu?.engine) return false;
-    if (!view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${selection.tableFrom}"]`)) return true;
-    const controller = view.plugin(tableCellEditor);
+  // One command owner for all table menu edits. A stale command never
+  // falls through to an independent source writer.
+  const engineMenuAction = (action: (index: number) => TableCommand | 'clear'): void => {
+    const view = viewRef.current;
+    const selection = tableHandleMenu?.selection;
+    if (!view || !selection) return;
+    if (!view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${selection.tableFrom}"]`)) return;
     const index = selection.kind === 'row' ? selection.rowIndex : selection.columnIndex;
-    controller?.axisCommand(selection, action(index));
-    return true;
+    view.plugin(tableCellEditor)?.axisCommand(selection, action(index));
+    tableHandleMenuSuppressReturnFocusRef.current = true;
   };
 
-  // "Clear contents" — the only menu item wired to a real operation this
-  // milestone (per the product spec: establish the menu items/interaction
-  // now, implement Insert/Delete in a future structural-operation
-  // milestone). Reuses tableSelectionClear.ts's own existing
-  // clearTableSelection exactly as Backspace/Delete already does
-  // (tableSelectionClearKeymap, buildEditorExtensions.ts) — triggered from
-  // the menu instead of a keystroke, same underlying operation. The menu
-  // closes on its own right after (OverflowMenuBody's own onOpenChange(false)
-  // → onClose, the same sequence every other menu item here already goes
-  // through), so no explicit close call is needed here either.
-  //
-  // `view.focus()` after every one of these six handlers' own operation —
-  // a real, reproducible focus-loss bug found live while verifying "Delete
-  // row"'s own undo/redo, the exact same class already fixed once in
-  // tableCellRangeSelection.ts (af797c64) and in tableHandleOverlay.ts's
-  // own handle click handlers: a menu item's own DOM lives in this menu's
-  // portaled Overlay (outside CM6's contentDOM entirely) and holds real
-  // browser focus at the moment it's clicked; the menu unmounts immediately
-  // after selection, and removing that focused node leaves
-  // `document.activeElement` on `document.body` with no explicit refocus.
-  // Confirmed directly: pressing Cmd+Z right after clicking "Delete row"
-  // did nothing at all — the keydown never reached CM6's own keymap — until
-  // a click back into the editor restored focus first. Every one of these
-  // handlers has the identical shape (a menu click that may mutate the
-  // document), so every one needs the identical fix, not just the row-
-  // deletion handler that happened to surface it.
-  const handleClearTableSelectionFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, () => 'clear')) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    clearTableSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  // "Duplicate" (row/column handle menu) — reuses tableRowInsertion.ts's/
-  // tableColumnInsertion.ts's own dedicated duplicateSelectedRow/
-  // duplicateSelectedColumn (each already keeps the selection on the
-  // *original* row/column, never the new copy — see those functions' own
-  // doc comments), same "look up the current menu's own selection off
-  // state, view.focus() after" shape every other menu handler here uses.
-  const handleDuplicateRowFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'duplicateRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    duplicateSelectedRow(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleDuplicateColumnFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'duplicateColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    duplicateSelectedColumn(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  // "Move up"/"Move down" (row handle menu) and "Move left"/"Move right"
-  // (column handle menu) — reuses tableRowColumnMove.ts's own selection-aware
-  // moveSelectedRowUp/moveSelectedRowDown/moveSelectedColumnLeft/
-  // moveSelectedColumnRight, same "look up the current menu's own selection
-  // off state, view.focus() after" shape every other menu handler here uses.
-  const handleMoveRowUpFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveRow', from: index, to: index - 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    moveSelectedRowUp(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleMoveRowDownFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveRow', from: index, to: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    moveSelectedRowDown(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleMoveColumnLeftFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveColumn', from: index, to: index - 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    moveSelectedColumnLeft(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleMoveColumnRightFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveColumn', from: index, to: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    moveSelectedColumnRight(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  // "Insert row above"/"Insert row below"/"Insert column left"/"Insert
-  // column right" — the row/column-insertion menu items wired to real
-  // operations (row/column deletion remains future work). Reuses
-  // tableRowInsertion.ts's/tableColumnInsertion.ts's own selection-aware
-  // helpers exactly the way handleClearTableSelectionFromMenu above reuses
-  // clearTableSelection — same "look up the current menu's own selection
-  // off state, no explicit close call needed" shape.
-  const handleInsertRowAboveFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    insertRowAboveSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleInsertRowBelowFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertRow', index: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    insertRowBelowSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleInsertColumnLeftFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    insertColumnLeftSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleInsertColumnRightFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertColumn', index: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    insertColumnRightSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  // "Align" (column handle menu) — reuses tableSetColumnAlignment.ts's own
-  // setSelectedColumnAlignment, one handler for all three leaves (Left/
-  // Center/Right) since the only difference between them is which
-  // TableColumnAlignment value to pass through — same "look up the
-  // current menu's own selection off state, view.focus() after" shape
-  // every other menu handler here uses.
-  const handleSetColumnAlignmentFromMenu = (alignment: TableColumnAlignment) => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'setAlignment', col: index, alignment: alignment ?? 'none' }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    setSelectedColumnAlignment(view, tableHandleMenu.selection, alignment);
-    view.focus();
-  };
-
-  // "Format table" (row and column handle menu) — reuses
-  // tableColumnNormalization.ts's own explicit-trigger normalizeTableAt,
-  // the table-wide analogue of handleFormatFencedCode below: both are
-  // deliberately manual, menu-driven reformatting commands, never an
-  // automatic/per-keystroke one (see that module's own top doc comment for
-  // why). Table-wide, not row/column-scoped, so it appears identically in
-  // both the row and column handle menus and ignores which axis is
-  // selected — only tableHandleMenu.selection.tableFrom is used.
-  const handleFormatTableFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, () => ({ kind: 'format' }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    normalizeTableAt(view, tableHandleMenu.selection.tableFrom);
-    view.focus();
-  };
-
-  // "Delete row"/"Delete column" — structural deletion, reusing
-  // tableSelectionDeletion.ts's own existing deleteRowSelection/
-  // deleteColumnSelection (header deletion promotes the next body row;
-  // deleting a table's only remaining column deletes the whole table — see
-  // deleteHeaderRow and deleteProjectedTable).
-  // Deliberately not reachable via Backspace/Delete — tableSelectionClearKeymap()
-  // still owns that keyboard path (Clear contents); this is the menu's own,
-  // separate entry point into structural deletion.
-  const handleDeleteRowFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'deleteRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    deleteRowSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
-
-  const handleDeleteColumnFromMenu = () => {
-    const view = viewRef.current;
-    if (!tableHandleMenu || !view) {
-      return;
-    }
-    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'deleteColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
-    deleteColumnSelection(view, tableHandleMenu.selection);
-    view.focus();
-  };
+  const handleClearTableSelectionFromMenu = () => engineMenuAction(() => 'clear');
+  const handleDuplicateRowFromMenu = () => engineMenuAction(index => ({ kind: 'duplicateRow', index }));
+  const handleDuplicateColumnFromMenu = () => engineMenuAction(index => ({ kind: 'duplicateColumn', index }));
+  const handleMoveRowUpFromMenu = () => engineMenuAction(index => ({ kind: 'moveRow', from: index, to: index - 1 }));
+  const handleMoveRowDownFromMenu = () => engineMenuAction(index => ({ kind: 'moveRow', from: index, to: index + 1 }));
+  const handleMoveColumnLeftFromMenu = () => engineMenuAction(index => ({ kind: 'moveColumn', from: index, to: index - 1 }));
+  const handleMoveColumnRightFromMenu = () => engineMenuAction(index => ({ kind: 'moveColumn', from: index, to: index + 1 }));
+  const handleInsertRowAboveFromMenu = () => engineMenuAction(index => ({ kind: 'insertRow', index }));
+  const handleInsertRowBelowFromMenu = () => engineMenuAction(index => ({ kind: 'insertRow', index: index + 1 }));
+  const handleInsertColumnLeftFromMenu = () => engineMenuAction(index => ({ kind: 'insertColumn', index }));
+  const handleInsertColumnRightFromMenu = () => engineMenuAction(index => ({ kind: 'insertColumn', index: index + 1 }));
+  const handleFormatTableFromMenu = () => engineMenuAction(() => ({ kind: 'format' }));
+  const handleDeleteRowFromMenu = () => engineMenuAction(index => ({ kind: 'deleteRow', index }));
+  const handleDeleteColumnFromMenu = () => engineMenuAction(index => ({ kind: 'deleteColumn', index }));
+  const handleSetColumnAlignmentFromMenu = (alignment: TableColumnAlignment) =>
+    engineMenuAction(index => ({ kind: 'setAlignment', col: index, alignment: alignment ?? 'none' }));
 
   // A fenced code block's own floating "More actions" control — same
   // bridged-anchor/toggle pattern as noteEmbedMenu above. Offers Format
@@ -1592,26 +1376,6 @@ export const MarkdownEditor = forwardRef<
     const startDoc = resume?.doc ?? markdown;
     const startReadOnly = resume ? readOnlyRef.current : readOnly;
 
-    // Constructed before `createEditorView()` (below) so
-    // `getTableActiveCellController`'s getter can already return it —
-    // `tableCellNavigation`'s own root-view getter (`() => viewRef.current!`)
-    // is the same late-bound-ref pattern every other injected callback in
-    // this component already uses (e.g. `resolveWikiLinkRef.current`):
-    // `viewRef.current` isn't set until a few lines below, but nothing
-    // calls this getter until a real user interaction happens well after
-    // mount completes.
-    const tableActiveCellController = new TableActiveCellController();
-    tableActiveCellController.setNestedExtensions([
-      tableCellNavigation(() => viewRef.current!, tableActiveCellController),
-      // The cell editor's one paste handler: a grid fills the table from this cell, files are reported as not added, an empty clipboard changes nothing.
-      cellPasteRouting(() => viewRef.current!, tableActiveCellController, () => (readOnlyRef.current ? undefined : pasteAssetsRef.current)),
-      // Text pasted into one cell is written into the table source as it is, where a literal `|` would split the cell.
-      EditorView.clipboardInputFilter.of(escapeTableCellText),
-      // The focused cell is its own nested view, so the root's Cmd/Ctrl-B/-I/-E never reach it.
-      formatShortcutsKeymap(),
-    ]);
-    tableActiveCellControllerRef.current = tableActiveCellController;
-
     // The options of the extension factory, built once per mount and reused to switch the editor between
     // editable and read-only on the live view. Every getter reads a ref, and the menu getters read the
     // CURRENT mode (`readOnlyRef`), so a switch needs no rebuild of anything that holds them.
@@ -1640,7 +1404,6 @@ export const MarkdownEditor = forwardRef<
       getTagSuggestions: () => getTagSuggestionsRef.current,
       resolveDate: () => resolveDateRef.current,
       onTaskCheckboxToggled: () => onFlushRef.current?.(),
-      getTableActiveCellController: () => tableActiveCellControllerRef.current ?? undefined,
       // Seeds this page's own id into the top-level ancestry so a note
       // that embeds itself directly (`![[ThisPage]]`) is caught on
       // first encounter, exactly like any other cycle — not just a
@@ -1711,15 +1474,7 @@ export const MarkdownEditor = forwardRef<
       });
     }
 
-    // One listener for this root editor's own lifetime — attached here
-    // (alongside `view` itself), not inside `TableWidget.toDOM()` or
-    // `tableHandleOverlay.ts` (both rebuild on every table-related
-    // keystroke, which would otherwise leak a fresh listener per
-    // rebuild). See `attachTableOutsideClickHandling`'s own doc comment
-    // for why a single `document`-level listener is the correct
-    // mechanism, not a per-table one. Detached in this effect's own
-    // cleanup below, before `tableActiveCellControllerRef.current?.destroy()`.
-    const detachTableOutsideClickHandling = attachTableOutsideClickHandling(view, tableActiveCellController);
+    const detachTableOutsideClickHandling = attachTableOutsideClickHandling(view);
 
     // Applied after mount, not via createEditorView's own `scrollTo`
     // config (which is scoped to CM6's internal `.cm-scroller` — see
@@ -1837,18 +1592,7 @@ export const MarkdownEditor = forwardRef<
       // foldStateStore simply doesn't persist folds, matching the
       // pre-ADR-033 baseline exactly.
       foldStateStore?.set(pageId, serializeFoldState(view));
-      // Detached before the controller itself is destroyed (immediately
-      // below) — the handler reads `controller.activeAnchor`/`.nestedView`,
-      // so it must go first, if only defensively (nothing in this
-      // component actually clicks anything during unmount).
       detachTableOutsideClickHandling();
-      // Destroys the table active-cell controller's own nested EditorView
-      // (M5, docs/table-implementation-plan.md, §13) — root `view.destroy()`
-      // below has no awareness of it (it's a second, independent
-      // `EditorView`, not a child of `view`'s own DOM tree in the CM6
-      // sense), so leaving this out would leak it on every page switch.
-      tableActiveCellControllerRef.current?.destroy();
-      tableActiveCellControllerRef.current = null;
       view.destroy();
       viewRef.current = null;
     };
@@ -1926,7 +1670,7 @@ export const MarkdownEditor = forwardRef<
       // Editing UI that lives outside the document goes first: the active table cell's nested editor, and
       // every menu that changes the document or an embedded resource. (Autocomplete and its popup go with
       // the extensions that own them.)
-      tableActiveCellControllerRef.current?.deactivate();
+      view.plugin(tableCellEditor)?.close();
       // Closed explicitly, BEFORE its extension goes: it cancels the popup's pending timers, which would
       // otherwise fire later against a state that no longer has the completion field.
       closeCompletion(view);
