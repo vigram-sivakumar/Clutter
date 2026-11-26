@@ -2,6 +2,7 @@ import { Prec, StateEffect, StateField, type EditorState, type Extension, type S
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 import { deleteProjectedTable } from '../table-engine/tableTransaction';
+import { projectableTableSnapshot } from '../table-engine/tableModel';
 import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
 import { tableActiveCellChanged } from './tableActiveCellController';
 import { findAllTables, type TableInfo } from './tableGeometry';
@@ -113,14 +114,14 @@ export const tableDeletionSelectionField = StateField.define<number | null>({
 });
 
 /** Whether `range` is a collapsed caret sitting on the blank line immediately below `table` — one of the two positions this whole feature is scoped to. */
-function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
+function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table: TableInfo, engineOnly = false): boolean {
   if (!range.empty) {
     return false;
   }
   const line = state.doc.lineAt(range.head);
   if (line.length !== 0) return false;
   const distance = line.number - state.doc.lineAt(table.to).number;
-  return distance === 1 || (distance === 2 && resolveTableColumnWidths(state, table) !== null);
+  return distance === 1 || (!engineOnly && distance === 2 && resolveTableColumnWidths(state, table) !== null);
 }
 
 /**
@@ -142,23 +143,23 @@ function isCaretJustAboveTable(state: EditorState, range: SelectionRange, table:
 }
 
 /** Whether `range` sits adjacent to `table` on either side — the one shared condition both arming and re-validation (and the symmetric "either key completes it" second press) check against. */
-function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
-  return isCaretJustBelowTable(state, range, table) || isCaretJustAboveTable(state, range, table);
+function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table: TableInfo, engineOnly = false): boolean {
+  return isCaretJustBelowTable(state, range, table, engineOnly) || isCaretJustAboveTable(state, range, table);
 }
 
 /** The table whose own blank line directly below it currently holds a collapsed caret at `pos` — `null` if `pos` isn't on any such line. The Backspace-only arming trigger for the "below" direction. */
-function findTableAboveBlankLine(state: EditorState, range: SelectionRange): TableInfo | null {
+function findTableAboveBlankLine(state: EditorState, range: SelectionRange, engineOnly: boolean): TableInfo | null {
   if (state.doc.lineAt(range.head).length !== 0) return null;
-  return findAllTables(state).find((table) => isCaretJustBelowTable(state, range, table)) ?? null;
+  return findAllTables(state).find((table) => (!engineOnly || projectableTableSnapshot(state.doc.toString(), table.node) !== null) && isCaretJustBelowTable(state, range, table, engineOnly)) ?? null;
 }
 
 /** The table whose own first line directly follows the line ending at `pos` — `null` if `pos` isn't at such a line's own end. The Delete-only arming trigger for the "above" direction, mirroring `findTableAboveBlankLine`. */
-function findTableBelowLineEnd(state: EditorState, pos: number): TableInfo | null {
+function findTableBelowLineEnd(state: EditorState, pos: number, engineOnly: boolean): TableInfo | null {
   const line = state.doc.lineAt(pos);
   if (pos !== line.to) {
     return null;
   }
-  return findAllTables(state).find((table) => state.doc.lineAt(table.from).number === line.number + 1) ?? null;
+  return findAllTables(state).find((table) => (!engineOnly || projectableTableSnapshot(state.doc.toString(), table.node) !== null) && state.doc.lineAt(table.from).number === line.number + 1) ?? null;
 }
 
 /**
@@ -174,7 +175,7 @@ function findTableBelowLineEnd(state: EditorState, pos: number): TableInfo | nul
  * genuinely separate `EditorView` with its own keymap; this module only
  * ever installs on the root view.
  */
-export function tableWholeDeletionKeymap(): Extension {
+export function tableWholeDeletionKeymap(engineOnly = false): Extension {
   /**
    * Shared by both commands' first branch: if a table is already armed
    * and the caret is still adjacent to it (below *or* above — whichever
@@ -188,10 +189,10 @@ export function tableWholeDeletionKeymap(): Extension {
       return null;
     }
     const table = findAllTables(view.state).find((t) => t.from === pending);
-    if (!table || !isCaretAdjacentToTable(view.state, sel, table)) {
+    if (!table || !isCaretAdjacentToTable(view.state, sel, table, engineOnly)) {
       return null;
     }
-    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null));
+    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null), engineOnly);
     // Consume the armed gesture even if a root filter refuses the edit.
     return true;
   }
@@ -208,7 +209,7 @@ export function tableWholeDeletionKeymap(): Extension {
     // Arming trigger: only from the blank line below a table — a plain
     // Backspace at the end of an ordinary line (the "above" position)
     // must keep doing ordinary character deletion, never arm anything.
-    const table = findTableAboveBlankLine(view.state, sel);
+    const table = findTableAboveBlankLine(view.state, sel, engineOnly);
     if (!table) {
       return false;
     }
@@ -229,7 +230,7 @@ export function tableWholeDeletionKeymap(): Extension {
     // mirror of `backspaceCommand`'s own arming trigger. A plain Delete
     // on an ordinary blank line (the "below" position) must keep doing
     // ordinary forward deletion, never arm anything.
-    const table = findTableBelowLineEnd(view.state, sel.head);
+    const table = findTableBelowLineEnd(view.state, sel.head, engineOnly);
     if (!table) {
       return false;
     }
