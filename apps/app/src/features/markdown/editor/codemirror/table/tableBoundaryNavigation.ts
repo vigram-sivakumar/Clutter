@@ -1,4 +1,4 @@
-import { Prec, type EditorState, type Extension } from '@codemirror/state';
+import { Prec, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
@@ -145,7 +145,8 @@ export function enterCellOf(
     }
     return rootView.plugin(tableCellEditor)?.enterCell(table.from, { row: rowIndex, col: columnIndex }, cursorAt) ?? false;
   }
-  rootView.plugin(tableCellEditor)?.close();
+  // In the production editor unsupported tables are ordinary source text.
+  if (rootView.plugin(tableCellEditor)) return false;
   const navigableRows = getNavigableRows(table.node);
   const row = navigableRows[rowIndex];
   if (!row) {
@@ -192,14 +193,16 @@ export function enterCellOf(
  * column (rectangular-invariant milestone's own finding — `enterCellOf`
  * itself already materializes a `synthetic` target here if needed).
  */
-function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } | null {
+function lastCell(table: TableInfo, view: EditorView): { rowIndex: number; columnIndex: number } | null {
   const navigableRows = getNavigableRows(table.node);
   const rowIndex = navigableRows.length - 1;
   const lastRow = navigableRows[rowIndex];
   if (!lastRow) {
     return null;
   }
-  const columnIndex = getRowCellBounds(navigableRows[0]!).length - 1;
+  const columnIndex = (view.plugin(tableCellEditor)
+    ? view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${table.from}"]`)?.querySelectorAll('thead th').length ?? 0
+    : getRowCellBounds(navigableRows[0]!).length) - 1;
   if (columnIndex < 0) {
     return null;
   }
@@ -241,8 +244,8 @@ function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } |
  */
 export function tableBoundaryNavigation(controller: TableActiveCellController): Extension {
   // Valid width metadata is concealed and belongs to the visual table.
-  const lastVisibleLine = (state: EditorState, table: TableInfo): number =>
-    state.doc.lineAt(resolveExistingAttributeLineRange(state, table)?.to ?? table.to).number;
+  const lastVisibleLine = (view: EditorView, table: TableInfo): number =>
+    view.state.doc.lineAt(view.plugin(tableCellEditor) ? table.to : resolveExistingAttributeLineRange(view.state, table)?.to ?? table.to).number;
   const arrowDown: Command = (view) => {
     const sel = view.state.selection.main;
     if (!sel.empty) {
@@ -264,7 +267,7 @@ export function tableBoundaryNavigation(controller: TableActiveCellController): 
     }
     const line = view.state.doc.lineAt(sel.head);
     for (const table of findAllTables(view.state)) {
-      if (lastVisibleLine(view.state, table) === line.number - 1) {
+      if (lastVisibleLine(view, table) === line.number - 1) {
         const navigableRows = getNavigableRows(table.node);
         return enterCellOf(view, controller, table, navigableRows.length - 1, 0, 'start');
       }
@@ -299,8 +302,8 @@ export function tableBoundaryNavigation(controller: TableActiveCellController): 
       return false;
     }
     for (const table of findAllTables(view.state)) {
-      if (lastVisibleLine(view.state, table) === line.number - 1) {
-        const target = lastCell(table);
+      if (lastVisibleLine(view, table) === line.number - 1) {
+        const target = lastCell(table, view);
         if (!target) {
           return false;
         }
