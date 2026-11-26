@@ -97,11 +97,39 @@ describe('table engine model and structural commands', () => {
     expect(planTableEdit(doc, start, { kind: 'setCell', row: 1, col: 0, markdown: 'a\\|b' }, parse)!.after.model.rows[0]![0]).toBe('a\\|b');
   });
 
-  it('rejects multiline cells and malformed metadata before committing', () => {
+  it('rejects multiline cells and retires recognised stale width counts', () => {
     expect(() => planTableEdit(doc, start, { kind: 'setCell', row: 1, col: 0, markdown: 'a\nb' }, parse)).toThrow(TableEngineError);
-    expect(() => planTableEdit(table + '\n{table-col-widths="bad"}', 0, { kind: 'insertColumn', index: 1 }, parse)).toThrow(TableEngineError);
+
     expect(planTableEdit(table + '\n{table-col-widths="120"}', 0, { kind: 'insertColumn', index: 1 }, parse)!.expectedDocument).not.toContain('table-col-widths');
 
+  });
+
+  it.each(['bad', '', '12.5,80', '0,-1'])('preserves invalid legacy width values on read and removes them on a real structural edit: %s', (value) => {
+    const original = table + '\n{table-col-widths="' + value + '"}';
+    const input = before + original + after;
+    const snapshot = readTable(input, start, parse);
+    expect(snapshot.source).toBe(original);
+    expect(snapshot.legacyWidthFrom).toBe(start + table.length);
+    const target = makeHistory(input);
+    expect(createTableTransaction(target.state, start, { kind: 'setCell', row: 0, col: 0, markdown: 'A' }, parse)).toBeNull();
+    target.dispatch(createTableTransaction(target.state, start, { kind: 'insertColumn', index: 1 }, parse)!);
+    const edited = target.state.doc.toString();
+    expect(edited).not.toContain('table-col-widths');
+    expect(edited.endsWith(after)).toBe(true);
+    expect(undoDepth(target.state)).toBe(1);
+    expect(undo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(input);
+    expect(redo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(edited);
+  });
+
+  it.each(['{table-col-widths=120,80}', '{table-col-widths="120,80"} extra', '{table-col-widths-other="120,80"}'])('preserves adjacent non-attribute Markdown: %s', (line) => {
+    const input = table + '\n' + line + after;
+    const snapshot = readTable(input, 0, parse);
+    expect(snapshot.source).toBe(table);
+    expect(snapshot.legacyWidthFrom).toBeNull();
+    const edit = planTableEdit(input, 0, { kind: 'insertColumn', index: 1 }, parse)!;
+    expect(edit.expectedDocument.endsWith('\n' + line + after)).toBe(true);
   });
 
   it('projects every overflow cell and pads only the derived model on read', () => {
