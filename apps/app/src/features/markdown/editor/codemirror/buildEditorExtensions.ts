@@ -483,7 +483,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // above — a read-only note embed's table never opens this menu in the
     // first place.
     tableHandleMenuSync(() => onOpenTableHandleMenu?.()),
-    tableWholeDeletionKeymap(),
+    tableWholeDeletionKeymap(engineCells),
     fencedCodeFenceAutoClose(),
     // Editable-only: `MarkdownEditor.tsx`'s `revealRange`/`revealRanges`
     // (Tasks sidebar's "Show in note", Tag collection's "Open note") are
