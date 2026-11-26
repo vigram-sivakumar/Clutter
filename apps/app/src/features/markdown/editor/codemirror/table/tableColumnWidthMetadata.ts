@@ -84,6 +84,11 @@ export const DEFAULT_TABLE_COLUMN_WIDTH = 200;
 
 const ATTRIBUTE_LINE = /^\{table-col-widths="([^"]*)"\}$/;
 
+/** Recognise only the complete legacy attribute line, independently of its values. */
+export function isTableColumnWidthsAttributeLine(lineText: string): boolean {
+  return ATTRIBUTE_LINE.test(lineText.trim());
+}
+
 /** A width must be a positive integer — zero, negative, or non-integer values are never valid column widths. No upper bound is enforced here; a maximum (if any) is a rendering/UX concern for a later milestone, not this persistence layer's. */
 function isValidWidth(value: number): boolean {
   return Number.isInteger(value) && value >= 1;
@@ -208,7 +213,7 @@ export function resolveExistingAttributeLineRange(state: EditorState, table: Tab
     return null;
   }
   const line = state.doc.line(nextLineNumber);
-  if (!ATTRIBUTE_LINE.test(line.text.trim())) {
+  if (!isTableColumnWidthsAttributeLine(line.text)) {
     return null;
   }
   return { from: line.from, to: line.to };
