@@ -1,3 +1,4 @@
+import { markBlockRange } from '../blockRangeSelection';
 import { EditorSelection } from '@codemirror/state';
 import { EditorView, WidgetType } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
@@ -417,6 +418,7 @@ export class NoteEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-note-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    markBlockRange(container, view, this.pos, this.to);
     if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
 
     if (this.resolution === null) {
