@@ -459,6 +459,20 @@ describe('current engine handle drop geometry', () => {
       expect((indicator as HTMLElement).style.left).toBe('200px');
     });
 
+    it('bounds the vertical indicator to the actual table, excluding handle and add-row space', () => {
+      const { wrapper, table } = setUp();
+      mockWrapperRect(wrapper, { top: 20, left: 0, width: 300, height: 94 });
+      table.getBoundingClientRect = () =>
+        ({ top: 28, bottom: 88, height: 60, left: 0, right: 300, width: 300, x: 0, y: 28, toJSON: () => ({}) }) as DOMRect;
+      beginColumnDrag(wrapper, table, 0);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 40);
+      const indicator = wrapper.querySelector<HTMLElement>('.cm-table-column-drop-indicator')!;
+      expect(indicator.style.top).toBe('8px');
+      expect(indicator.style.height).toBe('60px');
+      expect(indicator.style.left).toBe('200px');
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+    });
+
     it('acceptance 2: continuing to move within column 2\'s own body keeps the indicator after column 2', () => {
       const { wrapper, table } = setUp();
       beginColumnDrag(wrapper, table, 0);
