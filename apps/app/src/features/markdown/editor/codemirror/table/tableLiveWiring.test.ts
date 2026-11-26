@@ -9,6 +9,7 @@ import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
+import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 
 /** Live editor integration using the production extension set. */
 const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId'> = {
@@ -32,7 +33,8 @@ afterEach(() => {
   }
 });
 
-function mount(doc: string, readOnly: boolean, onMenu?: OnTableHandleMenuChange): EditorView {
+function mount(doc: string, readOnly: boolean, onMenu?: OnTableHandleMenuChange,
+  overrides: Partial<BuildEditorExtensionsOptions> = {}): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -40,6 +42,7 @@ function mount(doc: string, readOnly: boolean, onMenu?: OnTableHandleMenuChange)
       doc,
       extensions: buildEditorExtensions({
         ...REQUIRED,
+        ...overrides,
         readOnly,
         onOpenTableHandleMenu: () => onMenu,
         hostPageId: 'test-page',
@@ -1139,6 +1142,91 @@ describe('engine original table handles (M9b candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
+  });
+});
+
+describe('rich inline cell presentation', () => {
+  const resolverOptions: Partial<BuildEditorExtensionsOptions> = {
+    resolveWikiLink: () => () => ({
+      status: 'resolved', pageId: 'page', displayLabel: 'Resolved note',
+      activate: () => undefined, icon: 'note', emoji: '📘',
+    }),
+    resolveTag: () => () => ({
+      status: 'resolved', displayLabel: 'Product design', icon: '🎨', activate: () => undefined,
+    }),
+    resolveDate: () => () => ({ activate: () => undefined }),
+  };
+
+  it.each([
+    ['[[Page]]', 'tok-wikilink'],
+    ['#product-design', 'tok-tag'],
+    ['@2026-12-01', 'tok-date'],
+    ['@2026-12-01T10:30', 'tok-date'],
+    ['[Label](https://example.com)', 'tok-link'],
+    ['https://example.com', 'tok-link'],
+    ['<https://example.com>', 'tok-link'],
+    ['<name@example.com>', 'tok-link'],
+  ])('renders %s through shared prose presentation in active, inactive and read-only cells', (syntax, className) => {
+    const text = 'Before ' + syntax + ' after';
+    const source = text + '\n\n' + TABLE.replace('Vik', text);
+    const view = mount(source, false, undefined, resolverOptions);
+    const prose = view.dom.querySelector('.cm-line .' + className)!;
+    expect(prose).not.toBeNull();
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    const expectedText = prose.textContent;
+    expect(cell.querySelector('.' + className)?.textContent).toBe(expectedText);
+    if (className !== 'tok-link') {
+      expect(cell.querySelector('.' + className)?.innerHTML).toBe(prose.innerHTML);
+    } else {
+      expect(cell.querySelector('.tok-link-title')?.textContent).toBe(expectedText);
+    }
+
+    clickCell(cell.parentElement!);
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    const depth = undoDepth(view.state);
+    nested.dispatch({ selection: { anchor: text.length } });
+    expect(nested.contentDOM.querySelector('.' + className)?.textContent).toBe(expectedText);
+    nested.dispatch({ selection: { anchor: text.indexOf(syntax) + 2 } });
+    expect(nested.contentDOM.textContent).toBe(text);
+    nested.dispatch({ selection: { anchor: text.length } });
+    expect(nested.contentDOM.querySelector('.' + className)?.textContent).toBe(expectedText);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
+    controller.close();
+    expect(cell.querySelector('.' + className)?.textContent).toBe(expectedText);
+    expect(cell.querySelector('.cm-editor')).toBeNull();
+
+    const readOnly = mount(source, true, undefined, resolverOptions);
+    expect(readOnly.dom.querySelector('[data-cell="1,0"] .' + className)?.textContent).toBe(expectedText);
+    expect(readOnly.dom.querySelector('[data-cell="1,0"] .cm-editor')).toBeNull();
+    expect(readOnly.plugin(tableCellEditor)).toBeNull();
+    expect(readOnly.state.doc.toString()).toBe(source);
+  });
+
+  it('refreshes shared tag presentation without remounting a cell or changing history', () => {
+    let icon: string | undefined = '🎨';
+    const source = TABLE.replace('Vik', 'Before #design after').replace('Designer', '#design');
+    const view = mount(source, false, undefined, {
+      resolveTag: () => () => ({ status: 'resolved', displayLabel: 'Design', icon, activate: () => undefined }),
+    });
+    const first = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    const second = view.dom.querySelector<HTMLElement>('[data-cell="1,1"]')!;
+    clickCell(first.parentElement!);
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: nested.state.doc.length } });
+    expect(nested.contentDOM.querySelector('.tok-tag-prefix')?.textContent).toBe('🎨');
+    expect(second.querySelector('.tok-tag-prefix')?.textContent).toBe('🎨');
+    const depth = undoDepth(view.state);
+    icon = undefined;
+    view.dispatch({ effects: refreshInlinePresentation.of(null) });
+    expect(controller.nested).toBe(nested);
+    expect(view.dom.querySelector('[data-cell="1,1"]')).toBe(second);
+    expect(nested.contentDOM.querySelector('.tok-tag-prefix')?.textContent).toBe('#');
+    expect(second.querySelector('.tok-tag-prefix')?.textContent).toBe('#');
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
   });
 });
 
