@@ -1128,10 +1128,12 @@ describe('table live wiring — read-only (note embed) table', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'Mira'));
   });
 
-  it('keeps overflow cells visible when an imported table needs the compatibility renderer', () => {
+  it('projects overflow cells in the read-only engine without dropping source', () => {
     const doc = '| Name | Role |\n| --- | --- |\n| A | B | C |';
     const view = mount(doc, true);
+    expect(view.dom.querySelector('thead tr')?.children).toHaveLength(3);
     expect(view.dom.querySelector('tbody tr')?.children).toHaveLength(3);
+    expect(view.dom.querySelector('[data-cell="1,2"]')?.textContent).toBe('C');
     expect(view.state.doc.toString()).toBe(doc);
   });
 
