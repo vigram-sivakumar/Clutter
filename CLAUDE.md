@@ -2,7 +2,7 @@
 
 ## Mandatory workflow — no exceptions for implementation
 
-Read the repository-wide [AGENTS.md](AGENTS.md) and [implementation rulebook §7](docs/implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents) before any implementation. The regression gate applies even to CSS, small bug fixes and direct-branch work. Do not commit or push unverified runtime changes, including through remote-only editing tools. Stop and report failed or unavailable checks.
+Read the repository-wide [AGENTS.md](AGENTS.md) and [implementation rulebook §7](docs/implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents) before any implementation. The regression gate applies even to CSS, small bug fixes and direct-branch work. Do not publish unverified runtime changes to shared development or main. The owner-approved isolated `testing/<task>` candidate exception in §7 permits remote-only editing for verification, not promotion. Stop and report failed or unavailable checks.
 
 ## Architecture governance
 
