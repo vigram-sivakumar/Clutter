@@ -37,15 +37,10 @@ function createTableRemoval(state: EditorState, from: number, to: number, effect
     { selection: { anchor: from }, scrollIntoView: true });
 }
 
-/** The live projection already has the shared grammar node. Removing a complete
- * table also works for imported rows the rectangular model cannot represent.
- * Adjacent Markdown belongs to the root document, not the table.
- */
-export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>, engineOnly = false): boolean {
+/** Delete the projected source span only, preserving adjacent Markdown. */
+export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>): boolean {
   if (view.state.readOnly) return false;
-  const range = engineOnly
-    ? projectableTableSnapshot(view.state.doc.toString(), table.node)
-    : table;
+  const range = projectableTableSnapshot(view.state.doc.toString(), table.node);
   if (!range) return false;
   const { from, to } = range;
   let transaction: Transaction;
