@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { history, undo, redo, undoDepth, redoDepth, historyKeymap } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
+import { buildTableShortcutMarkdown, insertTableOnShortcutSpace } from '../enter/tableCreateSpaceShortcut';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange } from './tableHandleMenuSync';
 import type { TableCommand } from '../table-engine/tableCommands';
 import { EditorState, StateEffect } from '@codemirror/state';
@@ -206,6 +207,42 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(selected(view)).toEqual([backwards ? '1,0' : '0,0']);
     expect(view.state.doc.toString()).toBe(TABLE);
     expect(undoDepth(view.state)).toBe(depth);
+  });
+
+  it.each(['|-|', '| - |'])('selects the entire table created by %s + Space, with one undo and redo', trigger => {
+    const view = mount(trigger, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    view.dispatch({ selection: { anchor: trigger.length } });
+    const depth = undoDepth(view.state);
+    expect(insertTableOnShortcutSpace(view)).toBe(true);
+    const source = buildTableShortcutMarkdown();
+    expect(view.state.doc.toString()).toBe(source);
+    expect(selected(view)).toEqual(['0,0','0,1','0,2','1,0','1,1','1,2']);
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
+    expect(document.activeElement).toBe(host(view, 0, 0));
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(trigger);
+    expect(selected(view)).toEqual([]);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(selected(view)).toEqual(['0,0','0,1','0,2','1,0','1,1','1,2']);
+    clickCell(view.dom.querySelector('td')!);
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('selects a newly inserted Markdown table but not an existing table or external refresh', () => {
+    const view = mount('', false);
+    view.dispatch({ changes: { from: 0, insert: TABLE }, selection: { anchor: TABLE.length }, userEvent: 'input.type' });
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect(document.activeElement).toBe(host(view, 0, 0));
+    const existing = mount(TABLE, false);
+    expect(selected(existing)).toEqual([]);
+    const external = mount('', false);
+    external.dispatch({ changes: { from: 0, insert: TABLE } });
+    expect(selected(external)).toEqual([]);
   });
 
   it('Escape selects the active cell, Shift+arrows extend a reverse range, arrows collapse from head', () => {
@@ -490,13 +527,15 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
     const created = view.state.doc.toString();
     expect(created).toBe(doc + '\n\n| A | B |\n| --- | --- |\n| x | y |');
     expect(view.dom.querySelectorAll('[data-table-engine-cells="true"]')).toHaveLength(2);
-    expect(selected(view)).toEqual(['0,0']);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect((document.activeElement as HTMLElement)?.dataset.cell).toBe('0,0');
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
     expect(selected(view)).toEqual([]);
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(created);
-    expect(selected(view)).toEqual(['0,0']);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
   });
 });
 
