@@ -176,6 +176,7 @@ export class TableProjection extends WidgetType {
     }
     if (this.snapshot.source === previous.snapshot.source) {
       root.dataset.tableFrom = String(this.snapshot.from);
+      root.dataset.tableRootSelected = String(this.selected);
       root.firstElementChild!.classList.toggle('cm-table-wrapper-selected', this.selected);
     } else {
       this.paint(root, _view, previous.snapshot);
@@ -191,6 +192,7 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) root.dataset.tableEngineCells = 'true';
     else delete root.dataset.tableEngineCells;
     const wrapper = root.firstElementChild as HTMLElement;
+    root.dataset.tableRootSelected = String(this.selected);
     wrapper.classList.toggle('cm-table-wrapper-selected', this.selected);
     wrapper.classList.add('cm-table-wrapper--auto-widths');
     const table = wrapper.querySelector('table')!;
