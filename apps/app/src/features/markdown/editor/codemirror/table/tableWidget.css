@@ -355,8 +355,16 @@
 .cm-editor
   [data-table-engine-cells='true']
   .cm-table-dragging-active
-  .cm-table-selection-overlay {
+  > .cm-table-scroll
+  > .cm-table-selection-overlay {
   visibility: hidden;
+}
+/* Keep the ghost visible; only the original selection is suppressed.
+ * Hide quick-add controls for the duration of a reorder without
+ * changing their reserved layout space. */
+.cm-editor .cm-table-dragging-active .cm-table-quick-add-track {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Table width is the prose width clamped by the column bounds. The
@@ -375,6 +383,10 @@
   --cm-table-add-row-space: calc(var(--cm-table-add-size) + var(--cm-table-add-gap));
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
+  /* Handles and the selection outline extend beyond cell borders.
+   * overflow-x: auto also clips vertical overflow; padding gives those
+   * visuals room inside the scrollport. The negative margins cancel
+   * the leading inset and the expanded width cancels both side insets. */
   --cm-table-handle-gutter: 8px;
   box-sizing: border-box;
   --cm-table-scroll-width: calc(
