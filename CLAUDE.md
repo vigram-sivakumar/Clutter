@@ -1,5 +1,9 @@
 # Clutter — Instructions for Claude
 
+## Mandatory workflow — no exceptions for implementation
+
+Read the repository-wide [AGENTS.md](AGENTS.md) and [implementation rulebook §7](docs/implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents) before any implementation. The regression gate applies even to CSS, small bug fixes and direct-branch work. Do not commit or push unverified runtime changes, including through remote-only editing tools. Stop and report failed or unavailable checks.
+
 ## Architecture governance
 
 Clutter's architecture is frozen. Before doing any architectural implementation work — adding a capability, modifying a subsystem's public API, touching persistence/write paths, or restructuring folders/services — read these in order:
@@ -21,7 +25,7 @@ Clutter's architecture is frozen. Before doing any architectural implementation 
 5. Run the post-implementation verification steps before considering the task done.
 6. Report any divergence from the specification explicitly, rather than letting it merge silently.
 
-Skip this process only for work that is clearly non-architectural (styling, copy changes, isolated bug fixes with no ownership/write-path/dependency implications).
+The depth of architectural review may be proportional for genuinely isolated work, but no implementation task is exempt from the mandatory workflow in §7. Styling and isolated bug fixes can affect interaction contracts.
 
 ## Production table rewrite
 
@@ -60,7 +64,7 @@ Clutter is a personal project of Vigram Sivakumar. It is not any employer's or c
 
 ## Git commit workflow (permanent)
 
-Every logically complete implementation milestone must be verified and committed before moving to the next one:
+Every logically complete implementation milestone must satisfy the mandatory regression gate in `docs/implementation-rules.md` §7 before being committed or pushed. Then:
 
 1. Run the relevant verification (`tsc`, targeted tests, or the full suite, as appropriate for what changed).
 2. Report the verification results.
