@@ -368,7 +368,7 @@
 }
 
 /* Tables fill the prose column within the column bounds. When minimum
- * column widths exceed it, the scrollport can extend to the right within
+ * column widths exceed it, the scrollport can extend symmetrically within
  * the actual page pane, without widening the editor or other blocks. */
 .cm-editor .cm-table-wrapper--auto-widths {
   --cm-table-column-min: 110px;
@@ -404,17 +404,30 @@
   overflow-x: auto;
 }
 /* Outside the page pane (e.g. an isolated editor), keep the original
- * prose-width scrollport fallback. Inside the centred page, the distance
- * from the prose's left edge to the page's right edge is (page + prose)/2.
- * The leading negative gutter margin gives the same amount of clearance
- * at the page's right edge. The baseline width still fits narrow panes. */
+ * prose-width scrollport fallback. Within the centred page, extend the
+ * visible table equally in both directions. The scrollport has asymmetric
+ * padding (an extra add-column track on the right), so centre its content
+ * box, not the scrollport border box. Reserve that extra right-side space
+ * on both sides of the centred table when calculating the page cap. */
 @container clutter-page (min-width: 0px) {
   .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
-    width: calc(
-      max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) +
-        var(--cm-table-inline-clearance)
+    --cm-table-page-cap: max(
+      var(--cm-table-scroll-width),
+      calc(100cqw - 2 * var(--cm-table-handle-gutter) - var(--cm-table-add-column-space))
     );
-    max-width: max(var(--cm-table-scroll-width), calc((100cqw + 100%) / 2));
+    --cm-table-visible-scroll-width: min(
+      calc(
+        max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) +
+          var(--cm-table-inline-clearance)
+      ),
+      var(--cm-table-page-cap)
+    );
+    width: var(--cm-table-visible-scroll-width);
+    max-width: var(--cm-table-page-cap);
+    margin-inline-start: calc(
+      (var(--cm-table-scroll-width) - var(--cm-table-visible-scroll-width)) / 2 -
+        var(--cm-table-handle-gutter)
+    );
   }
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
