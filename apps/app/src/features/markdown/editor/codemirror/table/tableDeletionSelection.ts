@@ -142,7 +142,7 @@ function isCaretJustAboveTable(state: EditorState, range: SelectionRange, table:
 }
 
 /** Whether `range` sits adjacent to `table` on either side — the one shared condition both arming and re-validation (and the symmetric "either key completes it" second press) check against. */
-function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table: TableInfo, engineOnly = false): boolean {
+function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
   return isCaretJustBelowTable(state, range, table) || isCaretJustAboveTable(state, range, table);
 }
 
