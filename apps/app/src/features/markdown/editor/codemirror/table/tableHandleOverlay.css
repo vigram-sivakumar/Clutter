@@ -204,6 +204,7 @@
 .cm-table-wrapper.cm-table-dragging-active th .cm-table-column-handle-icon {
   visibility: hidden;
   transform: scale(0);
+  transition: none;
 }
 
 /* Mirrors `.cm-table-column-handle-button` verbatim, for the row axis. */
@@ -264,10 +265,19 @@
 .cm-table-wrapper.cm-table-dragging-active tr .cm-table-row-handle-icon {
   visibility: hidden;
   transform: rotate(90deg) scale(0);
+  transition: none;
+}
+/* Suppress the actual live handle boxes and their shadows immediately.
+ * Ghost handles are outside real cells and remain visible. */
+.cm-table-wrapper.cm-table-dragging-active :is(th, td) > :is(
+  .cm-table-column-handle, .cm-table-row-handle,
+  .cm-table-column-handle-hit, .cm-table-row-handle-hit
+) {
+  display: none;
 }
 
 /* Drop indicators for the row/column handles' own drag-to-reorder gesture
- * (tableHandleOverlay.ts) — a thin line spanning the wrapper's own opposite
+ * (tableHandleOverlay.ts) — a thin line spanning the actual table's opposite
  * axis, shown at the boundary the dragged row/column would land on.
  * Positioned via `top`/`left` in JS (never centered via `translate`, unlike
  * the handles above — these mark a boundary *between* rows/columns, not a
@@ -299,8 +309,7 @@
   transform: translateY(-50%);
 }
 .cm-table-column-drop-indicator {
-  top: 0;
-  bottom: 0;
+  /* Top and height come from the actual table rect in JS. */
   width: 2px;
   transform: translateX(-50%);
 }
