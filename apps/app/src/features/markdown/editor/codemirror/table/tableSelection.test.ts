@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history, undoDepth } from '@codemirror/commands';
@@ -141,5 +142,30 @@ describe('table surrounding whitespace', () => {
     expect(view.state.selection.main.head).toBe(doc.length);
     expect(view.state.doc.toString()).toBe(doc);
     expect(undoDepth(view.state)).toBe(0);
+  });
+});
+
+describe('table fill sizing and quick-add icons', () => {
+  it('uses the same SVG path and stroke attributes as the shared plus icon on both controls', () => {
+    const { view } = mount();
+    const reference = document.createElement('div');
+    reference.innerHTML = plusIcon;
+    const expected = reference.querySelector('svg')!;
+    const icons = view.dom.querySelectorAll('.cm-table-quick-add svg');
+    expect(icons).toHaveLength(2);
+    for (const icon of icons) {
+      expect(icon.getAttribute('viewBox')).toBe(expected.getAttribute('viewBox'));
+      expect(icon.innerHTML).toBe(expected.innerHTML);
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('updates the fill-width column count after adding a column', () => {
+    const { view } = mount();
+    const wrapper = () => view.dom.querySelector<HTMLElement>('.cm-table-wrapper')!;
+    expect(wrapper().style.getPropertyValue('--cm-table-column-count')).toBe('2');
+    view.dom.querySelector<HTMLButtonElement>('.cm-table-quick-add-column')!.click();
+    expect(wrapper().style.getPropertyValue('--cm-table-column-count')).toBe('3');
+    expect(wrapper().querySelectorAll('colgroup col')).toHaveLength(3);
   });
 });
