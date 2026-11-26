@@ -1,3 +1,4 @@
+import { markBlockRange } from '../blockRangeSelection';
 import { EditorSelection } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
@@ -235,6 +236,7 @@ export class PdfEmbedWidget extends WidgetType {
     }
 
     dom.dataset.nodeTo = String(this.to);
+    markBlockRange(dom, view, this.pos, this.to);
     disconnectMediaWidthObserver(from.widthObserver);
     applyMediaAlignment(dom, this.presentation.alignment);
     applyMediaWidth(dom, null, this.presentation.width, view, this.widthObserver);
@@ -254,6 +256,7 @@ export class PdfEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-pdf-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    markBlockRange(container, view, this.pos, this.to);
     if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.sourceRevealed = String(this.ui.revealed);
 
