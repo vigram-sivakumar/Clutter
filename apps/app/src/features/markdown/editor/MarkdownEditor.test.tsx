@@ -3,7 +3,7 @@
 import { createRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { undoDepth } from '@codemirror/commands';
+import { undo, undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { foldable, foldEffect, foldState, forceParsing } from '@codemirror/language';
 
@@ -45,6 +45,65 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.unstubAllGlobals();
+});
+
+describe('MarkdownEditor page-bottom clicks', () => {
+  const below = (view: EditorView) => view.documentTop + view.lineBlockAt(view.state.doc.length).bottom + 100;
+  const table = '| A | B |\n| --- | --- |\n| x | y |';
+
+  it.each(['Hello', table, '---'])('creates one final blank line below %s and reuses it on subsequent clicks', source => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onEdit = vi.fn();
+    const { container } = render(<MarkdownEditor pageId="bottom" ref={ref} markdown={source} onEdit={onEdit} />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    const depth = undoDepth(view.state);
+
+    ref.current!.focusAtPoint(20, below(view));
+    expect(view.state.doc.toString()).toBe(source + '\n');
+    expect(view.state.selection.main.head).toBe(source.length + 1);
+    expect(document.activeElement).toBe(view.contentDOM);
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(onEdit).toHaveBeenLastCalledWith(source + '\n');
+
+    ref.current!.focusAtPoint(20, below(view));
+    expect(view.state.doc.toString()).toBe(source + '\n');
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it.each(['', 'Hello\n', table + '\n'])('uses an existing blank final line without editing %s', source => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onEdit = vi.fn();
+    const { container } = render(<MarkdownEditor pageId="bottom-existing" ref={ref} markdown={source} onEdit={onEdit} />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    const depth = undoDepth(view.state);
+    ref.current!.focusAtPoint(20, below(view));
+    expect(view.state.doc.toString()).toBe(source);
+    expect(view.state.selection.main.head).toBe(source.length);
+    expect(document.activeElement).toBe(view.contentDOM);
+    expect(undoDepth(view.state)).toBe(depth);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it('routes bare editor padding to the same final-line command', () => {
+    const { container } = render(<MarkdownEditor pageId="bottom-inside" markdown="Hello" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expect(fireEvent.mouseDown(view.contentDOM, { button: 0, clientX: 20, clientY: below(view) })).toBe(false);
+    expect(view.state.doc.toString()).toBe('Hello\n');
+    expect(view.state.selection.main.head).toBe(6);
+    expect(document.activeElement).toBe(view.contentDOM);
+  });
+
+  it('does not append a line or take focus in read-only mode', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(<MarkdownEditor pageId="bottom-ro" ref={ref} markdown={table} readOnly />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    ref.current!.focusAtPoint(20, below(view));
+    expect(view.state.doc.toString()).toBe(table);
+    expect(document.activeElement).not.toBe(view.contentDOM);
+  });
 });
 
 describe('MarkdownEditor imperative focus handle', () => {
