@@ -1,8 +1,16 @@
 # Production table rewrite progress
 
-Last updated 25 November 2026 (Asia/Kolkata).
+Last updated 26 November 2026 (Asia/Kolkata).
 
-Resume on `feature/production-table-engine` in `vigram-sivakumar/Clutter`. The engine serves supported read-only tables. Whole-table deletion is the first editable command migrated. The remaining editable UI uses the legacy implementation.
+## Current status and resume point
+
+**9 of 12 milestones accepted (75% by milestone count, not effort).** M1–M9 are accepted; M10a implementation and manual validation are complete, with a clean automated exit still pending.
+
+- Accepted development branch: `feature/production-table-engine` at `ca315b6b` (M9). Main has not been merged.
+- Active validation branch: `candidate/table-engine-m10a`, implementation commit `9f8bd3bc`. Resume here; the latest commit may be documentation-only.
+- The new editable engine is enabled in the development browser with `?tableEngineCells`; default editable mode is still legacy. Supported read-only tables already use the new projection. Unsupported source shapes use compatibility rendering.
+- Latest observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Do not promote on assertion counts alone.
+- Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5181. Before manual validation confirm the flagged URL and `document.querySelectorAll('[data-table-engine-cells="true"]').length > 0` for the note under test.
 
 This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Every verified milestone updates this file in its implementation commit and is pushed to the development branch. Merging into `main` requires owner approval.
 
@@ -14,22 +22,23 @@ This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-tab
 - One interaction state owns editing, selected cell, rectangle (anchor and head), row, column, whole table and no selection. Validate edits centrally, respect root filters and record selection intent with root history. Each structural action has one undo step; successive typing can group.
 - Keep surrounding Markdown intact. Preserve the existing adjacent `{table-col-widths="…"}` syntax and move widths and alignments with their columns. Preserve unsupported input. Use the existing document save path.
 
-## Feature matrix
+## Feature matrix — current state
 
-“Engine” means the implementation can be exercised independently. “Live” means an application entry point uses it. Automated evidence below refers to the named suite at the recorded milestone. Production manual and native validation are pending for every row.
+“Staged” means exercised with the editable engine flag. “Accepted” means the milestone passed its recorded automated and owner-reported manual gates; native macOS validation remains open. Older implementation notes below are historical, not the current resume point.
 
-| Function | Production rewrite implementation | Evidence |
+| Function | Current implementation | Evidence / remaining work |
 | --- | --- | --- |
-| Read-only embeds, inline formatting, alignment, width display, rectangular ragged rows, stable scrollport | Live for supported tables; imported overflow, nested or unsupported sources use the compatibility renderer | M1 integration tests check source, DOM identity, widths, scroll position and overflow fallback |
-| Nested cell editing, standard editing keys, caret placement, leading/trailing spaces, exact mapped edits | Staged reusable nested editor supports present imported cells and materialises absent cells; default editable UI remains legacy | M1 engine tests cover disjoint changes and unsafe input; M4 integration covers imported source, switching, root history, external edits and filter refusal |
-| Caret-free cell, range, row, column and whole-table selection; Shift+arrow/click, row-major Tab/Shift+Tab and edge exit, Enter/F2 to edit, Escape to select then clear without a root caret, select-all | Interaction helpers ported; focus, keyboard and pointer wiring pending | M1 unit tests cover interaction states, Tab boundaries and range geometry; actual focus needs runtime checks |
-| Preserve native in-cell text drag, hand off on crossing a cell, extend rectangle, horizontal edge scroll and re-hit-test | Scroll geometry ported; pointer capture, frame loop, cancellation and disposal pending in the new editable projection | **Owner manually passed drag selection and horizontal auto-scroll in the prototype only.** M1 tests cover scroll bounds |
-| Range typing/navigation/paste origin | Pending product decision for editable rollout; see differences below | Prototype unit tests encode current geometry; no production acceptance |
-| Copy/cut/clear, internal Markdown, rich HTML, quoted TSV, ragged grids, overwrite/grow and outside-table creation | Engine helpers and validated transactions; clipboard event routing pending | M1 tests cover reverse ranges, escaping, refusals, growth, selection effects and a second table |
-| Insert/delete/duplicate/reorder rows and columns, width resize, alignment and format | Model commands exist; editable controls still legacy except whole-table cascades | M1 engine tests cover structural sequences, metadata and history; menu/drag parity pending |
-| Quick-add, row/column handles, drag reorder, resize handles, context menus and existing Clutter visuals | Existing UI retained; engine wiring and visual parity work pending | Legacy regression coverage; no rewrite UI sign-off |
-| Whole-table deletion from either side or final column/header menu action | Live through the central root transaction; legacy state still owns arming and menu selection | M2 keyboard, menu, filter-refusal and exact undo/redo coverage |
-| One root history for text, structural commands, paste and selection bookmarks | Engine implemented; live migration partial. Undo restores a caret-free bookmark for engine edits that carry one | M1 grouped typing and 100-step undo/redo tests; M2 live deletion. External edits relocating tables need integration coverage |
+| Read-only embeds, inline rendering, alignment, widths, ragged cells and stable scrollport | Live for supported tables; unsupported overflow, nested or malformed input retains compatibility rendering | M1–M10a tests; verify editor/embed integration and mode switching in M10b |
+| Nested editing, caret, spaces, missing cells, mapped edits | Staged and accepted in M4; missing-cell materialisation separated from explicit formatting in M10a | M4 manual pass; latest 76/76 live tests. External replacement and source relocation need full-stack checks |
+| Cell, range, row, column and table selection; keyboard navigation | Staged; single interaction controller; original handles restored | M5/M6/M9 accepted; M10a selection outline and full-cell hit area manual pass |
+| Native text drag, rectangular handoff and horizontal auto-scroll | Staged and accepted in M6 | Owner browser acceptance; native pointer/IME validation pending |
+| Range navigation, typing and paste origin | Validated prototype behaviour used: head navigation, replace one selected cell, ignore multi-cell printable typing, paste at top-left | M5/M7 owner accepted tested behaviour; earlier contract differences retained in historical UX comparison |
+| Copy/cut/clear, internal Markdown, HTML grid, TSV, scalar insertion and new-table paste | Staged and accepted in M7 | M7–M10a regressions; full-stack clipboard/asset routing audit in M10b |
+| Structural operations, quick-add and root history | Staged and accepted in M8 | 1,881/1,881 broad at M8; mixed consecutive keyboard undo/redo passed |
+| Resize, reorder, axis selection, menus, alignment | Staged and accepted in M9; temporary context menu removed | M9a 1,884/1,884; M9b owner confirmed final tests and all manual checks, including backdrop dismissal |
+| Explicit Format table, inline shortcuts and selection outline | Staged in M10a; width-aligned source, compact absent-cell materialisation, shared rounded outline | Owner 10/10 manual; focused 96/96; broad assertions all passed but one unhandled embed error blocks clean gate |
+| Whole-table deletion | Root validated deletion transaction; legacy arming remains shared during migration | M2 and M8 tests; final-axis removal and compatibility still need full integration coverage |
+| Persistence, root history and lifecycle | Single root Markdown/history; no new persistence layer | M10b save/reopen, note switch, external refresh, multiple tables, editable/read-only and full app tests; M11 native checks |
 
 ## Milestones, Git and verification
 
@@ -56,15 +65,29 @@ node_modules/.bin/tsc --noEmit -p apps/app
 npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault/ingest/grammar markdownLanguage.regression noteEmbed.test MarkdownEditor.paste.fullStack
 ```
 
-## Open issues, roadmap and handoff
+## Open issues, roadmap and handoff — current plan
 
-| State | Work to resume |
-| --- | --- |
-| In progress | Editable migration. The staged cell editor dispatches through `createCellTransaction` before accepting nested changes. Finish selection/controls parity before enabling it by default. Test activation, switching cells/tables, refused edits, external edits and undo/redo with the real extension stack. Keep compatibility for unpadded, empty and missing source cells. |
-| Pending | Move selection ownership and root-history restoration into the new editable projection. Wire and test drag cancellation/blur/disposal, clipboard formats and multi-table paste. Exercise reverse drags and actual browser focus. |
-| Decision needed for range rollout | Prototype arrows/Tab/Enter use the head; the earlier contract uses the anchor. Printable input replaces a single selected cell in the prototype. It ignores multi-cell typing; the contract inserts at the anchor's remembered caret. Prototype paste starts top-left; the contract starts at the drag anchor. Keep selection after cut/clear/paste. Record the owner's resolution and add distinguishing tests before changing the live behavior. |
-| Pending | Route remaining menu commands, drag reorder/resize, alignment, quick-add and format through the engine. Verify source and widths across each edit and undo, header promotion, last-axis removal, autosave/reopen, multiple tables and explicit-width overflow. Compare real Clutter visuals. |
-| Blocked on parity and validation | Run full application regression and native macOS WKWebView checks for IME composition/commit/cancel, history, clipboard, focus, drag and scrolling. Record build, environment and observed outcomes. Then retire superseded legacy components. |
+| Milestone | Status | Next actions / acceptance gate |
+| --- | --- | --- |
+| M1–M9 | Accepted | Accepted branch at ca315b6b; no main merge. |
+| M10a — visual and formatting parity | Awaiting clean regression | Rerun noteEmbed.test.ts alone, then the same broad suite. Capture exit status, counts and errors. If the unhandled exception recurs, investigate deferred CM6 widget work after embed/test teardown before promotion. Do not suppress the error. No repeat of the 10 manual checks required for the compact materialisation fix unless new behaviour changes. |
+| M10b — full application integration | Next | Exercise actual MarkdownEditor with flag, not just the staged harness. Test multiple tables and mixed supported/compatibility rendering; external prefix edits, cell replacement and table removal; note switch/unmount and history; editable/read-only switching; save/reopen, source fidelity and persisted widths; clipboard routing (including unsupported files/HTML), root focus and whole-table removal; lifecycle cleanup and scroll. Run TypeScript and full application Vitest suite. Audit any legacy-only tests that fail to exercise the new renderer; add targeted flagged coverage. Record evidence and promote M10 only after clean verification. |
+| M11 — native macOS | Pending | Build and run a native test configuration that explicitly enables the engine (the browser development query alone does not establish packaged enablement). Validate WKWebView caret placement, IME composition/commit/cancel, non-Latin input, native clipboard, focus, keyboard navigation, history, resize/reorder, scroll and persistence. Record build, environment and results. |
+| M12 — retirement and rollout | Blocked on M10/M11 | Remove superseded editable legacy controllers, selection state, mutation paths, flags and tests only after coverage and a compatibility strategy are established. Retain shared renderer/grammar/width/CSS components as needed. Establish default engine and run final regression and release checks; main merge requires explicit owner approval. |
+
+### Immediate verification
+
+From the active worktree on the candidate branch:
+
+```sh
+git pull --ff-only
+npm run test:run -- noteEmbed.test.ts
+npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault/ingest/grammar markdownLanguage.regression noteEmbed.test.ts MarkdownEditor.paste.fullStack
+```
+
+Expected standalone 96/96, broader 1,895/1,895 across 63 files, **zero unhandled errors and exit status 0**. If isolated execution passes but the broad error repeats, collect the full stack and investigate lifecycle cleanup. Prior whole-table deletion intermittency is not root-caused but has not recurred in recent runs.
+
+### Historical architecture notes (M4 snapshot)
 
 **Architecture status.** The implementation adds no persistence or history owner. Editable controls still use several legacy selection fields during migration to the agreed single interaction state.
 
@@ -141,3 +164,5 @@ Reuse existing handle overlay, drag ghost, hit targets and original React TableH
 Source review found the staged Format table command only compacted Markdown, unlike the original explicit width-aligned formatter; use the same shared padding and delimiter primitives on the parser-derived rectangular model with round-trip validation and metadata preservation. Restore the existing Cmd/Ctrl+B/I/E shortcut extension to the reusable nested editor. Correct reversed fallback undo/redo handler arguments (document capture already used the correct direction). Route padded cell clicks to the same editor host, matching the original full-cell hit area. Reuse one existing rounded selection outline in scroll-content coordinates, updated by derived bounds, observed at rest and removed with the stable projection; retain selection classes for handle rendering/test identity. No new selection owner. Four new tests (three live, one model); update the old compact-format expectation. No remote runtime test execution. Validate actual geometry, themes, formatting shortcuts and full regressions locally before wider M10 integration work. M11 and M12 remain pending.
 
 **M10a regression follow-up:** Owner passed all 10 manual checks. Raw output: TypeScript no diagnostics, 94/95 focused tests, 1,893/1,894 broad tests (62/63 files), both failing only missing-cell materialisation. Source confirms activate() called the same `format` command used by the explicit menu, whose serializer changed in M10a. Split an internal `materialize` command that uses the previous compact serialization only when missing cells exist, leaving explicit width-aligned `format` unchanged. Strengthen existing live assertions (empty nested doc and exact source before/after typing), add model regression for materialization vs formatting/idempotence. Local rerun needed; no promotion.
+
+**M10a rerun (2026-11-26, implementation 9f8bd3bc):** TypeScript clean; focused 96/96 (20 engine + 76 live wiring), 2/2 files; broad 1,895/1,895, 63/63 files. However Vitest caught one uncaught ReferenceError at NoteEmbedWidget.toDOM (NoteEmbedWidget.ts:408, document.createElement) attributed to noteEmbed.test.ts, despite its 96 assertions passing. npm exit status 1. Similar exception previously occurred at M5; do not assume harmless or attribute it to the current materialisation fix without investigation. M10a remains on candidate branch; M9 remains the accepted development head. Current status, feature matrix and roadmap above supersede the historical handoff notes. Next action: standalone embed and clean broad rerun, investigate if repeated, then M10b full-stack integration.
