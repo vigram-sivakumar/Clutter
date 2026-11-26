@@ -4,7 +4,6 @@ import { Decoration, EditorView, ViewPlugin, type DecorationSet, type PluginValu
 import './tableColumnWidthsConcealment.css';
 import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';
 import { findAllTables } from './tableGeometry';
-import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
 
 /**
  * Conceals a table's own `{table-col-widths="..."}` attribute line
@@ -76,20 +75,12 @@ import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableMo
 const HIDDEN_LINE_CLASS = 'cm-table-col-widths-hidden-line';
 const hiddenLineDecoration = Decoration.line({ class: HIDDEN_LINE_CLASS });
 
-function buildDecorations(view: EditorView, editableProjection: boolean): DecorationSet {
+function buildDecorations(view: EditorView): DecorationSet {
   const decorations: Range<Decoration>[] = [];
   for (const table of findAllTables(view.state)) {
     const range = resolveExistingAttributeLineRange(view.state, table);
     if (!range) {
       continue;
-    }
-    if (editableProjection) {
-      try {
-        const snapshot = snapshotFromTableNode(view.state.doc.toString(), table.node);
-        if (snapshot.legacyWidthFrom !== null && snapshot.to === range.to) continue;
-      } catch (error) {
-        if (!(error instanceof TableEngineError)) throw error;
-      }
     }
     decorations.push(Decoration.replace({}).range(range.from, range.to));
     decorations.push(hiddenLineDecoration.range(range.from));
@@ -101,18 +92,18 @@ interface TableColumnWidthsConcealmentPlugin extends PluginValue {
   decorations: DecorationSet;
 }
 
-export function tableColumnWidthsConcealment(editableProjection = false): Extension {
+export function tableColumnWidthsConcealment(): Extension {
   return ViewPlugin.fromClass<TableColumnWidthsConcealmentPlugin>(
     class implements TableColumnWidthsConcealmentPlugin {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, editableProjection);
+        this.decorations = buildDecorations(view);
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged) {
-          this.decorations = buildDecorations(update.view, editableProjection);
+          this.decorations = buildDecorations(update.view);
         }
       }
     },
