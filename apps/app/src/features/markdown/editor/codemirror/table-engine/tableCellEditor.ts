@@ -73,7 +73,7 @@ export class TableCellEditor {
 
   /** A root selection must always exist in CM6, even while a widget owns
    * focus. If the root actually regains focus on a parked, hidden position,
-   * hand ownership to the block instead of allowing input into its source.
+   * move to real text or neutral widget focus rather than selecting it.
    * Defer until after CM6's focus/selection update and widget reconciliation. */
   repairRootFocus = (): void => {
     if (this.root.dom.ownerDocument.activeElement !== this.root.contentDOM) return;
@@ -83,7 +83,7 @@ export class TableCellEditor {
       const range = this.root.state.selection.main;
       if (!range.empty) return;
       const table = tableAtCaret(this.root.state, range.head);
-      if (table) this.selectBlock(table.from);
+      if (table) this.dismissTableSpace(table.from, range.head >= table.to);
     });
   };
 
@@ -272,7 +272,40 @@ export class TableCellEditor {
     return true;
   }
 
-  /** Non-cell widget space belongs to the table, not hidden root Markdown. */
+  /** A non-cell click or quick-add is not a selection gesture.
+   * Keep source intact. Prefer a real neighbouring text position; if none
+   * exists, park focus on the non-editable widget without a selection. */
+  dismissTableSpace(tableFrom: number, preferAfter = true): boolean {
+    if (this.root.state.readOnly) return false;
+    try {
+      const table = this.snapshot(tableFrom);
+      const before = table.from > 0 ? table.from - 1 : null;
+      const after = table.to < this.root.state.doc.length ? table.to + 1 : null;
+      const candidates = preferAfter ? [after, before] : [before, after];
+      const anchor = candidates.find(pos => pos !== null && !tableAtCaret(this.root.state, pos));
+      this.cancelDrag();
+      this.close();
+      this.clearRootTableInteraction();
+      if (anchor !== undefined && anchor !== null) {
+        this.root.dispatch({ selection: { anchor } });
+        this.root.focus();
+      } else {
+        // No actual text line exists. Do not invent one on a mouse click.
+        const widget = this.hostAt(tableFrom, { row: 0, col: 0 })?.closest<HTMLElement>('.cm-table-widget');
+        if (!widget) return false;
+        if (!this.root.state.selection.main.empty) {
+          this.root.dispatch({ selection: { anchor: table.to } });
+        }
+        widget.focus({ preventScroll: true });
+      }
+      return true;
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  }
+
+  /** Explicit block selection, not an incidental root-focus gesture. */
   selectBlock(tableFrom: number): boolean {
     if (this.root.state.readOnly) return false;
     try {
@@ -299,8 +332,16 @@ export class TableCellEditor {
     const from = this.interactionTable;
     const cell = focusCell(this.interaction);
     if (!cell) return false;
+    const shape = this.shape(from);
+    const bounds = selectionBounds(this.interaction, shape);
+    if (!backwards && (this.interaction.kind === 'table' ||
+        (this.interaction.kind === 'range' && bounds?.top === 0 && bounds.left === 0 &&
+          bounds.bottom === shape.rows - 1 && bounds.right === shape.cols - 1))) {
+      this.cancelDrag();
+      return this.enterCell(from, { row: 0, col: 0 }, 'start');
+    }
     const next = { row: cell.row + (backwards ? -1 : 1), col: cell.col };
-    if (isValidCell(next, this.shape(from))) {
+    if (isValidCell(next, shape)) {
       this.cancelDrag();
       this.select(from, { kind: 'cell', cell: next });
     }
@@ -409,7 +450,8 @@ export class TableCellEditor {
       this.forwarding = true;
       try { this.root.dispatch(tr); } finally { this.forwarding = false; }
       if (next.kind !== 'none') this.select(tableFrom, next);
-      else this.root.focus();
+      else if (whole) this.root.focus();
+      else this.dismissTableSpace(tableFrom);
       return true;
     } catch (error) {
       if (!(error instanceof TableEngineError)) throw error;
