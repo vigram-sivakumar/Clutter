@@ -87,6 +87,51 @@ function findCell(view: EditorView, text: string): Element {
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
 describe('table live wiring — DOM structure', () => {
+  it.each([false, true])('paints independent overflow edges without editing source (readOnly=%s)', (readOnly) => {
+    const view = mount(TABLE, readOnly);
+    const wrapper = view.dom.querySelector<HTMLElement>('.cm-table-wrapper')!;
+    const scroll = wrapper.querySelector<HTMLElement>('.cm-table-scroll')!;
+    const table = scroll.querySelector('table')!;
+    const before = view.state.doc.toString();
+    const selection = view.state.selection;
+    const depth = undoDepth(view.state);
+    let viewportWidth = 300;
+    let tableWidth = 600;
+    let offset = 0;
+    Object.defineProperty(scroll, 'clientWidth', { configurable: true, get: () => viewportWidth });
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockImplementation(() => new DOMRect(100, 100, 200, 84));
+    vi.spyOn(scroll, 'getBoundingClientRect').mockImplementation(() => new DOMRect(50, 92, viewportWidth, 110));
+    vi.spyOn(table, 'getBoundingClientRect').mockImplementation(() => new DOMRect(58 - offset, 100, tableWidth, 84));
+    const update = () => scroll.dispatchEvent(new Event('scroll'));
+    const edges = () => [
+      wrapper.classList.contains('cm-table-overflow-left'),
+      wrapper.classList.contains('cm-table-overflow-right'),
+    ];
+    update();
+    expect(edges()).toEqual([false, true]);
+    expect(wrapper.style.getPropertyValue('--cm-table-fade-left')).toBe('-50px');
+    expect(wrapper.style.getPropertyValue('--cm-table-fade-right')).toBe('250px');
+    expect(wrapper.style.getPropertyValue('--cm-table-fade-height')).toBe('84px');
+    offset = 150;
+    update();
+    expect(edges()).toEqual([true, true]);
+    // The actual table edge is visible even if the control gutter can scroll farther.
+    offset = 308;
+    update();
+    expect(edges()).toEqual([true, false]);
+    offset = 0;
+    viewportWidth = 650;
+    update();
+    expect(edges()).toEqual([false, false]);
+    viewportWidth = 300;
+    tableWidth = 280;
+    update();
+    expect(edges()).toEqual([false, false]);
+    expect(view.state.doc.toString()).toBe(before);
+    expect(view.state.selection.eq(selection)).toBe(true);
+    expect(undoDepth(view.state)).toBe(depth);
+  });
+
   it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping a div.cm-table-layout wrapping a div.cm-table-inner wrapping the real <table>', () => {
     const view = mount(TABLE, true);
 
