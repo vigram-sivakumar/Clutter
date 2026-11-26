@@ -954,15 +954,14 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     }
   }
 
-  /** A stand-in for one of `tableColumnResizeHandle.ts`'s own `.cm-table-column-resize-hit` elements — real per-column-boundary hit-strips this milestone reuses as the divider's own neutral zone, rather than inventing a separate pixel threshold. Appended into `wrapper` (its real mount point is `.cm-table-scroll`, but these tests only need it to exist somewhere reachable via `closest()`, not to be laid out correctly). */
-  function buildResizeHitStrip(wrapper: HTMLElement): HTMLElement {
-    const hit = document.createElement('div');
-    hit.className = 'cm-table-column-resize-hit';
-    wrapper.appendChild(hit);
-    return hit;
+  /** A non-cell target in the wrapper, which is not a valid reorder destination. */
+  function buildNonCellTarget(wrapper: HTMLElement): HTMLElement {
+    const target = document.createElement('div');
+    wrapper.appendChild(target);
+    return target;
   }
 
-  describe('column drag — target = the column body the pointer is inside, divider is a neutral zone', () => {
+  describe('column drag — target = the column body the pointer is inside, non-cell targets are neutral', () => {
     const doc = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |';
 
     function setUp(): { view: EditorView; controller: TableActiveCellController; wrapper: HTMLElement; table: HTMLTableElement } {
@@ -1005,22 +1004,22 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       expect(leftLeft).toBe('200px');
     });
 
-    it('acceptance 3: moving onto the divider between column 2 and column 3 hides the indicator', () => {
+    it('acceptance 3: moving onto a non-cell target hides the indicator', () => {
       const { wrapper, table } = setUp();
       beginColumnDrag(wrapper, table, 0);
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // inside B, indicator visible
       expect(wrapper.querySelector('.cm-table-column-drop-indicator')!.classList.contains('cm-table-handle-visible')).toBe(true);
 
-      const divider = buildResizeHitStrip(wrapper);
+      const divider = buildNonCellTarget(wrapper);
       pointer('pointermove', divider, 200, 10);
 
       expect(wrapper.querySelector('.cm-table-column-drop-indicator')!.classList.contains('cm-table-handle-visible')).toBe(false);
     });
 
-    it('acceptance 4: entering column 3\'s own body after the divider shows the indicator after column 3', () => {
+    it('acceptance 4: entering column 3\'s own body after a non-cell target shows the indicator after column 3', () => {
       const { wrapper, table } = setUp();
       beginColumnDrag(wrapper, table, 0);
-      pointer('pointermove', buildResizeHitStrip(wrapper), 200, 10); // cross the divider first
+      pointer('pointermove', buildNonCellTarget(wrapper), 200, 10); // cross the divider first
 
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[2]!, 250, 10); // into C's own body
 
@@ -1071,7 +1070,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       beginColumnDrag(wrapper, table, 0); // dragging "A"
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // real target: B
 
-      pointer('pointermove', buildResizeHitStrip(wrapper), 200, 10); // divider only — no body entered
+      pointer('pointermove', buildNonCellTarget(wrapper), 200, 10); // divider only — no body entered
       document.dispatchEvent(new MouseEvent('pointerup', { clientX: 200, clientY: 10, button: 0, bubbles: true, cancelable: true }));
 
       // Committed using the *last real target* (B), never a value implied by the divider itself.
