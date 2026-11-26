@@ -73,7 +73,6 @@ import { externalPasteNormalization } from './paste/externalPaste';
 import type { PasteAssets } from './paste/assetPaste';
 import { pasteRouting } from './paste/pasteRouting';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
-import { tableSelectionField } from './table/tableSelection';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
@@ -315,16 +314,14 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
       EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory()),
       tableBoundaryNavigation(),
     ] : []),
-    tableWidgetDecoration(undefined, () => onOpenTableHandleMenu?.(), readOnly, !readOnly),
+    tableWidgetDecoration(!readOnly, () => onOpenTableHandleMenu?.()),
     tableDeletionSelectionField,
-    // Temporary field for isolated old unit suites and migration assertions.
-    tableSelectionField,
   ];
 
-  if (readOnly) return { before: [], rendering, table, after: [tableRootSelectionSnap(true)] };
+  if (readOnly) return { before: [], rendering, table, after: [tableRootSelectionSnap()] };
 
   const before: Extension[] = [
-    tableRootSelectionSnap(true),
+    tableRootSelectionSnap(),
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
@@ -332,7 +329,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     externalPasteNormalization(),
     // Leading blank-line deletion takes precedence over whole-table arming.
     emptyLeadingLineDeletion(),
-    tableWholeDeletionKeymap(true),
+    tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     // Editable-only: `MarkdownEditor.tsx`'s `revealRange`/`revealRanges`
     // (Tasks sidebar's "Show in note", Tag collection's "Open note") are
