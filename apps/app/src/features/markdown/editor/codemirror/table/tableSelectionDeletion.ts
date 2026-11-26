@@ -8,7 +8,6 @@ import { deleteProjectedTable } from '../table-engine/tableTransaction';
 import { splitPipeRowCells } from './tableAlignment';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnDeletion, resolveTableColumnWidths } from './tableColumnWidthMetadata';
 
 /**
  * Structural deletion of a currently-selected table row or column
@@ -279,19 +278,6 @@ function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: n
     if (change) {
       changes.push(change);
     }
-  }
-
-  // Width metadata, same transaction — the deleted column's own width is
-  // removed from the array at the same index, mirroring the cell-content
-  // removal above (`nextWidthsAfterColumnDeletion`). Not reached for a
-  // single-column table (the `headerColumnCount <= 1` branch above already
-  // returned via `deleteProjectedTable`, which removes the whole attribute line
-  // instead of shrinking it).
-  const attribute = resolveTableColumnWidths(view.state, table);
-  const nextWidths = nextWidthsAfterColumnDeletion(attribute?.widths ?? null, columnIndex);
-  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
-  if (widthsChange) {
-    changes.push(widthsChange);
   }
 
   const next = nextSelectionAfterColumnDeletion(table.from, columnIndex, headerColumnCount);
