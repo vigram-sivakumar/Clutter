@@ -4,7 +4,6 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
 import { classifyPaste, type PasteStrategy } from './pasteClassification';
 
 const png = new File([new Uint8Array([1])], 'a.png', { type: 'image/png' });
@@ -23,23 +22,20 @@ function clipboard(payload: { text?: string; html?: string; files?: File[]; uriL
   } as unknown as DataTransfer;
 }
 
-function stateAt(doc: string, caret: number, options: { range?: boolean; readOnly?: boolean } = {}): EditorState {
-  let state = EditorState.create({
+function stateAt(doc: string, caret: number, options: { readOnly?: boolean } = {}): EditorState {
+  const state = EditorState.create({
     doc,
     selection: { anchor: caret },
-    extensions: [markdownLanguageExtension(), tableSelectionField, EditorState.readOnly.of(options.readOnly === true)],
+    extensions: [markdownLanguageExtension(), EditorState.readOnly.of(options.readOnly === true)],
   });
   ensureSyntaxTree(state, doc.length, 5000);
-  if (options.range) {
-    state = state.update({ effects: tableSelectionChanged.of({ kind: 'range', tableFrom: 0, anchor: { row: 0, col: 0 }, head: { row: 0, col: 0 } }) }).state;
-  }
   return state;
 }
 
 const TSV = 'a\tb\nc\td';
 
-function strategy(payload: Parameters<typeof clipboard>[0], doc = 'Start middle', caret = 5, options: { range?: boolean; readOnly?: boolean; canEmbed?: boolean } = {}): PasteStrategy {
-  return classifyPaste(clipboard(payload), { scope: 'root', state: stateAt(doc, caret, options), canEmbed: options.canEmbed ?? true }).strategy;
+function strategy(payload: Parameters<typeof clipboard>[0], doc = 'Start middle', caret = 5, options: { readOnly?: boolean; canEmbed?: boolean } = {}): PasteStrategy {
+  return classifyPaste(clipboard(payload), { state: stateAt(doc, caret, options), canEmbed: options.canEmbed ?? true }).strategy;
 }
 
 describe('classifyPaste — one strategy per clipboard and context', () => {
@@ -63,19 +59,18 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
     expect(strategy(payload)).toBe(expected);
   });
 
+  it('declines tab-indented blocks and mixed prose as root spreadsheet grids', () => {
+    expect(strategy({ text: '\tindented\n\tblock' })).toBe('default');
+    expect(strategy({ text: 'a\tb\nplain paragraph' })).toBe('default');
+  });
+
+  it('does not fall through to another writer for malformed internal data at a table insertion site', () => {
+    expect(strategy({ internal: '{"kind":"clutter-table-range","rows":[[42]]}', text: TSV })).toBe('empty');
+  });
+
   it('files lose to a grid, but win when the grid cannot be used where the caret is', () => {
     expect(strategy({ files: [png], html: TABLE_HTML, text: TSV })).toBe('tableCreate');
     expect(strategy({ files: [png], html: TABLE_HTML, text: TSV }, '- item', 4)).toBe('files');
-  });
-
-  it('a selected range takes a grid or single text cell; files alone are empty', () => {
-    const range = { range: true };
-    expect(strategy({ text: TSV }, 'Start', 0, range)).toBe('tableRange');
-    expect(strategy({ html: TABLE_HTML, text: TSV }, 'Start', 0, range)).toBe('tableRange');
-    expect(strategy({ files: [png], text: '' }, 'Start', 0, range)).toBe('empty');
-    expect(strategy({ files: [png], text: 'x' }, 'Start', 0, range)).toBe('tableRange');
-    expect(strategy({ html: RICH, text: 'x y' }, 'Start', 0, range)).toBe('tableRange');
-    expect(strategy({}, 'Start', 0, range)).toBe('empty');
   });
 
   it.each<[string, string, number]>([
@@ -108,23 +103,11 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
     expect(strategy({ files: [png], text: '' }, 'Start', 5, { readOnly: true })).toBe('default');
   });
 
-  it('the cell editor: a grid or single text value fills from the active cell', () => {
-    const cell = (payload: Parameters<typeof clipboard>[0], cellActive = true) =>
-      classifyPaste(clipboard(payload), { scope: 'cell', state: stateAt('Start', 0), canEmbed: true, cellActive }).strategy;
-
-    expect(cell({ text: TSV })).toBe('tableCell');
-    expect(cell({ html: TABLE_HTML })).toBe('tableCell');
-    expect(cell({ text: TSV }, false)).toBe('default');
-    expect(cell({ text: 'plain' })).toBe('tableCell');
-    expect(cell({ html: RICH, text: 'x y' })).toBe('tableCell');
-    expect(cell({ files: [png], text: '' })).toBe('empty');
-    expect(cell({})).toBe('empty');
-  });
 });
 
 describe('classifyPaste — the files a strategy leaves out', () => {
-  const skipped = (payload: Parameters<typeof clipboard>[0], doc = 'Start', caret = 5, options: { range?: boolean; canEmbed?: boolean } = {}) =>
-    classifyPaste(clipboard(payload), { scope: 'root', state: stateAt(doc, caret, options), canEmbed: options.canEmbed ?? true }).skipped;
+  const skipped = (payload: Parameters<typeof clipboard>[0], doc = 'Start', caret = 5, options: { canEmbed?: boolean } = {}) =>
+    classifyPaste(clipboard(payload), { state: stateAt(doc, caret, options), canEmbed: options.canEmbed ?? true }).skipped;
 
   it('reports nothing when every file is embedded, or there are no files', () => {
     expect(skipped({ files: [png, pdf], text: '' })).toBeNull();
@@ -137,7 +120,6 @@ describe('classifyPaste — the files a strategy leaves out', () => {
 
   it('reports every file as a target problem when a table takes the paste', () => {
     expect(skipped({ files: [png, docx], html: TABLE_HTML, text: TSV })).toEqual({ names: ['a.png', 'c.docx'], reason: 'target' });
-    expect(skipped({ files: [png], text: '' }, 'Start', 0, { range: true })).toEqual({ names: ['a.png'], reason: 'target' });
   });
 
   it('a table that cannot be created here does not claim the files: they are embedded and not reported', () => {
@@ -158,10 +140,9 @@ describe('classifyPaste — HTML tables next to tab-separated text', () => {
   const ONE = chromeTable([['A', 'B'], ['1', '2']]);
   const ONE_TEXT = 'A\tB\n1\t2';
 
-  const at = (payload: Parameters<typeof clipboard>[0], options: { range?: boolean; canEmbed?: boolean; doc?: string; caret?: number } = {}) =>
+  const at = (payload: Parameters<typeof clipboard>[0], options: { canEmbed?: boolean; doc?: string; caret?: number } = {}) =>
     classifyPaste(clipboard(payload), {
-      scope: 'root',
-      state: stateAt(options.doc ?? 'Start', options.caret ?? 0, { range: options.range }),
+      state: stateAt(options.doc ?? 'Start', options.caret ?? 0),
       canEmbed: options.canEmbed ?? true,
     });
 
@@ -187,13 +168,6 @@ describe('classifyPaste — HTML tables next to tab-separated text', () => {
 
   it('without an importer there is no conversion: the grid from the text is what is left', () => {
     expect(at({ html: TWO, text: TWO_TEXT }, { canEmbed: false }).strategy).toBe('tableCreate');
-  });
-
-  it('a selected range and an active cell keep using the tabular text', () => {
-    expect(at({ html: TWO, text: TWO_TEXT }, { range: true }).strategy).toBe('tableRange');
-    expect(
-      classifyPaste(clipboard({ html: TWO, text: TWO_TEXT }), { scope: 'cell', state: stateAt('Start', 0), canEmbed: true, cellActive: true }).strategy
-    ).toBe('tableCell');
   });
 
   it('in a list item, a quote or code the tables are not converted and no table is created', () => {
