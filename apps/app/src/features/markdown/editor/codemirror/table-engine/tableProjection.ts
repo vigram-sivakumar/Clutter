@@ -15,6 +15,7 @@ const dragDisposers = new WeakMap<HTMLElement, () => void>();
 const structuralDisposers = new WeakMap<HTMLElement, () => void>();
 const handleDisposers = new WeakMap<HTMLElement, () => void>();
 const selectionDisposers = new WeakMap<HTMLElement, () => void>();
+const overflowDisposers = new WeakMap<HTMLElement, () => void>();
 
 function container(parent: HTMLElement, className: string): HTMLDivElement {
   const child = parent.ownerDocument.createElement('div');
@@ -94,6 +95,48 @@ function attachSelectionOutline(wrapper: HTMLElement, scroll: HTMLElement, table
   };
 }
 
+/** Paint only clipped table content, not reserved control gutters.
+ * The wrapper's decorative pseudo-elements stay at the viewport edges.
+ * No editor transactions, new scroll container, or interaction state.
+ */
+function attachOverflowFades(wrapper: HTMLElement, scroll: HTMLElement, table: HTMLTableElement): () => void {
+  let disposed = false;
+  const measure = () => {
+    if (disposed || !wrapper.isConnected) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const scrollRect = scroll.getBoundingClientRect();
+    const tableRect = table.getBoundingClientRect();
+    const left = scrollRect.left + scroll.clientLeft;
+    const right = left + scroll.clientWidth;
+    // Ignore subpixel rounding. Only actual clipped cells count: quick-add
+    // and handle clearance may still be horizontally scrollable.
+    const visible = scroll.clientWidth > 0 && tableRect.height > 0 &&
+      tableRect.right > left && tableRect.left < right;
+    wrapper.style.setProperty('--cm-table-fade-left', `${left - wrapperRect.left}px`);
+    wrapper.style.setProperty('--cm-table-fade-right', `${right - wrapperRect.left}px`);
+    wrapper.style.setProperty('--cm-table-fade-top', `${tableRect.top - wrapperRect.top}px`);
+    wrapper.style.setProperty('--cm-table-fade-height', `${tableRect.height}px`);
+    wrapper.style.setProperty('--cm-table-fade-viewport-width', `${scroll.clientWidth}px`);
+    wrapper.classList.toggle('cm-table-overflow-left', visible && tableRect.left < left - 1);
+    wrapper.classList.toggle('cm-table-overflow-right', visible && tableRect.right > right + 1);
+  };
+  scroll.addEventListener('scroll', measure, { passive: true });
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+  observer?.observe(wrapper);
+  observer?.observe(scroll);
+  observer?.observe(table);
+  queueMicrotask(measure);
+  return () => {
+    disposed = true;
+    observer?.disconnect();
+    scroll.removeEventListener('scroll', measure);
+    wrapper.classList.remove('cm-table-overflow-left', 'cm-table-overflow-right');
+    for (const property of ['left', 'right', 'top', 'height', 'viewport-width']) {
+      wrapper.style.removeProperty(`--cm-table-fade-${property}`);
+    }
+  };
+}
+
 /** A read-only projection of root Markdown. Reconcile by logical cell address so
  * a source refresh preserves the scrollport and mounted cells at surviving addresses.
  */
@@ -146,6 +189,7 @@ export class TableProjection extends WidgetType {
     table.createTHead();
     table.createTBody();
     this.paint(root, view);
+    overflowDisposers.set(root, attachOverflowFades(wrapper, scroll, table));
     if (this.cellEditing) {
       selectionDisposers.set(root, attachSelectionOutline(wrapper, scroll, table));
       view.plugin(tableCellEditor)?.paintWidget(root);
@@ -252,6 +296,8 @@ export class TableProjection extends WidgetType {
   }
 
   override destroy(root: HTMLElement): void {
+    overflowDisposers.get(root)?.();
+    overflowDisposers.delete(root);
     selectionDisposers.get(root)?.();
     selectionDisposers.delete(root);
     handleDisposers.get(root)?.();
