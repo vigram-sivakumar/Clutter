@@ -12,7 +12,6 @@ import { tableActiveCellChanged, type TableActiveCellController } from './tableA
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
-import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
 
@@ -209,17 +208,6 @@ function buildTableWidgetRange(
     armedForDeletion === table.from ||
     (!hasActiveCellInThisTable && !hasTableSelectionInThisTable && tableIntersectsSelectionRange(state.selection.main, table));
 
-  // Resolved fresh here, once, rather than inside `TableWidget` itself —
-  // `TableWidget` stays a pure rendering function of data already handed to
-  // it, the same "no state of its own" shape every other field here already
-  // follows. Read explicitly into `eq()` (below `TableWidget`'s own
-  // constructor) specifically because a resize commit only ever rewrites
-  // the attribute line, never `table`'s own `[from, to)` range — `rawText`
-  // (this same call's `state.sliceDoc(table.from, table.to)`) is therefore
-  // byte-identical before and after a resize, and would report "no rebuild
-  // needed" on its own; this field is what actually notices the change.
-  const columnWidths = resolveTableColumnWidths(state, table)?.widths ?? null;
-
   const widget = new TableWidget(
     headerCells,
     alignments,
@@ -234,7 +222,6 @@ function buildTableWidgetRange(
     selectedRowIndex,
     selectedRange,
     getOnTableHandleMenuChange,
-    automaticSizing ? null : columnWidths,
     automaticSizing
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
