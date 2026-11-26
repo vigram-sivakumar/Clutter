@@ -357,6 +357,29 @@ export class TableCellEditor {
         current.kind === 'column' && selection.kind === 'column' && current.columnIndex === selection.columnIndex);
   }
 
+  /** Menu availability derives from the same model that validates commands. */
+  axisMenuState(selection: TableHandleMenuSelection) {
+    if (!this.matchesAxis(selection)) return null;
+    try {
+      const { model } = this.snapshot(selection.tableFrom);
+      return {
+        rowMoveAvailability: selection.kind === 'row' ? {
+          canMoveUp: selection.rowIndex > 0,
+          canMoveDown: selection.rowIndex < model.rows.length,
+        } : null,
+        columnMoveAvailability: selection.kind === 'column' ? {
+          canMoveLeft: selection.columnIndex > 0,
+          canMoveRight: selection.columnIndex < model.header.length - 1,
+        } : null,
+        columnAlignment: selection.kind === 'column' && model.alignments[selection.columnIndex] !== 'none'
+          ? model.alignments[selection.columnIndex] ?? null : null,
+      };
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return null;
+    }
+  }
+
   openHandleMenu(selection: TableHandleMenuSelection, notify: OnTableHandleMenuChange): void {
     if (!this.matchesAxis(selection)) return;
     this.handleMenu = { selection, notify };
