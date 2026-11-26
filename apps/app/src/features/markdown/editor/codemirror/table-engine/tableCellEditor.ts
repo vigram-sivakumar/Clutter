@@ -1,4 +1,9 @@
-import { EditorState, Facet, Transaction } from '@codemirror/state';
+import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
+import { closeCompletion, completionStatus } from '@codemirror/autocomplete';
+import { semanticCompletion } from '../completion';
+import { tagAutocomplete } from '../tag/tagAutocomplete';
+import { dateAutocomplete } from '../date/dateAutocomplete';
+import type { GetTagSuggestions } from '../tag/tagSuggestion';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import { tableAtCaret } from '../table/tableRootSelectionSnap';
 import type { PasteAssets } from '../paste/assetPaste';
@@ -29,6 +34,7 @@ const tableControls = 'button, .cm-table-row-handle, .cm-table-column-handle, .c
 export const tableEngineIntegration = Facet.define<{
   readonly getPasteAssets?: () => PasteAssets | undefined;
   readonly resolvers?: ParticipantResolvers;
+  readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
 }>();
 
 interface ActiveCell { tableFrom: number; cell: CellAddress; from: number; to: number }
@@ -60,7 +66,7 @@ export class TableCellEditor {
 
   beginDrag(event: PointerEvent, widget: HTMLElement): void {
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest(tableControls)) return;
+    if (target?.closest(tableControls) || target?.closest('.cm-tooltip')) return;
     const host = target?.closest<HTMLElement>('[data-cell]') ??
       target?.closest('th, td')?.querySelector<HTMLElement>(':scope > [data-cell]') ?? null;
     if (!host || host.closest('[data-table-engine-cells="true"]') !== widget) return;
@@ -764,6 +770,9 @@ export class TableCellEditor {
 
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
+    // Only the focused cell may own a completion popup. Prose completion
+    // deliberately does not close on blur, so close it when ownership moves.
+    if (completionStatus(this.root.state) !== null) closeCompletion(this.root);
     this.clearRootTableInteraction(tableFrom);
     host = this.hostAt(tableFrom, cell) ?? host;
     this.close();
@@ -800,13 +809,22 @@ export class TableCellEditor {
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false),
         formatShortcutsKeymap(),
-        keymap.of([
+        // Same completion sources, rows, theme and reactivation as prose.
+        // WikiLink suggestions stay disabled until alias writes and indexing
+        // share a validated table-escaping contract; embeds are excluded.
+        semanticCompletion(() => undefined, this.root.state.facet(tableEngineIntegration)[0]?.getTagSuggestions),
+        tagAutocomplete(),
+        dateAutocomplete(),
+        Prec.low(keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },
           { key: 'Mod-Shift-z', run: () => this.stepHistory(false) },
           { key: 'Mod-y', run: () => this.stepHistory(false) },
           { key: 'Tab', run: () => this.navigateTab(false) },
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
-          { key: 'Enter', run: () => this.navigateEnter(false) },
+          // CM6's completion keymap runs first. Its Enter command may
+          // decline during the popup's interaction delay; don't navigate
+          // away from the cell in that case.
+          { key: 'Enter', run: view => completionStatus(view.state) === 'active' || this.navigateEnter(false) },
           { key: 'Shift-Enter', run: () => this.navigateEnter(true) },
           { key: 'Mod-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
           { key: 'Ctrl-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
@@ -816,7 +834,7 @@ export class TableCellEditor {
           { key: 'ArrowUp', run: () => this.navigateEditingArrow('up') },
           { key: 'ArrowDown', run: () => this.navigateEditingArrow('down') },
           ...defaultKeymap,
-        ]),
+        ])),
       ],
     });
     host.replaceChildren();
