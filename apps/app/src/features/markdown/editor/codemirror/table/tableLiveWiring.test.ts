@@ -1163,6 +1163,9 @@ describe('shared completion inside the active cell', () => {
     [' @tom', 'Tomorrow', /@\d{4}-\d{2}-\d{2}/],
   ] as const)('accepts %s through the same completion popup and root transaction', async (input, label, stored) => {
     const view = mount(source, false, undefined, { getTagSuggestions: () => () => ['Design'] });
+    // createEditorView installs history in production; mount() only
+    // assembles feature extensions, as in the existing history suites.
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     const controller = view.plugin(tableCellEditor)!;
     expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
     const nested = controller.nested!;
@@ -1211,6 +1214,21 @@ describe('shared completion inside the active cell', () => {
     expect(secondPopup.isConnected).toBe(false);
     expect(controller.nested).not.toBe(nested);
     expect(view.state.doc.toString()).toContain('| Other |');
+  });
+
+  it('exits on Escape during an invisible pending completion query after ordinary typing', () => {
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, 'x');
+    expect(completionStatus(nested.state)).toBe('pending');
+    expect(completionPopupDOM(nested)).toBeNull();
+    const before = view.state.doc.toString();
+    press(nested, 'Escape');
+    expect(controller.nested).toBeNull();
+    expect(view.state.doc.toString()).toBe(before);
+    expect(view.dom.querySelector('.cm-table-engine-selected [data-cell="1,0"]')).not.toBeNull();
   });
 
   it('dismisses completion on the first Escape without leaving the cell', async () => {
