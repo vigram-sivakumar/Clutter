@@ -11,7 +11,7 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { tableDeletionSelectionChanged } from './tableDeletionSelection';
 import { findAllTables } from './tableGeometry';
-import { tableSelectionChanged, tableSelectionField } from './tableSelection';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
 
 /**
  * Table selection halo milestone — verifies that the same
@@ -257,7 +257,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
     selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
 
-    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(view.plugin(tableCellEditor)!.selectAxis(table.from, { row: 0, col: 0 }, 'column')).toBe(true);
 
     expect(haloedTableFroms(view)).toHaveLength(0);
     // The minimal column-selected rendering did apply, confirming the halo
@@ -273,7 +273,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
     selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
 
-    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    expect(view.plugin(tableCellEditor)!.selectAxis(table.from, { row: 1, col: 0 }, 'row')).toBe(true);
 
     expect(haloedTableFroms(view)).toHaveLength(0);
     expect(view.dom.querySelector('.cm-table-row-selected')).not.toBeNull();
@@ -283,10 +283,10 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
     const view = mount(BASIC_TABLE);
     const table = findAllTables(view.state)[0]!;
     selectAll(view);
-    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(view.plugin(tableCellEditor)!.selectAxis(table.from, { row: 0, col: 0 }, 'column')).toBe(true);
     expect(haloedTableFroms(view)).toHaveLength(0);
 
-    view.dispatch({ effects: tableSelectionChanged.of(null) });
+    view.plugin(tableCellEditor)!.close();
 
     expect(haloedTableFroms(view)).toHaveLength(1);
   });
@@ -306,7 +306,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
 
     expect(haloedTableFroms(view)).toHaveLength(0);
     expect(view.dom.querySelector('.cm-table-column-selected')).not.toBeNull();
-    const selection = view.state.field(tableSelectionField, false) ?? null;
+    const selection = view.plugin(tableCellEditor)!.currentAxisSelection();
     expect(selection?.kind).toBe('column');
   });
 
@@ -321,7 +321,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
 
     expect(haloedTableFroms(view)).toHaveLength(0);
     expect(view.dom.querySelector('.cm-table-row-selected')).not.toBeNull();
-    const selection = view.state.field(tableSelectionField, false) ?? null;
+    const selection = view.plugin(tableCellEditor)!.currentAxisSelection();
     expect(selection?.kind).toBe('row');
   });
 });
