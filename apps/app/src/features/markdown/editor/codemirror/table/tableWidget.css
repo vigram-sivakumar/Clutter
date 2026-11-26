@@ -7,7 +7,7 @@
 /* Table projection layout. The widget and outer wrapper never clip the
  * content. The scrollport owns horizontal overflow for content-sized
  * columns; the layout/inner track keeps quick-add controls alongside
- * the intrinsic table. The table itself owns borders and selection halo.
+ * the intrinsic table. The table itself owns its normal borders.
  * Keep spacing on widget-owned boxes, not CM6-managed line margins. */
 .cm-editor .cm-table-widget {
   padding-inline: 0;
@@ -16,7 +16,7 @@
   
 }
 .cm-editor .cm-table-wrapper {
-  /* The actual table owns its border and selection halo. */
+  /* The actual table owns its normal border. */
   position: relative;
   overflow: visible;
   /* The outer wrapper remains capped to the prose width. */
@@ -36,11 +36,6 @@
   max-width: 100%;
 }
 
-/* Paint the whole-table selection on the actual table, so it scrolls and reflows with its intrinsic width. */
-.cm-editor .cm-table-wrapper-selected table {
-  background: var(--selection-surface);
-  box-shadow: inset 0 0 0 1.5px var(--surface-primary);
-}
 .cm-editor .cm-table-wrapper table,
 .cm-editor .cm-table-wrapper .cm-line {
   width: 100%;
@@ -283,10 +278,9 @@
 /* Suppresses the browser's own native `::selection` painting anywhere
  * inside this widget's rendered (inactive-cell) content — a root
  * selection that merely intersects a table's source range must not
- * additionally paint a native text-selection highlight behind cell text;
- * the table already shows its own whole-table visual state
- * (`.cm-table-wrapper-selected`, above) or its own explicit
- * `TableSelection` overlay (`tableSelectionOverlay.css`) instead. Root
+ * paint a native text-selection highlight behind cell text. Intentional
+ * cell/axis/range selection retains its own explicit overlay
+ * (`tableSelectionOverlay.css`). Root
  * cause, confirmed by reading the installed `@codemirror/view` source
  * (`drawSelection()`'s own `hideNativeSelection` theme): CM6 already
  * neutralizes native selection painting everywhere it manages document
