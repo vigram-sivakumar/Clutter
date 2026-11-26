@@ -48,7 +48,10 @@ export class TableDragSelection {
     const listenerOptions = { capture: true, signal: abort.signal };
 
     const hit = (cx: number, cy: number) => {
-      const target = doc.elementFromPoint(cx, cy)?.closest<HTMLElement>('[data-cell]');
+      const element = doc.elementFromPoint(cx, cy);
+      // The padded area of a cell is part of its hit target too.
+      const target = element?.closest<HTMLElement>('[data-cell]') ??
+        element?.closest('td, th')?.querySelector<HTMLElement>(':scope > [data-cell]');
       if (!target || target.closest('[data-table-engine-cells="true"]') !== widget) return;
       const [row, col] = target.dataset.cell!.split(',').map(Number);
       if (!Number.isInteger(row) || !Number.isInteger(col)) return;
@@ -59,6 +62,11 @@ export class TableDragSelection {
       if (!moved) {
         const selection = doc.getSelection();
         if (selection?.anchorNode && host.contains(selection.anchorNode)) selection.removeAllRanges();
+      }
+      // Transfer capture to the stable widget before the active cell's
+      // nested editor is destroyed. Hit testing remains coordinate-based.
+      if (!moved) {
+        try { widget.setPointerCapture?.(pointer); } catch { /* synthetic or ended pointer */ }
       }
       if (!this.onRange(widget, anchor, next)) return;
       head = next;
@@ -92,7 +100,12 @@ export class TableDragSelection {
       if (!abort.signal.aborted) frame = win.requestAnimationFrame(tick);
     };
     frame = win.requestAnimationFrame(tick);
-    abort.signal.addEventListener('abort', () => win.cancelAnimationFrame(frame), { once: true });
+    abort.signal.addEventListener('abort', () => {
+      win.cancelAnimationFrame(frame);
+      try {
+        if (widget.hasPointerCapture?.(pointer)) widget.releasePointerCapture(pointer);
+      } catch { /* pointer has already ended */ }
+    }, { once: true });
 
     const finish = (next: PointerEvent) => {
       if (next.pointerId !== pointer) return;
