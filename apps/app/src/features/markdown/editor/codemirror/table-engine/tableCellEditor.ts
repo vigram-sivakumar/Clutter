@@ -5,6 +5,9 @@ import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
+import { markdownLanguageExtension } from '../markdownLanguage';
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
@@ -791,6 +794,15 @@ export class TableCellEditor {
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
         EditorView.lineWrapping,
+        // Match prose marker engagement for basic inline styles. Keep
+        // reference widgets, navigation, block styling and Markdown's
+        // block keymap out of the single-cell editor for now.
+        markdownLanguageExtension(),
+        inlineLivePreviewRegion(new Map([...createInlineLivePreviewParticipants({
+          resolveTag: () => undefined,
+          resolveDate: () => undefined,
+        })].filter(([name]) => ['Emphasis', 'StrongEmphasis', 'Strikethrough', 'Highlight', 'InlineCode'].includes(name))),
+          { includeHeadings: false }),
         formatShortcutsKeymap(),
         keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },
