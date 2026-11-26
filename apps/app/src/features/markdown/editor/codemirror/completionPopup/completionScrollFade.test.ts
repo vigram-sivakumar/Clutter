@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, showTooltip, tooltips } from '@codemirror/view';
 
 import { completionScrollFade } from './completionScrollFade';
 
@@ -37,6 +37,41 @@ async function settle(): Promise<void> {
 }
 
 describe('completionScrollFade', () => {
+  it('measures only the view-owned popup when CM6 hosts it outside the editor', async () => {
+    const parent = document.body.appendChild(document.createElement('div'));
+    const portalParent = document.body.appendChild(document.createElement('div'));
+    const unrelated = document.createElement('div');
+    unrelated.className = 'cm-tooltip-autocomplete';
+    unrelated.appendChild(document.createElement('ul'));
+    portalParent.appendChild(unrelated);
+
+    const popup = document.createElement('div');
+    popup.className = 'cm-tooltip-autocomplete';
+    const list = popup.appendChild(document.createElement('ul'));
+    Object.defineProperties(list, {
+      scrollTop: { value: 0, configurable: true },
+      clientHeight: { value: 260, configurable: true },
+      scrollHeight: { value: 600, configurable: true },
+    });
+    view = new EditorView({
+      state: EditorState.create({ extensions: [
+        tooltips({ parent: portalParent }),
+        showTooltip.of({ pos: 0, create: () => ({ dom: popup }) }),
+        completionScrollFade(),
+      ] }),
+      parent,
+    });
+    expect(portalParent.contains(popup)).toBe(true);
+    expect(view.dom.contains(popup)).toBe(false);
+    await settle();
+    expect(list.hasAttribute('data-can-scroll-down')).toBe(true);
+    expect(unrelated.querySelector('ul')?.hasAttribute('data-can-scroll-down')).toBe(false);
+    view.destroy();
+    view = null;
+    expect(popup.isConnected).toBe(false);
+    expect(unrelated.isConnected).toBe(true);
+  });
+
   it('flags a list with more rows below the visible ones', async () => {
     const list = mount({ scrollTop: 0, clientHeight: 260, scrollHeight: 600 });
     await settle();
