@@ -31,7 +31,17 @@
   position: absolute;
   top: var(--cm-table-fade-top, 0px);
   height: var(--cm-table-fade-height, 0px);
-  width: min(16px, var(--cm-table-fade-viewport-width, 0px));
+  width: min(32px, var(--cm-table-fade-viewport-width, 0px));
+  --cm-table-fade-color: var(--cm-table-fade-surface, var(--surface-primary));
+  /* Approximate smoothstep: shallow opacity changes at both ends rather
+   * than a short linear ramp. Keep the simpler gradient as a fallback. */
+  --cm-table-fade-stops:
+    var(--cm-table-fade-color) 0%,
+    color-mix(in srgb, var(--cm-table-fade-color) 90%, transparent) 20%,
+    color-mix(in srgb, var(--cm-table-fade-color) 65%, transparent) 40%,
+    color-mix(in srgb, var(--cm-table-fade-color) 35%, transparent) 60%,
+    color-mix(in srgb, var(--cm-table-fade-color) 10%, transparent) 80%,
+    transparent 100%;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease;
@@ -45,6 +55,14 @@
   left: var(--cm-table-fade-right, 0px);
   transform: translateX(-100%);
   background: linear-gradient(to left, var(--cm-table-fade-surface, var(--surface-primary)), transparent);
+}
+@supports (color: color-mix(in srgb, black, transparent)) {
+  .cm-editor .cm-table-wrapper::before {
+    background: linear-gradient(to right, var(--cm-table-fade-stops));
+  }
+  .cm-editor .cm-table-wrapper::after {
+    background: linear-gradient(to left, var(--cm-table-fade-stops));
+  }
 }
 .cm-editor .cm-note-embed .cm-table-wrapper {
   --cm-table-fade-surface: var(--md-embed-surface);
