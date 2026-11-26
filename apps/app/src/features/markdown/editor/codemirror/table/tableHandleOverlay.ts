@@ -481,18 +481,8 @@ export function attachTableHandleOverlay(
    * as a purely visual "which edge to draw the line on" decision — it must
    * never again leak into this function's own `targetIndex`.)
    *
-   * **`'none'` — the divider between two columns is a neutral zone.**
-   * Column resize's own hit-strip (`tableColumnResizeHandle.ts`'s
-   * `.cm-table-column-resize-hit`, one per column at that column's own
-   * right edge, `pointer-events: auto` unconditionally, real rendered
-   * width) already sits exactly there — reusing it as the divider's own
-   * real hit area, rather than picking a fresh threshold, is what "do not
-   * invent arbitrary pixel offsets" asks for. `event.target` is real
-   * native hit-testing (or, in tests, an explicitly simulated stand-in for
-   * it — see this file's own test suite), so no separate geometry check
-   * is needed: if the resize strip is what's under the pointer, it's what
-   * `event.target` already reports. The pointer being over no real cell at
-   * all (e.g. off the table's own edges) produces the identical `'none'`.
+   * **`'none'` — the pointer is not over a real cell.** Native hit-testing
+   * supplies the target; manual column resize strips are no longer rendered.
    *
    * `hoveredIndex` and `targetIndex` are the same number here — kept as
    * two separate fields (rather than collapsing `'target'` to one) purely
@@ -501,9 +491,6 @@ export function attachTableHandleOverlay(
    */
   function resolveColumnTargetIndex(event: PointerEvent, startIndex: number): DragTargetResolution {
     const target = event.target;
-    if (target instanceof Element && target.closest('.cm-table-column-resize-hit')) {
-      return { kind: 'none' };
-    }
     const hovered = resolveHoveredCell(wrapper, target);
     if (!hovered) {
       return { kind: 'none' };
