@@ -1,9 +1,9 @@
 import { markBlockRange } from '../blockRangeSelection';
 import '../table/tableWidget.css';
 import plusIcon from '@shared/icon/svg/plus.svg?raw';
-import { tableCellEditor } from './tableCellEditor';
+import { tableCellEditor, tableEngineIntegration } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
-import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
+import { paintInlineMarkdown } from '../table/renderInlineMarkdown';
 import type { TableSnapshot } from './tableModel';
 import { attachTableHandleOverlay } from '../table/tableHandleOverlay';
 import { createTableSelectionOverlay, positionRangeSelectionOverlay, VISIBLE_CLASS } from '../table/tableSelectionOverlay';
@@ -266,7 +266,9 @@ export class TableProjection extends WidgetType {
       values.forEach((markdown, column) => {
         const cell = row.cells[column] ?? row.appendChild(document.createElement(index === 0 ? 'th' : 'td'));
         const host = cell.firstElementChild ?? container(cell, 'cm-table-cell-wrapper');
-        if (!view.plugin(tableCellEditor)?.owns(host) && markdown !== priorValues?.[column]) host.innerHTML = renderInlineMarkdown(markdown, { styled: true });
+        if (!view.plugin(tableCellEditor)?.owns(host) && markdown !== priorValues?.[column]) {
+          paintInlineMarkdown(host as HTMLElement, markdown, view, view.state.facet(tableEngineIntegration)[0]?.resolvers);
+        }
         (host as HTMLElement).dataset.cell = index + ',' + column;
         if (this.cellEditing) {
           (host as HTMLElement).tabIndex = -1;
