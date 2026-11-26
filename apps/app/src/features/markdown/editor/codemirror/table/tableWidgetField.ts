@@ -4,11 +4,12 @@ import { StateField, type EditorState, type Extension, type Range } from '@codem
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import { projectableTableSnapshot } from '../table-engine/tableModel';
 import { TableProjection } from '../table-engine/tableProjection';
+import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { findAllTables, tableIntersectsSelectionRange } from './tableGeometry';
 
-function buildDecorations(state: EditorState, editable: boolean, onMenu: () => OnTableHandleMenuChange | undefined): DecorationSet {
+function buildDecorations(state: EditorState, editable: boolean, onMenu: () => OnTableHandleMenuChange | undefined, presentationRefresh?: object): DecorationSet {
   // Block replacements must cover the complete document, including tables
   // outside the viewport after history or a structural edit.
   const source = state.doc.toString();
@@ -20,7 +21,7 @@ function buildDecorations(state: EditorState, editable: boolean, onMenu: () => O
     const selected = (editable && state.field(tableDeletionSelectionField, false) === table.from) ||
       tableIntersectsSelectionRange(state.selection.main, { ...table, to: snapshot.to });
     ranges.push(Decoration.replace({
-      widget: new TableProjection(snapshot, selected, editable, onMenu),
+      widget: new TableProjection(snapshot, selected, editable, onMenu, presentationRefresh),
       block: true,
     }).range(table.from, snapshot.to));
   }
@@ -35,8 +36,9 @@ export function tableWidgetDecoration(
   return StateField.define<DecorationSet>({
     create: state => buildDecorations(state, editable, onMenu),
     update(value, tr) {
-      return tr.docChanged || tr.selection || tr.effects.some(effect => effect.is(tableDeletionSelectionChanged))
-        ? buildDecorations(tr.state, editable, onMenu) : value;
+      const refresh = tr.effects.some(effect => effect.is(refreshInlinePresentation));
+      return refresh || tr.docChanged || tr.selection || tr.effects.some(effect => effect.is(tableDeletionSelectionChanged))
+        ? buildDecorations(tr.state, editable, onMenu, refresh ? {} : undefined) : value;
     },
     provide: field => [
       EditorView.decorations.from(field),
