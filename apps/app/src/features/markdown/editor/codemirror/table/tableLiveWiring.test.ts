@@ -1148,9 +1148,9 @@ describe('table live wiring — read-only (note embed) table', () => {
 });
 
 describe('table live wiring — editable top-level table', () => {
-  it('arms and removes an explicitly sized table from the blank line below its width metadata', () => {
-    const doc = TABLE + '\n{table-col-widths="100,180"}\n';
-    const view = mount(doc, false, new TableActiveCellController());
+  it('arms and removes a table from the blank line below it', () => {
+    const doc = TABLE + '\n';
+    const view = mount(doc, false, undefined, true);
     view.dispatch({ selection: { anchor: doc.length } });
     const press = (key: string) => view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     press('Backspace');
