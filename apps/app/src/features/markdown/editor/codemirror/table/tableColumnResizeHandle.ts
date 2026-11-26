@@ -711,7 +711,7 @@ export function attachTableColumnResizeHandles(
         });
       }
     }
-  }  });
+  });
   return () => {
     disposed = true;
     if (session) handlePointerCancel();
