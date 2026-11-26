@@ -30,7 +30,7 @@ function expectOutsideAnyTable(state: EditorState, pos: number): void {
 }
 
 describe('tableRootSelectionSnap — non-doc-changing selection (mouse drag / keyboard extend)', () => {
-  it('snaps a selection endpoint landing exactly at table.from to just before the table', () => {
+  it('selects the whole table when a root pointer lands exactly at table.from', () => {
     const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
     let state = makeState(doc);
     const table = findEnclosingTable(state, doc.indexOf('| a |'))!;
@@ -39,8 +39,30 @@ describe('tableRootSelectionSnap — non-doc-changing selection (mouse drag / ke
     const tr = state.update({ selection: { anchor: table.from }, userEvent: 'select.pointer' });
     state = tr.state;
 
-    expect(state.selection.main.head).toBe(table.from - 1);
-    expectOutsideAnyTable(state, state.selection.main.head);
+    expect(state.selection.main.from).toBe(table.from);
+    expect(state.selection.main.to).toBe(table.to);
+    expect(state.selection.main.empty).toBe(false);
+  });
+
+  it('selects the full table at EOF instead of exposing a hidden caret', () => {
+    const state = makeState(BASIC_TABLE);
+    const tr = state.update({ selection: { anchor: BASIC_TABLE.length }, userEvent: 'select.pointer' });
+    expect(tr.state.selection.main.from).toBe(0);
+    expect(tr.state.selection.main.to).toBe(BASIC_TABLE.length);
+    expect(tr.state.selection.main.empty).toBe(false);
+    expect(tr.docChanged).toBe(false);
+  });
+
+  it('expands forward and reverse pointer drags to whole table boundaries', () => {
+    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
+    const state = makeState(doc);
+    const table = findEnclosingTable(state, doc.indexOf('| a |'))!;
+    const forward = state.update({ selection: { anchor: 0, head: table.from + 2 }, userEvent: 'select.pointer' }).state.selection.main;
+    expect(forward.anchor).toBe(0);
+    expect(forward.head).toBe(table.to);
+    const reverse = state.update({ selection: { anchor: doc.length, head: table.to - 2 }, userEvent: 'select.pointer' }).state.selection.main;
+    expect(reverse.anchor).toBe(doc.length);
+    expect(reverse.head).toBe(table.from);
   });
 
   it('snaps a Shift+Arrow-style extending selection whose head lands inside the table', () => {
