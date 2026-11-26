@@ -457,3 +457,28 @@ describe('tableWidget.css — native ::selection suppression', () => {
     expect(match![1]).not.toMatch(/!important/);
   });
 });
+
+describe('shared document range paint for rendered tables', () => {
+  it('paints the whole table on select-all and clears the paint on cell activation', () => {
+    const doc = `Above.\n\n${BASIC_TABLE}\n\nBelow.`;
+    const view = mount(doc);
+    const root = () => view.dom.querySelector('.cm-table-widget')!;
+    expect(root().classList.contains('cm-block-range-selected')).toBe(false);
+    selectAll(view);
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(doc.length);
+    expect(root().classList.contains('cm-block-range-selected')).toBe(true);
+    expect(root().querySelector('.cm-table-inner table')).not.toBeNull();
+    clickCell(findCell(view, 'a'));
+    expect(root().classList.contains('cm-block-range-selected')).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('keeps deletion arming distinct from document range paint', () => {
+    const view = mount(`${BASIC_TABLE}\n`);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ selection: { anchor: view.state.doc.length }, effects: tableDeletionSelectionChanged.of(table.from) });
+    expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-widget.cm-block-range-selected')).toBeNull();
+  });
+});
