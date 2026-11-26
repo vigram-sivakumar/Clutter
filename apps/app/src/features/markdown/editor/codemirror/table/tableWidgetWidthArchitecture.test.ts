@@ -27,7 +27,9 @@ describe('automatic table sizing stylesheet', () => {
     const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
     expect(scroll).toContain('overflow-x: auto');
     expect(scroll).toContain('box-sizing: border-box');
-    expect(scroll).toContain('padding-inline: var(--cm-table-handle-gutter)');
+    expect(scroll).toContain('padding-inline-start: var(--cm-table-handle-gutter)');
+    expect(scroll).toContain('padding-block-start: var(--cm-table-handle-gutter)');
+    expect(scroll).toContain('margin-block-start: calc(-1 * var(--cm-table-handle-gutter))');
     expect(scroll).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
   });
 
@@ -38,8 +40,10 @@ describe('automatic table sizing stylesheet', () => {
     expect(scroll).toContain('max-width: var(--cm-table-scroll-width)');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
     expect(rule('.cm-editor .cm-table-layout')).toContain('box-sizing: content-box');
-    expect(layout).toContain('padding-inline-end: var(--cm-table-add-column-space)');
-    expect(layout).toContain('padding-block-end: var(--cm-table-add-row-space)');
+    expect(scroll).toContain('padding-inline-end: calc(var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
+    expect(scroll).toContain('padding-block-end: var(--cm-table-add-row-space)');
+    expect(layout).not.toContain('padding');
+    expect(rule('.cm-editor .cm-table-layout')).not.toContain('padding');
     const inner = rule('.cm-editor .cm-table-inner');
     expect(inner).toContain('position: relative');
     expect(inner).toContain('width: 100%');
@@ -59,7 +63,7 @@ describe('automatic table sizing stylesheet', () => {
     expect(wrapper).toContain('--cm-table-column-min: 110px');
     expect(wrapper).toContain('--cm-table-column-max: 420px');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
-    expect(layout).toContain('width: clamp(calc(var(--cm-table-column-count) * var(--cm-table-column-min)), calc(100% - var(--cm-table-add-column-space)), calc(var(--cm-table-column-count) * var(--cm-table-column-max)))');
+    expect(layout).toContain('width: clamp(calc(var(--cm-table-column-count) * var(--cm-table-column-min)), 100%, calc(var(--cm-table-column-count) * var(--cm-table-column-max)))');
     const table = rule('.cm-editor .cm-table-wrapper--auto-widths table');
     expect(table).toContain('table-layout: fixed');
     expect(table).toContain('width: 100%');
