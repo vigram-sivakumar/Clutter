@@ -31,54 +31,62 @@ describe('automatic table sizing stylesheet', () => {
     expect(scroll).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
   });
 
-  it('pairs the expanded border-box with its padding so the add-column track is extra', () => {
+  it('reserves control space independently from the actual table dimensions', () => {
     const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
     expect(scroll).toContain('calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
     expect(scroll).toContain('width: var(--cm-table-scroll-width)');
     expect(scroll).toContain('max-width: var(--cm-table-scroll-width)');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
-    expect(layout).toContain('100%,');
-    const inner = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner');
-    expect(inner).toContain('width: calc(100% - var(--cm-table-add-column-space))');
-    expect(inner).toContain('flex: 0 0 calc(100% - var(--cm-table-add-column-space))');
+    expect(rule('.cm-editor .cm-table-layout')).toContain('box-sizing: content-box');
+    expect(layout).toContain('padding-inline-end: var(--cm-table-add-column-space)');
+    expect(layout).toContain('padding-block-end: var(--cm-table-add-row-space)');
+    const inner = rule('.cm-editor .cm-table-inner');
+    expect(inner).toContain('position: relative');
+    expect(inner).toContain('width: 100%');
+    expect(inner).not.toContain('flex:');
     const wrapper = rule('.cm-editor .cm-table-wrapper--auto-widths');
-    expect(wrapper).toContain('--cm-table-add-column-width: var(--height-xs)');
-    expect(rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths')).toContain('--cm-table-add-column-space: calc(var(--cm-table-add-column-width) + 6px)');
-    const track = rule('.cm-editor .cm-table-quick-add-track-column');
-    expect(track).toContain('flex: 0 0 var(--cm-table-add-column-space)');
-    expect(track).toContain('width: var(--cm-table-add-column-space)');
-    expect(track).toContain('padding-inline-start: 6px');
-    const button = rule('.cm-editor .cm-table-quick-add-column');
-    expect(button).toContain('width: var(--cm-table-add-column-width)');
-    expect(button).toContain('flex: 0 0 var(--cm-table-add-column-width)');
+    expect(wrapper).toContain('--cm-table-add-size: var(--height-xs)');
+    expect(wrapper).toContain('--cm-table-add-gap: 6px');
+    expect(wrapper).toContain('--cm-table-add-column-space: 0px');
+    expect(wrapper).toContain('--cm-table-add-row-space: 0px');
+    const editable = rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths');
+    expect(editable).toContain('--cm-table-add-column-space: calc(var(--cm-table-add-size) + var(--cm-table-add-gap))');
+    expect(editable).toContain('--cm-table-add-row-space: calc(var(--cm-table-add-size) + var(--cm-table-add-gap))');
   });
 
   it('fills the available width with equally distributed bounded columns', () => {
     const wrapper = rule('.cm-editor .cm-table-wrapper--auto-widths');
     expect(wrapper).toContain('--cm-table-column-min: 110px');
     expect(wrapper).toContain('--cm-table-column-max: 420px');
-    expect(wrapper).toContain('--cm-table-add-column-space: 0px');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
-    expect(layout).toContain('width: clamp(');
-    expect(layout).toContain('var(--cm-table-column-count) * var(--cm-table-column-min)');
-    expect(layout).toContain('var(--cm-table-column-count) * var(--cm-table-column-max)');
-    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: calc(100% - var(--cm-table-add-column-space))');
+    expect(layout).toContain('width: clamp(calc(var(--cm-table-column-count) * var(--cm-table-column-min)), calc(100% - var(--cm-table-add-column-space)), calc(var(--cm-table-column-count) * var(--cm-table-column-max)))');
     const table = rule('.cm-editor .cm-table-wrapper--auto-widths table');
     expect(table).toContain('table-layout: fixed');
     expect(table).toContain('width: 100%');
   });
 
-  it('keeps quick-add controls in layout and uses edge-specific hover', () => {
+  it('anchors both controls outside the table and retains edge-specific hover', () => {
     expect(rule('.cm-editor .cm-table-quick-add')).toContain('opacity: 0');
+    expect(rule('.cm-editor .cm-table-quick-add-track')).toContain('position: absolute');
+    const row = rule('.cm-editor .cm-table-quick-add-track-row');
+    expect(row).toContain('inset-block-start: 100%');
+    expect(row).toContain('inset-inline: 0');
+    expect(row).toContain('height: var(--cm-table-add-row-space)');
+    expect(row).toContain('padding-block-start: var(--cm-table-add-gap)');
+    const column = rule('.cm-editor .cm-table-quick-add-track-column');
+    expect(column).toContain('inset-inline-start: 100%');
+    expect(column).toContain('inset-block: 0');
+    expect(column).toContain('width: var(--cm-table-add-column-space)');
+    expect(column).toContain('padding-inline-start: var(--cm-table-add-gap)');
+    expect(rule('.cm-editor .cm-table-quick-add-row')).toContain('height: var(--cm-table-add-size)');
+    const button = rule('.cm-editor .cm-table-quick-add-column');
+    expect(button).toContain('width: var(--cm-table-add-size)');
+    expect(button).toContain('height: 100%');
     expect(css).toContain('.cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row');
-    expect(css).toContain('.cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-row');
-    expect(css).toContain('.cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-track-column > .cm-table-quick-add-column');
+    expect(css).toContain('.cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row');
+    expect(css).toContain('.cm-table-inner:has(> table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-track-column > .cm-table-quick-add-column');
     expect(css).toContain('.cm-table-quick-add:focus-visible');
     expect(css).toContain('.cm-table-quick-add-track:hover > .cm-table-quick-add');
-    expect(rule('.cm-editor .cm-table-quick-add-track-row')).toContain('padding-block-start: 6px');
-    expect(rule('.cm-editor .cm-table-quick-add-track-column')).toContain('padding-inline-start: 6px');
-    expect(rule('.cm-editor .cm-table-layout')).toContain('gap: 0');
-    expect(rule('.cm-editor .cm-table-inner')).toContain('gap: 0');
     const svg = rule('.cm-editor .cm-table-quick-add svg');
     expect(svg).toContain('width: 16px');
     expect(svg).toContain('height: 16px');
