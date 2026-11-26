@@ -1876,9 +1876,33 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(markdown);
   });
 
-  it('hands active editing from compatibility to supported tables and back without two mounted editors', () => {
-    const overflow = '| C | D |\n| --- | --- |\n| compat-a | compat-b | extra |';
+  it('projects an imported overflow row through the new engine and edits its extra cell without rewriting the header', () => {
+    const overflow = '| C | D |\n| --- | --- |\n| first | second | extra |';
     const markdown = TABLE + '\n\n' + overflow;
+    const { container } = render(<MarkdownEditor pageId="engine-overflow" markdown={markdown} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    expect(engineWidgets(root)).toHaveLength(2);
+    const imported = engineWidgets(root)[1]!;
+    expect(imported.querySelectorAll('thead th')).toHaveLength(3);
+    expect(imported.querySelectorAll('tbody td')).toHaveLength(3);
+    expect(root.state.doc.toString()).toBe(markdown);
+    activateCell(root, 'extra');
+    const nested = root.plugin(tableCellEditor)!.nested!;
+    expect(nestedOf(container)).toBe(nested);
+    expect(nested.state.doc.toString()).toBe('extra');
+    expect(root.state.doc.toString()).toBe(markdown);
+    act(() => nested.dispatch({ changes: { from: 0, to: 5, insert: 'edited' } }));
+    expect(root.state.doc.toString()).toBe(markdown.replace('extra', 'edited'));
+    act(() => undo(root));
+    expect(root.state.doc.toString()).toBe(markdown);
+    act(() => redo(root));
+    expect(root.state.doc.toString()).toBe(markdown.replace('extra', 'edited'));
+  });
+
+  it('hands active editing from compatibility to supported tables and back without two mounted editors', () => {
+    const malformed = '| C | D |\n| --- | --- |\n| compat-a | compat-b |\n{table-col-widths="bad"}';
+    const markdown = TABLE + '\n\n' + malformed;
     const { container } = render(<MarkdownEditor pageId="engine-mixed" markdown={markdown} />);
     const root = rootOf(container);
     assertEngine(root);
