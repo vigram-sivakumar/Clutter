@@ -40,10 +40,9 @@ describe('automatic table sizing stylesheet', () => {
     expect(cell).toContain('overflow-wrap: anywhere');
   });
 
-  it('keeps the border and whole-table halo on the actual table', () => {
+  it('keeps normal table borders without whole-table selection styling', () => {
     expect(rule('.cm-editor .cm-table-wrapper table')).toContain('border:');
-    expect(rule('.cm-editor .cm-table-wrapper-selected table')).toContain('background:');
-    expect(rule('.cm-editor .cm-table-wrapper-selected table')).toContain('box-shadow:');
+    expect(css).not.toContain('cm-table-wrapper-selected');
   });
 
   it('does not contain the retired explicit-width selectors', () => {
