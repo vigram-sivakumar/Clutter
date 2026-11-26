@@ -312,7 +312,11 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
       tableCellEditor,
       tableSelectionHistory,
       selectNewMarkdownTable,
-      EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory()),
+      EditorView.updateListener.of(update => {
+        const controller = update.view.plugin(tableCellEditor);
+        controller?.restoreHistory();
+        if (update.selectionSet || update.docChanged || update.focusChanged) controller?.repairRootFocus();
+      }),
       tableBoundaryNavigation(),
     ] : []),
     tableWidgetDecoration(!readOnly, () => onOpenTableHandleMenu?.()),
