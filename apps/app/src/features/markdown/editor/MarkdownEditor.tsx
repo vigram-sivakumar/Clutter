@@ -24,6 +24,7 @@ import {
   type BuildEditorExtensionsOptions,
 } from './codemirror/buildEditorExtensions';
 import { caretBottomClearanceExtension } from './codemirror/caretBottomClearance';
+import { editorBottomClick, focusEditorBottom } from './codemirror/editorBottomClick';
 import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
@@ -1319,6 +1320,7 @@ export const MarkdownEditor = forwardRef<
       if (!view || readOnly) {
         return;
       }
+      if (focusEditorBottom(view, clientY)) return;
       const pos = view.posAtCoords({ x: clientX, y: clientY }, false);
       view.dispatch({ selection: EditorSelection.cursor(pos) });
       view.focus();
@@ -1462,6 +1464,7 @@ export const MarkdownEditor = forwardRef<
         editorExitUp(() => onExitUpRef.current),
         // Main page editor only (embeds, references and table cells never install it).
         caretBottomClearanceExtension(),
+        editorBottomClick,
       ]),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       canEdit: () => canEditRef.current?.() ?? true,
@@ -1684,7 +1687,11 @@ export const MarkdownEditor = forwardRef<
       handleDismissUrlPaste();
     }
 
-    switchEditorMode(view, options, readOnly, [editorExitUp(() => onExitUpRef.current)]);
+    switchEditorMode(view, options, readOnly, [
+      editorExitUp(() => onExitUpRef.current),
+      caretBottomClearanceExtension(),
+      editorBottomClick,
+    ]);
 
     if (readOnly && view.hasFocus) {
       // A read-only editor holds no focus.
