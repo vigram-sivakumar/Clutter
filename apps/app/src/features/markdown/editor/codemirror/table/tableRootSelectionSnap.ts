@@ -1,9 +1,8 @@
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { findAllTables, findEnclosingTable } from './tableGeometry';
-import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';
-import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
+import { findEnclosingTable } from './tableGeometry';
+import { projectableTableSnapshot } from '../table-engine/tableModel';
 
 /**
  * Centralized invariant enforcement for "root selection is never inside a
@@ -201,20 +200,10 @@ function findViolatedTable(state: EditorState, pos: number): SyntaxNode | null {
 }
 
 function snapPosition(state: EditorState, pos: number, collapsed: boolean, editableProjection: boolean): number {
-  let table: { from: number; to: number } | null = findViolatedTable(state, pos);
-  if (editableProjection) {
-    for (const candidate of findAllTables(state)) {
-      if (pos < candidate.from) continue;
-      const widths = resolveExistingAttributeLineRange(state, candidate);
-      if (!widths || pos > widths.to) continue;
-      try {
-        const snapshot = snapshotFromTableNode(state.doc.toString(), candidate.node);
-        if (snapshot.legacyWidthFrom !== null) { table = snapshot; break; }
-      } catch (error) {
-        if (!(error instanceof TableEngineError)) throw error;
-      }
-    }
-  }
+  const node = findViolatedTable(state, pos);
+  const table = node && editableProjection
+    ? projectableTableSnapshot(state.doc.toString(), node)
+    : node;
   if (!table) {
     return pos;
   }
