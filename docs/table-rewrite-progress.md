@@ -4,7 +4,7 @@ Last updated 26 November 2026 (Asia/Kolkata).
 
 ## Current status and resume point
 
-**Active development checkpoint (2026-11-26):** The architecture stability checkpoint on `development/table-editor` passed automated verification and owner-reported native acceptance. The Assets contract discrepancy is escalated in proposed ADR-079. See the [stabilisation record](#architecture-stabilisation-on-developmenttable-editor-2026-11-26).
+**Active development checkpoint (2026-11-26):** The architecture stability checkpoint on `development/table-editor` passed automated verification and owner-reported native acceptance. The Assets contract discrepancy has been resolved by owner-approved ADR-079; see the acceptance and integration decision at the end of this ledger. See the [stabilisation record](#architecture-stabilisation-on-developmenttable-editor-2026-11-26).
 
 **12 of 12 table rewrite milestones accepted (100% of implementation/verification gates).** M1–M12 accepted on the candidate branch. Production-default engine, exact-source persistence, compatibility fallback, baseline-relative regression, direct packaged-app smoke checks and sandboxed development smoke checks verified. M13a repository hygiene accepted on `candidate/table-engine-m13`; M13b compatibility migration in progress on `candidate/table-engine-m13b`; main integration and actual distribution remain pending owner approval. The full app test suite was non-green at the recorded rewrite baseline.
 
@@ -288,3 +288,9 @@ Executed commands on the final runtime candidate, with logs under `/tmp/clutter-
 - `git diff --check` passed. Only documentation changed after the final runtime verification. Owner-reported manual native acceptance closes the previously open gate.
 
 The owner authorised commit and push of this verified checkpoint to `development/table-editor` with the Assets concern explicitly escalated. Main integration and release require separate approval and resolution of ADR-079. CI and branch-protection enforcement were not audited as part of this checkpoint.
+
+### ADR-079 acceptance and main integration approval (2026-11-26)
+
+The owner explicitly approved ADR-079, retention of the current Assets library behaviour, reconciliation of the frozen specification, and integration into `main`. ADR-079 is accepted; §3c and ADR-039 distinguish the broad catalog from the intentional library and the note-media versus explicit-library import destinations. The ADR index reflects acceptance. The original escalation entries above remain historical evidence, not open blockers.
+
+The verified runtime checkpoint is `cf1b956a4c3a8524e0d33444dabddad853114077`. The subsequent ADR/specification reconciliation changes documentation only; no production code, test assertions, dependency, build or configuration changes are introduced. The prior 17,736-test green suite, 1,067 targeted tests, build/type checks and native acceptance remain the verification evidence for the unchanged runtime tree. Per rulebook §7, documentation-only changes require diff and consistency review rather than unrelated runtime test repetition. Integrate by fast-forward if main is an ancestor, preserving the exact verified runtime tree and commit history. Release/distribution is not authorised by this integration approval. CI and branch-protection configuration remain a separate enforcement concern.
