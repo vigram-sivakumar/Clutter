@@ -821,187 +821,6 @@ describe('tableWidgetField/TableWidget — clicking a synthetic (padded) cell ma
   });
 });
 
-describe('tableWidgetField/TableWidget — persisted column widths render as <colgroup>', () => {
-  it('renders a <col> per column, with no explicit width, when no metadata exists', () => {
-    const view = mountView('| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |');
-
-    const table = view.dom.querySelector('table')!;
-    const colEls = table.querySelectorAll('col');
-    expect(colEls).toHaveLength(3);
-    for (const col of colEls) {
-      expect((col as HTMLElement).style.width).toBe('');
-    }
-    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(false);
-  });
-
-  it('renders each <col> with its own persisted pixel width when valid metadata exists', () => {
-    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80,240"}';
-    const view = mountView(doc);
-
-    const table = view.dom.querySelector('table')!;
-    const colEls = Array.from(table.querySelectorAll('col')) as HTMLElement[];
-    expect(colEls.map((c) => c.style.width)).toEqual(['120px', '80px', '240px']);
-    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(true);
-  });
-
-  it('falls back to no explicit widths when the metadata is invalid (column-count mismatch)', () => {
-    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80"}';
-    const view = mountView(doc);
-
-    const table = view.dom.querySelector('table')!;
-    const colEls = table.querySelectorAll('col');
-    for (const col of colEls) {
-      expect((col as HTMLElement).style.width).toBe('');
-    }
-    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(false);
-  });
-
-  it('rebuilds the widget (new <colgroup> widths) when only the attribute line changes, not the table body', () => {
-    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80,240"}';
-    const view = mountView(doc);
-    const attrStart = doc.indexOf('{table-col-widths');
-    const attrEnd = doc.length;
-
-    view.dispatch({ changes: { from: attrStart, to: attrEnd, insert: '{table-col-widths="120,80,500"}' } });
-
-    const colEls = Array.from(view.dom.querySelectorAll('col')) as HTMLElement[];
-    expect(colEls.map((c) => c.style.width)).toEqual(['120px', '80px', '500px']);
-  });
-});
-
-describe('tableWidgetField/TableWidget — cell activation preserves horizontal scroll position (no snap back to 0)', () => {
-  const WIDE_TABLE = '| A | B | C | D |\n| --- | --- | --- | --- |\n| 1111 | 2222 | 3333 | 4444 |';
-
-  function mousedown(el: Element): void {
-    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  }
-
-  /**
-   * `TableWidget.destroy()` schedules lifecycle scroll restoration with
-   * `requestAnimationFrame()`. A microtask is not sufficient: it runs
-   * before the next animation frame, so reading `scrollLeft` after only
-   * `Promise.resolve()` observes the fresh scrollport's default zero.
-   * Wait for the same animation-frame boundary used by production.
-   */
-  async function flushPendingScrollRestore(): Promise<void> {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  }
-
-  it('clicking a cell while horizontally scrolled preserves scrollLeft', async () => {
-    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
-    const controller = new TableActiveCellController();
-    const view = mountView(doc, controller);
-    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    scrollEl.scrollLeft = 500;
-
-    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
-    const cell = tableEl.tBodies[0]!.rows[0]!.cells[1]!;
-    mousedown(cell);
-
-    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    expect(freshScroll).not.toBe(scrollEl); // proves a genuine rebuild happened — not a no-op assertion
-    await flushPendingScrollRestore();
-    expect(freshScroll.scrollLeft).toBe(500);
-  });
-
-  it('clicking a header cell while horizontally scrolled preserves scrollLeft', async () => {
-    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
-    const controller = new TableActiveCellController();
-    const view = mountView(doc, controller);
-    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    scrollEl.scrollLeft = 500;
-
-    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
-    const headerCell = tableEl.tHead!.rows[0]!.cells[2]!;
-    mousedown(headerCell);
-
-    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    expect(freshScroll).not.toBe(scrollEl);
-    await flushPendingScrollRestore();
-    expect(freshScroll.scrollLeft).toBe(500);
-  });
-
-  it('clicking a body cell near the right edge preserves scroll position', async () => {
-    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
-    const controller = new TableActiveCellController();
-    const view = mountView(doc, controller);
-    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    scrollEl.scrollLeft = 750; // near the max, right edge already visible
-
-    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
-    const lastColumnCell = tableEl.tBodies[0]!.rows[0]!.cells[3]!;
-    mousedown(lastColumnCell);
-
-    await flushPendingScrollRestore();
-    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    expect(freshScroll.scrollLeft).toBe(750);
-  });
-
-  /**
-   * Regression coverage for the right-edge jerk — the *sequencing* itself,
-   * not a geometry formula (there is no `maxScrollLeft` calculation left
-   * to test; `restoreScrollLeftAfterPositioning` is a plain assignment).
-   * Two prior, purely-arithmetic fix attempts were each confirmed live to
-   * fail at the true right edge for two different reasons: reading
-   * `table.getBoundingClientRect().width` alone structurally excludes the
-   * last column's own resize-hit overhang, and reading `scroll.scrollWidth`
-   * (or even a fixed compensation added to the table width) still gets
-   * silently clamped short by the *browser's own* native `scrollLeft`
-   * setter, because the resize-hit strips' own position — the thing that
-   * actually gives the container its true scrollable extent — isn't set
-   * until `positionBoundaries()` itself runs, deferred to this file's own
-   * pre-existing `queueMicrotask()`. This test asserts the restoration
-   * literally cannot have happened yet immediately after `mousedown()`
-   * (the fresh scroll container sits at its own untouched default `0`) and
-   * only appears once that same microtask has actually had a chance to
-   * run — proving the fix's whole premise: correctness here is about
-   * *when* the write happens, not what it computes.
-   */
-  it('the captured scroll position is not restored until after positionBoundaries() has run, then survives exactly', async () => {
-    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
-    const controller = new TableActiveCellController();
-    const view = mountView(doc, controller);
-    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    scrollEl.scrollLeft = 917; // an arbitrary, exact position — nothing here should round or clamp it
-
-    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
-    const lastColumnCell = tableEl.tBodies[0]!.rows[0]!.cells[3]!;
-    mousedown(lastColumnCell);
-
-    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    expect(freshScroll).not.toBe(scrollEl);
-    // Not yet — the queued restoration hasn't run at this synchronous point.
-    expect(freshScroll.scrollLeft).toBe(0);
-
-    await flushPendingScrollRestore();
-    // Restored exactly, unclamped — no formula, no rounding.
-    expect(freshScroll.scrollLeft).toBe(917);
-  });
-
-  it('activation still focuses the nested editor and mounts it in the clicked cell, independent of scroll restoration timing', async () => {
-    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
-    const controller = new TableActiveCellController();
-    const view = mountView(doc, controller);
-    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
-    scrollEl.scrollLeft = 500;
-
-    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
-    const cell = tableEl.tBodies[0]!.rows[0]!.cells[1]!;
-    mousedown(cell);
-
-    // Focus/mount happen synchronously inside `controller.activate()`,
-    // well before the deferred scroll restoration — asserted before any
-    // microtask flush, to prove the two are genuinely independent.
-    expect(controller.activeAnchor).not.toBeNull();
-    expect(controller.nestedView).not.toBeNull();
-    const freshCell = (view.dom.querySelector('table') as HTMLTableElement).tBodies[0]!.rows[0]!.cells[1]!;
-    expect(freshCell.contains(controller.nestedView!.dom)).toBe(true);
-
-    await flushPendingScrollRestore();
-    expect(freshCell.contains(controller.nestedView!.dom)).toBe(true);
-  });
-});
-
 describe('tableWidgetField — rendered projection survives structural history', () => {
   const HISTORY_TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Sam | Engineer |';
 
@@ -1129,9 +948,8 @@ describe('tableWidgetField — rendered projection survives structural history',
       // user performs separate handle-menu actions.
       for (let i = 0; i < 3; i += 1) {
         // Match the actual quick-add-column path: append after the final
-        // header column, do not change the selected column, and preserve
-        // measured widths in the same transaction.
-        expect(insertColumnRightSelection(view, { kind: 'column', tableFrom: 0, columnIndex: 8 + i }, false, true)).toBe(true);
+        // header column and do not change the selected column.
+        expect(insertColumnRightSelection(view, { kind: 'column', tableFrom: 0, columnIndex: 8 + i }, false)).toBe(true);
         expectBothParsersAndProjection(10 + i);
         view.dispatch({ annotations: isolateHistory.of('full') });
       }
@@ -1150,12 +968,11 @@ describe('tableWidgetField — rendered projection survives structural history',
     }
   });
 
-  it('keeps column counts and persisted widths in sync across rapid insertions, individual undo and redo', () => {
+  it('keeps column counts in sync across rapid insertions, individual undo and redo', () => {
     const doc = [
       '| Name | Role | City |',
       '| --- | --- | --- |',
       '| Vik | Designer | Chennai |',
-      '{table-col-widths="240,240,240"}',
     ].join('\n');
     const view = mountHistoryView(doc, true);
 
@@ -1163,10 +980,7 @@ describe('tableWidgetField — rendered projection survives structural history',
       expect(findAllTables(view.state)).toHaveLength(1);
       expectTableProjection(view, 2, columns);
 
-      const widthLine = view.state.doc.toString().split('\n').find((line) => line.startsWith('{table-col-widths='));
-      expect(widthLine).toBeDefined();
-      const widths = widthLine?.replace('{table-col-widths="', '').replace('"}', '').split(',').map(Number);
-      expect(widths).toEqual([240, 240, 240, ...Array.from({ length: columns - 3 }, () => 200)]);
+      expect(view.state.doc.toString()).not.toContain('table-col-widths');
     };
 
     try {
