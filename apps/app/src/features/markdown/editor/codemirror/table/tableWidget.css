@@ -367,9 +367,9 @@
   pointer-events: none;
 }
 
-/* Table width is the prose width clamped by the column bounds. The
- * scrollport extends into the existing page gutter for the positioned
- * controls and handle padding, which do not affect cell sizing. */
+/* Tables fill the prose column within the column bounds. When minimum
+ * column widths exceed it, the scrollport can extend to the right within
+ * the actual page pane, without widening the editor or other blocks. */
 .cm-editor .cm-table-wrapper--auto-widths {
   --cm-table-column-min: 110px;
   --cm-table-column-max: 420px;
@@ -383,16 +383,14 @@
   --cm-table-add-row-space: calc(var(--cm-table-add-size) + var(--cm-table-add-gap));
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
-  /* One reservation for all controls: handle clearance on the leading
-   * edges, add-column space plus clearance on the right, and add-row
-   * space below. The border-box expansion offsets the inline padding
-   * exactly, so the content box remains the editor's prose width.
-   * Negative leading margins keep the table aligned with prose. */
+  /* One reservation for all controls. The border-box expansion offsets
+   * the inline padding, keeping the table aligned with ordinary prose. */
   --cm-table-handle-gutter: 8px;
-  box-sizing: border-box;
-  --cm-table-scroll-width: calc(
-    100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space)
+  --cm-table-inline-clearance: calc(
+    2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space)
   );
+  --cm-table-scroll-width: calc(100% + var(--cm-table-inline-clearance));
+  box-sizing: border-box;
   width: var(--cm-table-scroll-width);
   max-width: var(--cm-table-scroll-width);
   padding-inline-start: var(--cm-table-handle-gutter);
@@ -405,10 +403,23 @@
   margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
   overflow-x: auto;
 }
+/* Outside the page pane (e.g. an isolated editor), keep the original
+ * prose-width scrollport fallback. Inside the centred page, the distance
+ * from the prose's left edge to the page's right edge is (page + prose)/2.
+ * The leading negative gutter margin gives the same amount of clearance
+ * at the page's right edge. The baseline width still fits narrow panes. */
+@container clutter-page (min-width: 0px) {
+  .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
+    width: calc(
+      max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) +
+        var(--cm-table-inline-clearance)
+    );
+    max-width: max(var(--cm-table-scroll-width), calc((100cqw + 100%) / 2));
+  }
+}
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
-  /* The scrollport content box is already the available prose width.
-   * Absolute add tracks remain anchored to the actual table and contribute
-   * scrollable overflow when the minimum column widths exceed that width. */
+  /* The expanded scrollport content box now shows more of the minimum
+   * width table before native horizontal overflow is needed. */
   width: clamp(
     calc(var(--cm-table-column-count) * var(--cm-table-column-min)),
     100%,
