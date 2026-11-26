@@ -1,107 +1,10 @@
-import type { EditorView } from '@codemirror/view';
 
 import './tableHandleOverlay.css';
-import { getRootSelectionCollapse, tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { createColumnDragGhost, createRowDragGhost, hideColumnSourceContent, hideRowSourceContent, type DragGhost } from './tableDragGhost';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
-import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
-import { tableSelectionChanged } from './tableSelection';
 import { OVERLAY_CLASS as SELECTION_OVERLAY_CLASS, VISIBLE_CLASS as SELECTION_OVERLAY_VISIBLE_CLASS } from './tableSelectionOverlay';
 
-/**
- * Column/row selection-handle wiring — **one physical DOM handle per
- * column, one per row**, each with a permanent structural identity, not a
- * single shared/repositioned pair and not one instance duplicated into
- * every cell.
- *
- * - A column's handle lives in that column's own header cell
- *   (`<thead> > tr > th`) — `columnIndex` is simply "which `<th>` this is,"
- *   never separately tracked or persisted.
- * - A row's handle lives in that row's own first cell (`row.children[0]`,
- *   a `<th>` for the header row, a `<td>` for every body row) — `rowIndex`
- *   is simply "which row this cell's own row is" (native `<tr>.rowIndex`,
- *   header + body combined), same convention every other row-indexed
- *   concept in this feature already uses.
- * - The top-left cell therefore owns both: it is column 0's own header
- *   cell *and* row 0's own first cell.
- * - The header row participates in row selection like any other row
- *   (`TableSelection`'s own `row` kind doc comment already establishes
- *   this; nothing here special-cases it away).
- *
- * Because each handle's identity is a pure function of *where it lives* in
- * the table, nothing needs to persist across a rebuild to keep a selected
- * handle correctly anchored: after `TableWidget.toDOM()` rebuilds, the
- * fresh header cell for column N simply creates column N's handle again,
- * in the same structural place it always lives. There is no "which cell
- * was this column selected from" question to answer, and therefore no
- * extra state needed beyond `TableSelection` itself.
- *
- * **Multiple hover locations, one physical handle.** Hovering *any* cell in
- * column 2 (not just the header) still shows column 2's own single handle
- * — the one living in the header — exactly like hovering any cell in row 3
- * shows row 3's own single handle living in its first cell. This is a
- * lookup by index into a fixed, already-existing element, not a
- * repositioning of a shared element and not a hover-time creation.
- *
- * **Drag-to-reorder** (`resolveColumnTargetIndex`/`resolveRowTargetIndex`,
- * `commitDrag`, the drop-indicator positioning) is unchanged from the
- * previous shared-overlay design — still transient, local closure state
- * (`dragSession`) with zero CM6 involvement until `pointerup`, for the same
- * "a mid-drag dispatch would tear down the very DOM this gesture is
- * manipulating" reason. The only change is where a drag's own `startIndex`
- * comes from: previously a hover-tracked `currentColumnIndex`/
- * `currentRowIndex` variable, now resolved directly from which handle's
- * own hit element was pressed (`resolveHoveredCell`, reused for this too).
- *
- * **Drag ghost** (`tableDragGhost.ts`) — a separate, additional visual
- * layer around this same drag session, not a parallel drag system. Neither
- * the ghost nor the source-hiding it pairs with is created at `pointerdown`
- * time (the *visuals* stay untouched by a plain click, the same discipline
- * `tableColumnResizeHandle.ts`'s own `materializeDrag` already establishes
- * for column resize) — both materialize only once `session.dragging`
- * actually flips `true`, i.e. the drag threshold has genuinely been crossed
- * (`materializeDragVisuals`). The ghost's own `update()` is called from the
- * same `handlePointerMove` that already re-measures
- * `resolveColumnTargetIndex`/`resolveRowTargetIndex` and repositions the
- * drop indicator — one pointer-move handler, three independent visual
- * updates, never conflated (see `tableDragGhost.ts`'s own top doc comment
- * for why they stay three separate DOM concerns).
- *
- * **Selection model — there is only one `TableSelection`, ever.** Pressing
- * a handle (`pointerdown`, not `click`) unconditionally makes that
- * row/column *the* selection right then, replacing whatever was selected
- * before (a range, a different row/column, nothing) — before this module
- * even knows whether a drag will follow. There is no `previousSelection` to
- * restore and no separate selection for the ghost: a drag session's own
- * `startIndex` simply *is* the already-current selection's index, and the
- * ghost is only that same selection's visual, relocated, while the
- * structural handle/overlay at its normal location is suppressed for the
- * gesture's duration (`materializeDragVisuals`/`cleanupDragVisuals`).
- * Concretely: `commitDrag`'s no-move branch dispatches nothing (there is
- * nothing left to select — pointerdown already did it), and
- * `handlePointerCancel` never restores an old selection (there isn't
- * one to restore) — it just re-shows the *same* row/column's ordinary
- * handle/overlay once the drag visuals are torn down.
- *
- * Dispatching this early has one real consequence worth naming:
- * `TableWidget.eq()` compares `selectedColumnIndex`/`selectedRowIndex`, so
- * a *genuine* selection change (pressing a different row/column than
- * whatever was selected before) rebuilds the whole widget — a fresh
- * `attachTableHandleOverlay()` call, fresh `wrapper`, mid-gesture, before
- * this module even knows a drag is coming. `pendingDragResumeByTableFrom`
- * (module-level, keyed by `tableFrom` — the same "smuggle state across one
- * rebuild" handoff now provided by the table-widget lifecycle) is how
- * the gesture survives that: the pointerdown handler
- * records `{axis, startIndex, startClientX, startClientY}` there
- * immediately before dispatching, and *exactly one* of two places
- * consumes it synchronously afterward — either the fresh instance's own
- * setup (if the dispatch really did rebuild), or this same handler's own
- * post-dispatch check (if `eq()` reported no change at all, e.g. this
- * handle's row/column was already the sole selection) — whichever runs
- * first genuinely exists. Either way `startDragSession` ends up called
- * exactly once, against whichever `wrapper` is now actually live.
- */
-
+/** One handle per row/column; the engine owns selection and mutations. Drag visuals and geometry are local to this mounted wrapper. */
 const VISIBLE_CLASS = 'cm-table-handle-visible';
 
 /**
@@ -124,17 +27,6 @@ const DRAGGING_ACTIVE_CLASS = 'cm-table-dragging-active';
 
 /** Minimum pointer travel, in CSS pixels along the gesture's own axis (vertical for a row handle, horizontal for a column handle), before a press is treated as a drag rather than an eventual click. Small enough to feel immediate, large enough that an ordinary imprecise click never accidentally starts a drag. */
 const DRAG_THRESHOLD_PX = 4;
-
-/** What a pointerdown needs to hand a reorder drag *after* its own immediate selection dispatch — see this file's own top doc comment, "Selection model," for why a rebuild can land in between and why this is keyed by `tableFrom` rather than held in a local variable. */
-interface PendingDragResume {
-  readonly axis: 'row' | 'column';
-  readonly startIndex: number;
-  readonly startClientX: number;
-  readonly startClientY: number;
-}
-
-/** Module-level, not per-instance — the whole point is surviving the boundary between one `attachTableHandleOverlay` instance and the next. At most one entry is ever live per `tableFrom` at a time: set immediately before the pointerdown handler's own selection dispatch, consumed synchronously afterward by whichever of the two possible readers (this file's own top doc comment) actually runs. */
-const pendingDragResumeByTableFrom = new Map<number, PendingDragResume>();
 
 export interface HoveredCellInfo {
   readonly columnIndex: number;
@@ -284,14 +176,9 @@ export interface EngineHandleAdapter {
 
 export function attachTableHandleOverlay(
   wrapper: HTMLElement,
-  _columnCount: number,
-  view: EditorView,
-  controller: TableActiveCellController | null,
   tableFrom: number,
-  selectedColumnIndex: number | null,
-  selectedRowIndex: number | null,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
-  engine?: EngineHandleAdapter,
+  engine: EngineHandleAdapter,
 ): () => void {
   const listeners = new AbortController();
   const options = { signal: listeners.signal };
@@ -366,12 +253,12 @@ export function attachTableHandleOverlay(
   }
 
   function selectedColumnFallback(): HandlePair | null {
-    const index = engine ? engine.selected('column') : selectedColumnIndex;
+    const index = engine.selected('column');
     return index !== null ? columnHandlePair(index) : null;
   }
 
   function selectedRowFallback(): HandlePair | null {
-    const index = engine ? engine.selected('row') : selectedRowIndex;
+    const index = engine.selected('row');
     return index !== null ? rowHandlePair(index) : null;
   }
 
@@ -408,7 +295,7 @@ export function attachTableHandleOverlay(
     setVisibleColumn(selectedColumnFallback());
     setVisibleRow(selectedRowFallback());
   }, options);
-  if (engine) wrapper.addEventListener('table-engine-selection', () => {
+  wrapper.addEventListener('table-engine-selection', () => {
     if (dragHoverSuppressed) return;
     setVisibleColumn(selectedColumnFallback());
     setVisibleRow(selectedRowFallback());
@@ -699,12 +586,7 @@ export function attachTableHandleOverlay(
     if (targetIndex === startIndex) {
       return;
     }
-    if (engine) { engine.move(axis, startIndex, targetIndex); return; }
-    const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
-    const moved = axis === 'row' ? moveSelectedRowToIndex(view, selection, targetIndex) : moveSelectedColumnToIndex(view, selection, targetIndex);
-    if (moved) {
-      view.focus();
-    }
+    engine.move(axis, startIndex, targetIndex);
   }
 
   function handlePointerMove(event: PointerEvent): void {
@@ -718,7 +600,6 @@ export function attachTableHandleOverlay(
         return;
       }
       session.dragging = true;
-      controller?.deactivate();
       materializeDragVisuals(session, event);
     }
     // See `DragTargetResolution`'s own doc comment for what each of the
@@ -786,9 +667,8 @@ export function attachTableHandleOverlay(
     // still always cleans up regardless of outcome.
     // Stable engine cells survive a move: restore hidden source before painting
     // the new revision, rather than restoring old visual state onto new data.
-    if (engine) cleanupDragVisuals(session);
+    cleanupDragVisuals(session);
     commitDrag(session.axis, session.startIndex, session.targetIndex);
-    if (!engine) cleanupDragVisuals(session);
   }
 
   function handlePointerCancel(): void {
@@ -820,20 +700,8 @@ export function attachTableHandleOverlay(
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
     document.addEventListener('pointercancel', handlePointerCancel);
-    if (engine) {
-      document.addEventListener('keydown', cancelOnEscape);
-      wrapper.ownerDocument.defaultView?.addEventListener('blur', handlePointerCancel);
-    }
-  }
-
-  /** Consumes this exact `tableFrom`'s own pending drag-resume entry, if one is still there, and starts tracking it against *this* instance's own (now-live) `wrapper` — see this file's own top doc comment, "Selection model," for why at most one of two possible call sites ever actually finds an entry here. */
-  function resumePendingDragIfMine(): void {
-    const pending = pendingDragResumeByTableFrom.get(tableFrom);
-    if (!pending) {
-      return;
-    }
-    pendingDragResumeByTableFrom.delete(tableFrom);
-    startDragSession(pending.axis, pending.startIndex, pending.startClientX, pending.startClientY);
+    document.addEventListener('keydown', cancelOnEscape);
+    wrapper.ownerDocument.defaultView?.addEventListener('blur', handlePointerCancel);
   }
 
   // ---------------------------------------------------------------------
@@ -900,30 +768,9 @@ export function attachTableHandleOverlay(
       return;
     }
     const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
-    if (engine) {
-      pe.preventDefault(); pe.stopPropagation();
-      if (engine.select(axis, startIndex)) startDragSession(axis, startIndex, pe.clientX, pe.clientY);
-      return;
-    }
-    const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
-    controller?.deactivate();
-    // The outgoing TableWidget captures its scroll position in destroy().
-    // Selection handles therefore need no separate scroll bookkeeping.
-    // Set *before* dispatching — a rebuild this dispatch triggers runs
-    // synchronously, inside `dispatch()`, and its own fresh
-    // `attachTableHandleOverlay` call may already consume this entry before
-    // `dispatch()` even returns below.
-    pendingDragResumeByTableFrom.set(tableFrom, { axis, startIndex, startClientX: pe.clientX, startClientY: pe.clientY });
-    view.dispatch({
-      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
-      ...getRootSelectionCollapse(view),
-    });
-    view.focus();
-    // Still here only if the dispatch above did *not* rebuild this widget
-    // (`TableWidget.eq()` reported no change — this handle's row/column was
-    // already the sole selection) — this exact closure/`wrapper` is still
-    // the live one, so resume tracking the possible drag right here.
-    resumePendingDragIfMine();
+    pe.preventDefault();
+    pe.stopPropagation();
+    if (engine.select(axis, startIndex)) startDragSession(axis, startIndex, pe.clientX, pe.clientY);
   }, options);
 
   // Menu opening is coordinated with the drag session's document-level
@@ -939,12 +786,6 @@ export function attachTableHandleOverlay(
   setVisibleColumn(selectedColumnFallback());
   setVisibleRow(selectedRowFallback());
 
-  // If this exact `tableFrom`'s own pointerdown handler just dispatched a
-  // selection change that rebuilt the widget, its own pending drag-resume
-  // entry is still there — this fresh instance's own `wrapper` is now the
-  // live one, so pick the drag session back up here (this file's own top
-  // doc comment, "Selection model," has the full reasoning).
-  if (!engine) resumePendingDragIfMine();
   return () => {
     handlePointerCancel();
     listeners.abort();
