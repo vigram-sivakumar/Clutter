@@ -1179,6 +1179,58 @@ describe('engine visual and formatting parity (M10a candidate)', () => {
     expect(nested.state.doc.toString()).toBe('Vik');
     expect(nested.dom.parentElement).toBe(wrapperOf(cell));
   });
+  it.each([
+    ['**bold**', 'bold', 'tok-strong'],
+    ['*italic*', 'italic', 'tok-emphasis'],
+    ['~~strike~~', 'strike', 'tok-strike'],
+    ['==highlight==', 'highlight', 'tok-highlight'],
+    ['`code`', 'code', 'tok-code'],
+  ])('reuses prose Live Preview for %s within an active cell', (formatted, label, className) => {
+    const text = 'Before ' + formatted + ' after';
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, false);
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    expect(cell.querySelector('.' + className)?.textContent).toBe(label);
+    clickCell(cell.parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    const before = undoDepth(view.state);
+    const originalSelection = view.state.selection;
+    const inside = text.indexOf(label) + 1;
+
+    nested.dispatch({ selection: { anchor: 1 } });
+    expect(nested.contentDOM.textContent).toBe('Before ' + label + ' after');
+    expect(nested.contentDOM.querySelector('.' + className)?.textContent).toBe(label);
+    nested.dispatch({ selection: { anchor: inside } });
+    expect(nested.contentDOM.textContent).toBe(text);
+    expect(nested.contentDOM.querySelector('.' + className)).toBeNull();
+    // Prose deliberately reveals at either source boundary too.
+    nested.dispatch({ selection: { anchor: text.indexOf(formatted) + formatted.length } });
+    expect(nested.contentDOM.textContent).toBe(text);
+    nested.dispatch({ selection: { anchor: text.length } });
+    expect(nested.contentDOM.textContent).toBe('Before ' + label + ' after');
+    expect(nested.contentDOM.querySelector('.' + className)?.textContent).toBe(label);
+    expect(nested.state.doc.toString()).toBe(text);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(view.state.selection.eq(originalSelection)).toBe(true);
+    expect(undoDepth(view.state)).toBe(before);
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
+    view.plugin(tableCellEditor)!.close();
+    expect(nested.dom.isConnected).toBe(false);
+    expect(cell.querySelector('.' + className)?.textContent).toBe(label);
+  });
+
+  it('keeps heading styling out of an active table cell', () => {
+    const source = TABLE.replace('Vik', '# **word** after');
+    const view = mount(source, false);
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    clickCell(cell.parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: nested.state.doc.length } });
+    expect(nested.contentDOM.querySelector('.tok-heading1')).toBeNull();
+    expect(nested.contentDOM.querySelector('.tok-strong')?.textContent).toBe('word');
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
   it('applies existing inline format shortcuts in the nested editor and commits to root history', () => {
     const view = mount(TABLE, false);
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
