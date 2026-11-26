@@ -129,10 +129,10 @@ describe('renderMarkdownBlocks — block mapping', () => {
     expect(headers[1]!.style.textAlign).toBe('right');
   });
 
-  it('does not leak a table\'s {table-col-widths} attribute line as a paragraph', () => {
+  it('renders brace-shaped text following a table as an ordinary paragraph', () => {
     const root = renderBlocks('| A |\n|---|\n| 1 |\n\n{table-col-widths="200"}\n\nafter');
 
-    expect([...root.querySelectorAll('p')].map((p) => p.textContent)).toEqual(['after']);
+    expect([...root.querySelectorAll('p')].map((p) => p.textContent)).toEqual(['{table-col-widths="200"}', 'after']);
   });
 
   it('maps horizontal rules, including labeled variants, to separators', () => {
