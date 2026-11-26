@@ -1,5 +1,5 @@
 import { EditorState, Facet, Transaction } from '@codemirror/state';
-import { tableActiveCellChanged, type TableActiveCellController } from '../table/tableActiveCellController';
+import { tableActiveCellChanged } from '../table/tableActiveCellController';
 import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import type { PasteAssets } from '../paste/assetPaste';
@@ -22,10 +22,8 @@ import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
 
-/** Temporary migration bridge: only the compatibility renderer uses the
- * legacy controller. The supported projection still owns all its edits. */
+/** Dependencies of the table editor. */
 export const tableEngineIntegration = Facet.define<{
-  readonly compatibilityController?: TableActiveCellController;
   readonly getPasteAssets?: () => PasteAssets | undefined;
 }>();
 
@@ -137,14 +135,10 @@ export class TableCellEditor {
     this.close();
   };
 
-  private releaseCompatibility(): void {
-    const legacy = this.root.state.facet(tableEngineIntegration)[0]?.compatibilityController;
+  private clearRootTableInteraction(): void {
     const selection = this.root.state.field(tableSelectionField, false);
     const armed = this.root.state.field(tableDeletionSelectionField, false) ?? null;
-    if (!legacy?.activeAnchor && !selection && armed === null) return;
-    legacy?.deactivate();
-    // Clear legacy selection/active decoration before the new host takes focus.
-    // This is a source-neutral transition, not a second history entry.
+    if (!selection && armed === null) return;
     this.root.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null), tableDeletionSelectionChanged.of(null)] });
   }
 
@@ -208,7 +202,7 @@ export class TableCellEditor {
   private select(tableFrom: number, interaction: TableInteraction, preventScroll = false): boolean {
     const cell = focusCell(interaction);
     if (!cell || !isValidCell(cell, this.shape(tableFrom))) return false;
-    this.releaseCompatibility();
+    this.clearRootTableInteraction();
     const host = this.hostAt(tableFrom, cell);
     if (!host) return false;
     this.close();
@@ -309,7 +303,7 @@ export class TableCellEditor {
   structural(tableFrom: number, command: Extract<TableCommand, { kind: 'insertRow' | 'deleteRow' | 'duplicateRow' | 'insertColumn' | 'deleteColumn' | 'duplicateColumn' }>, quick = false): boolean {
     if (this.root.state.readOnly) return false;
     try {
-      this.releaseCompatibility();
+      this.clearRootTableInteraction();
       const shape = this.shape(tableFrom);
       const row = command.kind === 'insertRow' || command.kind === 'deleteRow' || command.kind === 'duplicateRow';
       const count = row ? shape.rows : shape.cols;
@@ -613,7 +607,7 @@ export class TableCellEditor {
 
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
-    this.releaseCompatibility();
+    this.clearRootTableInteraction();
     host = this.hostAt(tableFrom, cell) ?? host;
     this.close();
     let snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
