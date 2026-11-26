@@ -5,7 +5,7 @@ import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 
 import type { SyntaxNode } from '@lezer/common';
 
-import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
+import { projectableTableSnapshot } from '../table-engine/tableModel';
 import { TableProjection } from '../table-engine/tableProjection';
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
@@ -265,22 +265,18 @@ function buildTableDecorations(
   const source = (readOnlyProjection || editableProjection) && tables.length ? state.doc.toString() : null;
   for (const table of tables) {
     if (source !== null) {
-      try {
-        const snapshot = snapshotFromTableNode(source, table.node);
-        // Editable projection owns its full source, including valid width
-        // metadata. Leaving a concealed paragraph outside the widget gives
-        // the native selection/undo system a second editable landing site.
-        const to = editableProjection ? snapshot.to : table.to;
-        const selected = (editableProjection && state.field(tableDeletionSelectionField, false) === table.from) ||
-          tableIntersectsSelectionRange(state.selection.main, { ...table, to });
-        const widget = new TableProjection(snapshot, selected, editableProjection, getOnTableHandleMenuChange);
-        ranges.push(Decoration.replace({ widget, block: true }).range(table.from, to));
-        continue;
-      } catch (error) {
-        // Imported tables outside the engine's domain retain their existing renderer.
-        if (!(error instanceof TableEngineError)) throw error;
-      }
+      const snapshot = projectableTableSnapshot(source, table.node);
+      // Unsupported Markdown stays in the root editor. Never mount a second
+      // table renderer or conceal source that the engine cannot represent.
+      if (!snapshot) continue;
+      const to = snapshot.to;
+      const selected = (editableProjection && state.field(tableDeletionSelectionField, false) === table.from) ||
+        tableIntersectsSelectionRange(state.selection.main, { ...table, to });
+      const widget = new TableProjection(snapshot, selected, editableProjection, getOnTableHandleMenuChange);
+      ranges.push(Decoration.replace({ widget, block: true }).range(table.from, to));
+      continue;
     }
+    // Temporary isolated legacy test harness only; never used by the app.
     const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange, editableProjection || readOnlyProjection);
     if (range) {
       ranges.push(range);
