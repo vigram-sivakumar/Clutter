@@ -350,7 +350,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
-    tableColumnWidthsConcealment(engineCells),
+    ...(!readOnly && !engineCells ? [tableColumnWidthsConcealment()] : []),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
     // reads this field on every rebuild via `state.field(...)`, which
@@ -410,7 +410,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // are already blocked entirely, so `tableActivationNormalization()`/
     // `tableRectangularNormalization()` are never installed here to race
     // against). See `tableRootSelectionSnap.ts`'s own doc comment.
-    return { before: [], rendering, table, after: [tableRootSelectionSnap()] };
+    return { before: [], rendering, table, after: [tableRootSelectionSnap(true)] };
   }
 
   const before: Extension[] = [
