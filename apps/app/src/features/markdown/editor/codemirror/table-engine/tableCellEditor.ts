@@ -7,7 +7,8 @@ import type { GetTagSuggestions } from '../tag/tagSuggestion';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import { tableAtCaret } from '../table/tableRootSelectionSnap';
 import type { PasteAssets } from '../paste/assetPaste';
-import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
+import { drawSelection, EditorView, keymap, tooltips, ViewPlugin } from '@codemirror/view';
+import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -153,6 +154,9 @@ export class TableCellEditor {
 
   private outsideClick = (event: MouseEvent): void => {
     const target = event.target;
+    // The active cell's CM6 tooltip lives outside the scrollport. Its
+    // mousedown must reach CM6's option handler before outside dismissal.
+    if (target instanceof Node && this.nested && completionPopupDOM(this.nested)?.contains(target)) return;
     // Table whitespace and borders share the controller's dismissal path.
     const widget = target instanceof Element
       ? target.closest<HTMLElement>('[data-table-engine-cells="true"]') : null;
@@ -813,6 +817,9 @@ export class TableCellEditor {
         // WikiLink suggestions stay disabled until alias writes and indexing
         // share a validated table-escaping contract; embeds are excluded.
         semanticCompletion(() => undefined, this.root.state.facet(tableEngineIntegration)[0]?.getTagSuggestions),
+        // CM6 owns the external tooltip container, theme, positioning and
+        // disposal. Preserve table overflow and the shared tooltipSpace.
+        tooltips({ parent: this.root.dom.ownerDocument.body }),
         tagAutocomplete(),
         dateAutocomplete(),
         Prec.low(keymap.of([
