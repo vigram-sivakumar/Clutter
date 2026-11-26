@@ -4,9 +4,8 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { TableActiveCellController } from './tableActiveCellController';
+import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
 import { tableBoundaryNavigation } from './tableBoundaryNavigation';
-import { tableCellNavigation } from './tableCellNavigation';
 import { findEnclosingTable } from './tableGeometry';
 import { tableWidgetDecoration } from './tableWidgetField';
 
@@ -25,21 +24,19 @@ afterEach(() => {
  * of the *rendered* DOM (there is no click event to read it from), so a
  * test that never actually renders the widget could not exercise it.
  */
-function mountRootView(doc: string, pos: number): { view: EditorView; controller: TableActiveCellController } {
-  const controller = new TableActiveCellController();
+function mountRootView(doc: string, pos: number): { view: EditorView; controller: TableCellEditor } {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
     state: EditorState.create({
       doc,
       selection: EditorSelection.cursor(pos),
-      extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableBoundaryNavigation(controller)],
+      extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true), tableBoundaryNavigation()],
     }),
     parent,
   });
-  controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
   mountedViews.push(view);
-  return { view, controller };
+  return { view, controller: view.plugin(tableCellEditor)! };
 }
 
 function dispatchKey(view: EditorView, key: string): void {
@@ -55,9 +52,9 @@ describe('tableBoundaryNavigation — ArrowDown enters the table from the line d
 
     dispatchKey(view, 'ArrowDown');
 
-    expect(controller.nestedView).not.toBeNull();
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
-    expect(controller.nestedView!.state.selection.main.head).toBe(0);
+    expect(controller.nested).not.toBeNull();
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
   });
 
   it('does not intercept when a blank line separates the cursor from the table (not genuinely adjacent)', () => {
@@ -66,7 +63,7 @@ describe('tableBoundaryNavigation — ArrowDown enters the table from the line d
 
     dispatchKey(view, 'ArrowDown');
 
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
   });
 
   it('does not intercept when the cursor is nowhere near a table', () => {
@@ -74,7 +71,7 @@ describe('tableBoundaryNavigation — ArrowDown enters the table from the line d
 
     dispatchKey(view, 'ArrowDown');
 
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
   });
 });
 
@@ -95,9 +92,9 @@ describe('tableBoundaryNavigation — ArrowUp enters the table from the line dir
 
     dispatchKey(view, 'ArrowUp');
 
-    expect(controller.nestedView).not.toBeNull();
-    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
-    expect(controller.nestedView!.state.selection.main.head).toBe(0);
+    expect(controller.nested).not.toBeNull();
+    expect(controller.nested!.state.doc.toString()).toBe('Vik');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
   });
 
   it('does not intercept when the cursor is not genuinely adjacent to the table (an extra blank line further down)', () => {
@@ -106,7 +103,7 @@ describe('tableBoundaryNavigation — ArrowUp enters the table from the line dir
 
     dispatchKey(view, 'ArrowUp');
 
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
   });
 });
 
@@ -115,24 +112,24 @@ describe('tableBoundaryNavigation — vertical movement continues through table 
     const doc = 'Above.\n' + TABLE;
     const { view, controller } = mountRootView(doc, 'Above.'.length);
     dispatchKey(view, 'ArrowDown'); // enters header, column 0 ("Name")
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
 
-    dispatchKey(controller.nestedView!, 'ArrowDown');
+    dispatchKey(controller.nested!, 'ArrowDown');
 
     // Row 1 is the delimiter row — not navigable — so same-column ArrowDown
     // lands on row 2, the first real data row ("Vik").
-    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(controller.nested!.state.doc.toString()).toBe('Vik');
   });
 
   it('ArrowUp from the entered last row moves up through rows toward the header', () => {
     const doc = TABLE + '\n';
     const { view, controller } = mountRootView(doc, doc.length);
     dispatchKey(view, 'ArrowUp'); // enters last row, column 0 ("Vik")
-    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(controller.nested!.state.doc.toString()).toBe('Vik');
 
-    dispatchKey(controller.nestedView!, 'ArrowUp');
+    dispatchKey(controller.nested!, 'ArrowUp');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
   });
 });
 
@@ -144,7 +141,7 @@ describe('tableBoundaryNavigation — invariant: the root selection never resolv
 
     dispatchKey(view, 'ArrowDown');
 
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
     const table = findEnclosingTable(view.state, view.state.doc.length - 1)!;
     const head = view.state.selection.main.head;
     expect(head < table.from || head >= table.to).toBe(true);
@@ -157,7 +154,7 @@ describe('tableBoundaryNavigation — invariant: the root selection never resolv
 
     dispatchKey(view, 'ArrowUp');
 
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
     const table = findEnclosingTable(view.state, 0)!;
     const head = view.state.selection.main.head;
     expect(head < table.from || head >= table.to).toBe(true);
@@ -188,11 +185,11 @@ describe('tableBoundaryNavigation + tableCellNavigation — exiting re-renders t
     const doc = 'Above.\n' + TABLE;
     const { view, controller } = mountRootView(doc, 'Above.'.length);
     dispatchKey(view, 'ArrowDown'); // enter the header's first cell ("Name")
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
 
-    dispatchKey(controller.nestedView!, 'ArrowUp'); // exit back above
+    dispatchKey(controller.nested!, 'ArrowUp'); // exit back above
 
-    expect(controller.activeAnchor).toBeNull();
+    expect(controller.nested).toBeNull();
     const widgetText = view.dom.querySelector('.cm-table-widget')?.textContent;
     expect(widgetText).toContain('Name');
     expect(widgetText).toContain('Role');
@@ -202,11 +199,11 @@ describe('tableBoundaryNavigation + tableCellNavigation — exiting re-renders t
     const doc = TABLE + '\n';
     const { view, controller } = mountRootView(doc, doc.length);
     dispatchKey(view, 'ArrowUp'); // enter the last row's first cell ("Vik")
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
 
-    dispatchKey(controller.nestedView!, 'ArrowDown'); // exit below
+    dispatchKey(controller.nested!, 'ArrowDown'); // exit below
 
-    expect(controller.activeAnchor).toBeNull();
+    expect(controller.nested).toBeNull();
     const widgetText = view.dom.querySelector('.cm-table-widget')?.textContent;
     expect(widgetText).toContain('Vik');
     expect(widgetText).toContain('Designer');
@@ -216,9 +213,9 @@ describe('tableBoundaryNavigation + tableCellNavigation — exiting re-renders t
     const doc = 'Above.\n' + TABLE;
     const { view, controller } = mountRootView(doc, 'Above.'.length);
     dispatchKey(view, 'ArrowDown');
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
 
-    dispatchKey(controller.nestedView!, 'ArrowUp');
+    dispatchKey(controller.nested!, 'ArrowUp');
 
     expect(view.hasFocus).toBe(true);
   });
@@ -231,9 +228,9 @@ describe('tableBoundaryNavigation — ArrowRight enters the table from the end o
 
     dispatchKey(view, 'ArrowRight');
 
-    expect(controller.nestedView).not.toBeNull();
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
-    expect(controller.nestedView!.state.selection.main.head).toBe(0);
+    expect(controller.nested).not.toBeNull();
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
   });
 
   it('does not intercept when the cursor is not at the very end of the line', () => {
@@ -246,7 +243,7 @@ describe('tableBoundaryNavigation — ArrowRight enters the table from the end o
     // real app), so declining here means the keypress is simply a no-op,
     // not "some other handler moved the cursor" — the only thing this
     // test needs to prove is that *this* module didn't intercept it.
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
     expect(view.state.selection.main.head).toBe(3);
   });
 
@@ -256,7 +253,7 @@ describe('tableBoundaryNavigation — ArrowRight enters the table from the end o
 
     dispatchKey(view, 'ArrowRight');
 
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
   });
 
   it('regression: no longer jumps to document position 0 (the originally reported bug)', () => {
@@ -265,7 +262,7 @@ describe('tableBoundaryNavigation — ArrowRight enters the table from the end o
 
     dispatchKey(view, 'ArrowRight');
 
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
     // Root's own selection is untouched by activation (see the invariant
     // block below) — it's still sitting right where the user left it,
     // never relocated to 0.
@@ -281,7 +278,7 @@ describe('tableBoundaryNavigation — ArrowLeft enters the table from the start 
   // a ragged one-cell row, so that "line" is never genuinely reachable
   // root-editor territory to begin with — confirmed directly (a first
   // draft of this test, using bare "Below the table." text with no blank
-  // line, found `controller.nestedView` stayed null: the table's own
+  // line, found `controller.nested` stayed null: the table's own
   // `.to` had silently absorbed that whole line, so it was never actually
   // "the line directly below the table" this module looks for).
   it('activates the last row\'s last (bottom-right) cell, landing at its content end', () => {
@@ -290,9 +287,9 @@ describe('tableBoundaryNavigation — ArrowLeft enters the table from the start 
 
     dispatchKey(view, 'ArrowLeft');
 
-    expect(controller.nestedView).not.toBeNull();
-    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
-    expect(controller.nestedView!.state.selection.main.head).toBe('Designer'.length);
+    expect(controller.nested).not.toBeNull();
+    expect(controller.nested!.state.doc.toString()).toBe('Designer');
+    expect(controller.nested!.state.selection.main.head).toBe('Designer'.length);
   });
 
   it('does not intercept when the cursor is not at the very start of the line', () => {
@@ -304,7 +301,7 @@ describe('tableBoundaryNavigation — ArrowLeft enters the table from the start 
 
     // No defaultKeymap in this bare harness (see the ArrowRight block's
     // own equivalent test) — declining is a no-op, not a moved cursor.
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
     expect(view.state.selection.main.head).toBe(belowStart + 3);
   });
 
@@ -315,7 +312,7 @@ describe('tableBoundaryNavigation — ArrowLeft enters the table from the start 
 
     dispatchKey(view, 'ArrowLeft');
 
-    expect(controller.nestedView).toBeNull();
+    expect(controller.nested).toBeNull();
   });
 });
 
@@ -327,7 +324,7 @@ describe('tableBoundaryNavigation — invariant: ArrowRight/ArrowLeft entry neve
 
     dispatchKey(view, 'ArrowRight');
 
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
     const table = findEnclosingTable(view.state, view.state.doc.length - 1)!;
     const head = view.state.selection.main.head;
     expect(head < table.from || head >= table.to).toBe(true);
@@ -340,7 +337,7 @@ describe('tableBoundaryNavigation — invariant: ArrowRight/ArrowLeft entry neve
 
     dispatchKey(view, 'ArrowLeft');
 
-    expect(controller.nestedView).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
     const table = findEnclosingTable(view.state, 0)!;
     const head = view.state.selection.main.head;
     expect(head < table.from || head >= table.to).toBe(true);
@@ -362,32 +359,32 @@ describe('tableBoundaryNavigation — all four entry directions land where docum
     const doc = 'Above the table.\n' + TABLE;
     const { view, controller } = mountRootView(doc, 'Above the table.'.length);
     dispatchKey(view, 'ArrowRight');
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
     // Entry lands at content *start* (`Name`'s own position 0) — move the
     // nested caret to its own end first, matching `moveOrExit`'s own
     // "only intercepted at the cell's genuine boundary" gate (the second
     // ArrowRight here is testing cell-to-cell continuation, not proving
     // it fires from an arbitrary mid-cell position, which is a distinct,
     // already-covered case in tableCellNavigation.test.ts).
-    controller.nestedView!.dispatch({ selection: { anchor: 'Name'.length } });
+    controller.nested!.dispatch({ selection: { anchor: 'Name'.length } });
 
-    dispatchKey(controller.nestedView!, 'ArrowRight');
+    dispatchKey(controller.nested!, 'ArrowRight');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('Role');
+    expect(controller.nested!.state.doc.toString()).toBe('Role');
   });
 
   it('ArrowLeft-entry (bottom-right) then ArrowLeft cell-to-cell reaches the last row\'s first column', () => {
     const doc = TABLE + '\n';
     const { view, controller } = mountRootView(doc, doc.length);
     dispatchKey(view, 'ArrowLeft');
-    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
+    expect(controller.nested!.state.doc.toString()).toBe('Designer');
     // Entry lands at content *end* — move the nested caret to its own
     // start first, so the follow-up ArrowLeft is genuinely at that cell's
     // boundary (see the ArrowRight case above for why).
-    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+    controller.nested!.dispatch({ selection: { anchor: 0 } });
 
-    dispatchKey(controller.nestedView!, 'ArrowLeft');
+    dispatchKey(controller.nested!, 'ArrowLeft');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(controller.nested!.state.doc.toString()).toBe('Vik');
   });
 });
