@@ -509,7 +509,15 @@ describe('engine staged structural commands (M8 candidate)', () => {
   });
   it('undoes and redoes mixed cell and structural history using consecutive keyboard events', () => {
     const view = mountHistory();
-    view.dispatch({ effects: StateEffect.appendConfig.of(keymap.of(historyKeymap)) });
+    // jsdom does not reliably report the host OS to CodeMirror. Its default
+    // redo binding is Mod-y outside macOS/Linux, whereas this scenario
+    // deliberately sends Ctrl-Shift-Z from both the table and the root.
+    // Bind that exact synthetic chord in the harness, not the application.
+    view.dispatch({ effects: StateEffect.appendConfig.of(keymap.of([
+      { key: 'Ctrl-z', run: undo, preventDefault: true },
+      { key: 'Ctrl-Shift-z', run: redo, preventDefault: true },
+      ...historyKeymap,
+    ])) });
     clickCell(findCell(view, 'Vik'));
     const nested = view.plugin(tableCellEditor)!.nested!;
     nested.dispatch({ changes: { from: 3, insert: '!' }, userEvent: 'input.type' });
@@ -534,6 +542,8 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(redoDepth(view.state)).toBe(3);
     press(true); expect(view.state.doc.toString()).toBe(edited);
     press(true); expect(view.state.doc.toString()).toBe(row);
+    expect(redoDepth(view.state)).toBe(1);
+    expect(document.activeElement).toBe(view.contentDOM);
     press(true); expect(view.state.doc.toString()).toBe(col);
     expect(redoDepth(view.state)).toBe(0);
   });
