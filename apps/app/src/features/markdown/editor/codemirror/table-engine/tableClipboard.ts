@@ -2,7 +2,7 @@ import { selectionBounds, type TableInteraction } from './tableInteraction';
 import { TableEngineError, type TableModel } from './tableModel';
 import type { TableCommand } from './tableCommands';
 
-/** Preserve compatibility with Clutter's own raw-Markdown clipboard format. */
+/** Clutter's current raw-Markdown clipboard format. */
 export const TABLE_MIME = 'application/x-clutter-table';
 export type Grid = readonly (readonly string[])[];
 type ClipboardReader = Pick<DataTransfer, 'getData'>;
@@ -125,7 +125,18 @@ export function readHtmlGrid(html: string): string[][] | null {
  * In selected-cell mode plain non-tabular text is a scalar, never guessed
  * into multiple rows. Active text editing retains normal single-text paste.
  */
-export function readGrid(data: ClipboardReader, allowScalar: boolean): string[][] | null {
+export interface ClipboardGrid {
+  readonly source: 'internal' | 'html' | 'text';
+  readonly grid: string[][];
+}
+
+/** Root paste excludes indented blocks and mixed prose from spreadsheet detection. */
+function rootTabularText(text: string): boolean {
+  const lines = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n');
+  return lines.every(line => line.includes('\t')) && !lines.every(line => line.startsWith('\t'));
+}
+
+export function readClipboardGrid(data: ClipboardReader, allowScalar: boolean, root = false): ClipboardGrid | null {
   const internal = data.getData(TABLE_MIME);
   if (internal) {
     let parsed: unknown;
@@ -135,17 +146,21 @@ export function readGrid(data: ClipboardReader, allowScalar: boolean): string[][
     }
     const grid = rectangular(parsed.rows);
     if (grid.some(row => row.some(cell => /[\r\n]/.test(cell)))) throw new TableEngineError('Invalid multiline Markdown clipboard cell');
-    return grid;
+    return { source: 'internal', grid };
   }
   const html = data.getData('text/html');
   if (html) {
     const grid = readHtmlGrid(html);
-    if (grid) return grid.map(row => row.map(cell => externalCell(cell)));
+    if (grid) return { source: 'html', grid: grid.map(row => row.map(cell => externalCell(cell))) };
   }
   const text = data.getData('text/plain');
-  if (text.includes('\t')) return parseTsv(text).map(row => row.map(cell => externalCell(cell)));
-  if (allowScalar && text !== '') return [[externalCell(text)]];
+  if (text.includes('\t') && (!root || rootTabularText(text))) return { source: 'text', grid: parseTsv(text).map(row => row.map(cell => externalCell(cell))) };
+  if (allowScalar && text !== '') return { source: 'text', grid: [[externalCell(text)]] };
   return null;
+}
+
+export function readGrid(data: ClipboardReader, allowScalar: boolean): string[][] | null {
+  return readClipboardGrid(data, allowScalar)?.grid ?? null;
 }
 
 export function pasteSelectedCommand(model: TableModel, interaction: TableInteraction, grid: Grid): TableCommand | null {
