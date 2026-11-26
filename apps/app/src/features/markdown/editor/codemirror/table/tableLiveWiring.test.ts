@@ -530,7 +530,11 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(undoDepth(view.state)).toBe(3);
     const press = (shiftKey = false) => {
       document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', {
-        key: shiftKey ? 'Z' : 'z', code: 'KeyZ', ctrlKey: true, shiftKey, bubbles: true, cancelable: true,
+        // CM6 resolves a modified uppercase character to its unshifted
+        // binding via base[event.keyCode]. A real Z key supplies 90;
+        // a synthetic event with only code: 'KeyZ' defaults to zero.
+        key: shiftKey ? 'Z' : 'z', code: 'KeyZ', keyCode: 90,
+        ctrlKey: true, shiftKey, bubbles: true, cancelable: true,
       }));
     };
     press(); expect(view.state.doc.toString()).toBe(row);
