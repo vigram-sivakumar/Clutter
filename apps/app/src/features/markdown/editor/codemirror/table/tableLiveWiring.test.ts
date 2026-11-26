@@ -1128,6 +1128,14 @@ describe('table live wiring — read-only (note embed) table', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'Mira'));
   });
 
+  it('conceals recognised invalid width values in read-only projection without changing source', () => {
+    const doc = TABLE + '\n{table-col-widths="bad"}';
+    const view = mount(doc, true);
+    expect(view.dom.querySelector('[data-cell="1,0"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('table-col-widths');
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
   it('projects overflow cells in the read-only engine without dropping source', () => {
     const doc = '| Name | Role |\n| --- | --- |\n| A | B | C |';
     const view = mount(doc, true);
