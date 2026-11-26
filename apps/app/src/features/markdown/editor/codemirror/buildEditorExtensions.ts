@@ -66,24 +66,14 @@ import type { GetEmbedSuggestions } from './embed/embedSuggestion';
 import type { GetHeadingSuggestions } from './completionPopup/headingCompletion';
 import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry';
 import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
-import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
-import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './table/tableHandleMenuSync';
-import { tableHandleMenuSync } from './table/tableHandleMenuSync';
-import { tableRangeSelectionKeyboard } from './table/tableRangeSelectionKeyboard';
-import { tableRangeClipboard } from './table/tableRangeClipboard';
-import { tableRangeSelectionTyping } from './table/tableRangeSelectionTyping';
 import { externalPasteNormalization } from './paste/externalPaste';
 import type { PasteAssets } from './paste/assetPaste';
 import { pasteRouting } from './paste/pasteRouting';
-import { tableRectangularNormalization } from './table/tableRectangularNormalization';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
-import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
-import { tableSelectionClearKeymap } from './table/tableSelectionClear';
-import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
@@ -180,8 +170,6 @@ export interface BuildEditorExtensionsOptions {
    * a note embed needs.
    */
   readonly readOnly: boolean;
-  /** Explicit legacy-only test harness override; app routing always uses the engine. */
-  readonly tableEngineCells?: boolean;
   /**
    * Cycle/depth-protection state for recursive note embeds
    * (`noteEmbedAncestry.ts`) — defaults to `ROOT_ANCESTRY` for the
@@ -209,22 +197,7 @@ export interface BuildEditorExtensionsOptions {
    * hostPageId` doc comment for why there is no safe default.
    */
   readonly hostPageId: string;
-  /**
-   * The table active-cell controller (Architecture E, ADR-034 —
-   * docs/table-implementation-plan.md, M5) — `undefined` for the
-   * top-level editor's very first render before its controller ref is
-   * populated, and *always* omitted for a note embed's own read-only
-   * nested view. Consulted only when `readOnly` is `false`: a read-only
-   * table still renders as a real `<table>` (`tableWidgetDecoration()` is
-   * in the always-included `rendering` array below, unconditionally),
-   * but never gets a controller to activate a cell with, so it never
-   * gets a click handler either — the same "omit the capability
-   * entirely" gate every other editing-only extension in this factory
-   * already uses, extended here rather than a second gating mechanism
-   * (§9/Cross-check's own "never a nested `EditorView` for a read-only
-   * embed" requirement).
-   */
-  readonly getTableActiveCellController?: () => TableActiveCellController | undefined;
+
 }
 
 /**
@@ -276,16 +249,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     maxEmbedDepth,
     getFoldStateStore,
     hostPageId,
-    getTableActiveCellController,
   } = options;
-
-  // `undefined` for a read-only table (a note embed) regardless of what
-  // `getTableActiveCellController` itself would return — the `!readOnly`
-  // gate is enforced here, once, rather than trusting every call site to
-  // pass the option correctly. `tableWidgetDecoration()` still renders a
-  // real `<table>` either way (below, unconditional); only activation
-  // capability is withheld.
-  const tableActiveCellController = readOnly || options.tableEngineCells !== false ? undefined : getTableActiveCellController?.();
 
   const rendering: Extension[] = [
     markdownLanguageExtension(),
@@ -343,146 +307,32 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     urlMouseHandlers(),
   ];
 
-  // Supported tables use the production engine in every editable app view.
-  // Explicit false remains only for isolated legacy characterization tests.
-  const engineCells = !readOnly && (options.tableEngineCells ?? true);
   const table: Extension[] = [
-    ...(engineCells ? [tableEngineIntegration.of({ getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
-    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
-    // Always installed alongside `tableWidgetDecoration()` (unconditional,
-    // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
-    // reads this field on every rebuild via `state.field(...)`, which
-    // requires the field to be present in the config even for a read-only
-    // note embed (whose value there just always stays `null`, since only
-    // `tableWholeDeletionKeymap()` below — editable-only — ever writes to
-    // it). See `tableDeletionSelection.ts`'s own doc comment.
+    ...(!readOnly ? [
+      tableEngineIntegration.of({ getPasteAssets }),
+      tableCellEditor,
+      tableSelectionHistory,
+      EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory()),
+      tableBoundaryNavigation(),
+    ] : []),
+    tableWidgetDecoration(undefined, () => onOpenTableHandleMenu?.(), readOnly, !readOnly),
     tableDeletionSelectionField,
-    // Unconditional for the identical reason `tableDeletionSelectionField`
-    // above already is — `buildTableWidgetRange` reads it via
-    // `state.field(...)` on every rebuild regardless of `readOnly`, and a
-    // read-only note embed's table never gets a handle overlay to write to
-    // it in the first place (`tableWidget.ts`'s own `if (this.controller)`
-    // gate), so its value there just always stays `null`. See
-    // `tableSelection.ts`'s own doc comment.
+    // Temporary field for isolated old unit suites and migration assertions.
     tableSelectionField,
-    ...(engineCells ? [tableBoundaryNavigation()] : []),
-    ...(tableActiveCellController
-      ? [
-          tableActiveCellReconciliation(tableActiveCellController),
-          // Listed before `tableBoundaryNavigation` — both `Prec.highest`
-          // on the same Arrow keys. This one must win the tie whenever a
-          // `range` `TableSelection` is active (it declines instantly
-          // otherwise, so `tableBoundaryNavigation`'s own line-adjacency
-          // entry keeps working exactly as before for every other case).
-          // See `tableRangeSelectionKeyboard.ts`'s own doc comment.
-          tableRangeSelectionKeyboard(tableActiveCellController),
-          tableBoundaryNavigation(tableActiveCellController),
-          // `domEventHandlers`, not a keymap — see `tableRangeSelectionTyping.ts`'s
-          // own doc comment for why ordinary character typing can't be
-          // caught by a `keymap` the way Tab/Enter/Arrow are above.
-          tableRangeSelectionTyping(tableActiveCellController),
-          // Copy/Cut for a `range` `TableSelection` — grouped here (not
-          // unconditionally) because a `range` selection itself can only
-          // ever be created via a cell drag, which is only wired when
-          // `tableActiveCellController` exists (a read-only note embed's
-          // cells carry no `mousedown` handler at all, `tableWidget.ts`'s
-          // own `if (this.controller)` gate) — this extension doesn't
-          // consume the controller value itself, only the grouping.
-          tableRangeClipboard(),
-        ]
-      : []),
   ];
 
-  if (readOnly) {
-    // No document-changing command has any meaning once
-    // `createEditorView({ readOnly: true })`'s own `blockReadOnlyEdits`
-    // already blocks every doc-changing transaction — omitted here so a
-    // note embed's nested view carries no dead keymap/completion/
-    // normalization machinery, per this milestone's own "keep the
-    // reusable mechanism minimal" instruction, not because any of it
-    // would behave incorrectly if left in. `tableRootSelectionSnap()` is
-    // still added explicitly below — a read-only note embed can still
-    // receive a selection landing inside a rendered table's replaced range
-    // (a click, a drag) even though it can never edit one, so the same
-    // root-selection invariant applies there too. No ordering concern in
-    // this branch: it is the only `transactionFilter` present (paste/edits
-    // are already blocked entirely, so `tableActivationNormalization()`/
-    // `tableRectangularNormalization()` are never installed here to race
-    // against). See `tableRootSelectionSnap.ts`'s own doc comment.
-    return { before: [], rendering, table, after: [tableRootSelectionSnap(true)] };
-  }
+  if (readOnly) return { before: [], rendering, table, after: [tableRootSelectionSnap(true)] };
 
   const before: Extension[] = [
-    // Registered *first* among the table `transactionFilter`s — deliberately,
-    // not incidentally. CM6 runs multiple registered `transactionFilter`s in
-    // *reverse* registration order (confirmed against the installed
-    // `@codemirror/state` source), so the first-registered one runs *last*,
-    // seeing `tableActivationNormalization()`'s and
-    // `tableRectangularNormalization()`'s own edits already applied. This
-    // exact ordering fixed a real, confirmed bug: pasting a table whose last
-    // row was ragged left the root caret visibly inside the rendered table
-    // widget, because this filter previously ran *before* those two had
-    // finished shaping the document. See `tableRootSelectionSnap.ts`'s own
-    // doc comment for the full reasoning — do not move this without reading
-    // it first.
-    tableRootSelectionSnap(engineCells),
+    tableRootSelectionSnap(true),
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
-    ...(engineCells ? [] : [tableActivationNormalization()]),
-    // The rectangular-table invariant's own ongoing (not just at-birth)
-    // half — see that module's own top doc comment for why this is
-    // deliberately a separate filter from `tableActivationNormalization()`
-    // above, not an extension of it.
-    ...(engineCells ? [] : [tableRectangularNormalization()]),
-    // The one paste handler: classifies each paste once and runs exactly one strategy (table range, table creation, files, rich HTML) or leaves it to CodeMirror's own paste.
-    // (A selected table range, a new table, files and rich HTML all go through it; the table rows it creates rely on `tableActivationNormalization()`'s terminal-table newline and `tableRootSelectionSnap()` for caret safety.)
     pasteRouting(getPasteAssets ?? (() => undefined)),
-    // Text from outside Clutter is pasted compactly; text Clutter copied or cut is pasted as it was.
     externalPasteNormalization(),
-    // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;
-    // this one must win the tie at the one position they can both match
-    // (an empty first line immediately above a table). See
-    // `emptyLeadingLineDeletion.ts`'s own doc comment.
+    // Leading blank-line deletion takes precedence over whole-table arming.
     emptyLeadingLineDeletion(),
-    // Listed before `tableWholeDeletionKeymap()` — both `Prec.highest` on
-    // Backspace/Delete; mutually exclusive in practice (this one only fires
-    // when a `TableSelection` is active, the other only from a caret
-    // adjacent to a table with none active), but ordered explicitly rather
-    // than left to incidental tie-breaking. Backspace/Delete over a
-    // `TableSelection` now *clears the selected cells' own content*, not a
-    // structural row/column deletion — `tableSelectionDeletion.ts`'s own
-    // `deleteSelectedRow`/`deleteSelectedColumn` stay fully intact for a
-    // future row/column-handle menu to call directly; only their keyboard
-    // wiring moved. See `tableSelectionClear.ts`'s own top doc comment.
-    tableSelectionClearKeymap(),
-    // Registers `tableSelectionChanged`'s own undo/redo inverse with the
-    // `history()` extension installed unconditionally in
-    // `createEditorView.ts` (via `@codemirror/commands`'s `invertedEffects`
-    // facet) — not gated on `tableActiveCellController` because
-    // `tableSelectionClearKeymap()` above isn't either; both are no-ops
-    // without a `TableSelection` to act on. Generic over *which* module
-    // produced the transaction (any transaction with real `changes` plus a
-    // `tableSelectionChanged` effect), so `tableSelectionClearKeymap()`'s
-    // own clear transactions already thread through this same, already-
-    // installed provider — no second history mechanism. See
-    // `tableSelectionDeletionHistory()`'s own doc comment.
-    tableSelectionDeletionHistory(),
-    // Purely a visual side effect (toggles a DOM class read only by CSS) —
-    // never gated on `tableActiveCellController` for the same reason
-    // `tableSelectionClearKeymap()` above isn't: a no-op without a
-    // `TableSelection` to react to either way. See that module's own doc
-    // comment for the full mechanism.
-    tableSelectionCaretVisibility(),
-    // Closes the table handle menu whenever `TableSelection` clears (a
-    // cell click, an outside click) — see `tableHandleMenuSync`'s own doc
-    // comment for why this is a separate, state-driven mechanism from the
-    // discrete open call `tableHandleOverlay.ts`'s own click handlers make
-    // directly. Editable-only, same as `tableSelectionCaretVisibility()`
-    // above — a read-only note embed's table never opens this menu in the
-    // first place.
-    tableHandleMenuSync(() => onOpenTableHandleMenu?.()),
-    tableWholeDeletionKeymap(engineCells),
+    tableWholeDeletionKeymap(true),
     fencedCodeFenceAutoClose(),
     // Editable-only: `MarkdownEditor.tsx`'s `revealRange`/`revealRanges`
     // (Tasks sidebar's "Show in note", Tag collection's "Open note") are
