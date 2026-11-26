@@ -75,8 +75,8 @@
   border-spacing: 0;
 }
 
-/* Only the table determines the inner box's dimensions. The layout
- * reserves the control space separately, including while bars are hidden. */
+/* The layout and inner box match the actual table dimensions.
+ * The scrollport alone reserves clearance for the positioned controls. */
 .cm-editor .cm-table-layout {
   box-sizing: content-box;
   width: 100%;
@@ -383,10 +383,11 @@
   --cm-table-add-row-space: calc(var(--cm-table-add-size) + var(--cm-table-add-gap));
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
-  /* Handles and the selection outline extend beyond cell borders.
-   * overflow-x: auto also clips vertical overflow; padding gives those
-   * visuals room inside the scrollport. The negative margins cancel
-   * the leading inset and the expanded width cancels both side insets. */
+  /* One reservation for all controls: handle clearance on the leading
+   * edges, add-column space plus clearance on the right, and add-row
+   * space below. The border-box expansion offsets the inline padding
+   * exactly, so the content box remains the editor's prose width.
+   * Negative leading margins keep the table aligned with prose. */
   --cm-table-handle-gutter: 8px;
   box-sizing: border-box;
   --cm-table-scroll-width: calc(
@@ -394,23 +395,25 @@
   );
   width: var(--cm-table-scroll-width);
   max-width: var(--cm-table-scroll-width);
-  padding-inline: var(--cm-table-handle-gutter);
+  padding-inline-start: var(--cm-table-handle-gutter);
+  padding-inline-end: calc(
+    var(--cm-table-handle-gutter) + var(--cm-table-add-column-space)
+  );
   padding-block-start: var(--cm-table-handle-gutter);
+  padding-block-end: var(--cm-table-add-row-space);
   margin-inline-start: calc(-1 * var(--cm-table-handle-gutter));
   margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
   overflow-x: auto;
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
-  /* Content-box: padding reserves both controls without shrinking the table.
-   * The inline reservation also makes the rightmost bar scroll into view
-   * when minimum column widths exceed the prose width. */
+  /* The scrollport content box is already the available prose width.
+   * Absolute add tracks remain anchored to the actual table and contribute
+   * scrollable overflow when the minimum column widths exceed that width. */
   width: clamp(
     calc(var(--cm-table-column-count) * var(--cm-table-column-min)),
-    calc(100% - var(--cm-table-add-column-space)),
+    100%,
     calc(var(--cm-table-column-count) * var(--cm-table-column-max))
   );
-  padding-inline-end: var(--cm-table-add-column-space);
-  padding-block-end: var(--cm-table-add-row-space);
 }
 .cm-editor .cm-table-wrapper--auto-widths table {
   table-layout: fixed;
