@@ -38,16 +38,29 @@ describe('table engine minimal cell changes', () => {
 
   it('accepts a trailing space then continued typing without losing raw text', () => {
     const target = setup();
+    let active = cell(target.state);
     for (const next of ['one ', 'one more']) {
-      const before = cell(target.state).text;
-      target.dispatch(createCellTransaction(target.state, start, address, before, diffCellText(before, next), parse)!);
-      expect(cell(target.state).text).toBe(next);
+      target.dispatch(createCellTransaction(target.state, start, address, active.text, diffCellText(active.text, next), parse, 'input.type', undefined, active)!);
+      active = { from: active.from, to: active.from + next.length, text: next };
+      expect(target.state.doc.sliceString(active.from, active.to)).toBe(next);
     }
     expect(undoDepth(target.state)).toBe(1);
     expect(undo(target)).toBe(true);
     expect(target.state.doc.toString()).toBe(doc);
     expect(redo(target)).toBe(true);
     expect(cell(target.state).text).toBe('one more');
+  });
+
+  it('excludes arbitrary source padding on activation without rewriting the source', () => {
+    const source = prefix + '| A    | B  |\n| ---- | -- |\n| one  |    |' + suffix;
+    const snap = readTable(source, start, parse);
+    const one = editableCell(source, snap, address);
+    const empty = editableCell(source, snap, { row: 1, col: 1 });
+    expect(one.text).toBe('one');
+    expect(empty.text).toBe('');
+    const state = EditorState.create({ doc: source });
+    const tr = createCellTransaction(state, start, address, one.text, diffCellText(one.text, 'one!'), parse)!;
+    expect(tr.newDoc.toString()).toBe(source.replace('one  ', 'one!  '));
   });
 
   it('supports an empty canonical cell and refuses stale text', () => {

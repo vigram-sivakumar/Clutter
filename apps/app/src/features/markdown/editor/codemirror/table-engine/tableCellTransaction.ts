@@ -6,19 +6,21 @@ import { modelsEqual, readTable, TableEngineError, type ParseMarkdown, type Tabl
 export interface CellAddress { readonly row: number; readonly col: number }
 export interface EditableCell { readonly from: number; readonly to: number; readonly text: string }
 
-/** Materialised canonical cells reserve one
- * padding space on either side; any additional spaces are editable content.
- * This allows typing a trailing space without losing it to model trimming.
+/** At activation expose the parser-derived content, not source alignment
+ * padding. Markdown cannot distinguish intentional boundary whitespace
+ * from formatting padding once a cell is closed. While editing, retain
+ * the exact mapped active span, including any newly typed spaces.
  */
 export function editableCell(source: string, table: TableSnapshot, address: CellAddress): EditableCell {
   const cell = table.cells[address.row]?.[address.col];
   if (!cell) throw new TableEngineError('Cell needs materialisation before editing');
-  // Canonical cells reserve one padding space at each side. Imported cells
-  // without that pair expose their full source span, preserving typed spaces.
-  const padded = cell.rawTo - cell.rawFrom >= 2 &&
-    source[cell.rawFrom] === ' ' && source[cell.rawTo - 1] === ' ';
-  const from = cell.rawFrom + (padded ? 1 : 0);
-  const to = cell.rawTo - (padded ? 1 : 0);
+  // Whitespace-only cells expose an empty editable document. Place the
+  // insertion point after one leading padding character when available,
+  // leaving the other padding characters outside the active span.
+  const from = cell.from === cell.to
+    ? cell.rawFrom + (cell.rawTo > cell.rawFrom && /\s/.test(source[cell.rawFrom]!) ? 1 : 0)
+    : cell.from;
+  const to = cell.from === cell.to ? from : cell.to;
   return { from, to, text: source.slice(from, to) };
 }
 

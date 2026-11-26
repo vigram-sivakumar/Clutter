@@ -891,6 +891,61 @@ describe('engine visual and formatting parity (M10a candidate)', () => {
   });
 });
 
+describe('engine active-cell arrow and source padding regressions', () => {
+  const press = (nested: EditorView, key: string) => nested.contentDOM.dispatchEvent(
+    new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  it('navigates active editing by arrows, retaining the nested view and exact source', () => {
+    const source = 'Before\n\n' + TABLE + '\n\nAfter';
+    const view = mount(source, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 1 } });
+    press(nested, 'ArrowRight');
+    expect(nested.state.doc.toString()).toBe('Vik');
+    nested.dispatch({ selection: { anchor: 3 } });
+    press(nested, 'ArrowRight');
+    expect(nested.state.doc.toString()).toBe('Designer');
+    expect(nested.state.selection.main.head).toBe(0);
+    press(nested, 'ArrowLeft');
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(nested.state.selection.main.head).toBe(3);
+    press(nested, 'ArrowUp');
+    expect(nested.state.doc.toString()).toBe('Name');
+    expect(nested.state.selection.main.head).toBe(0);
+    press(nested, 'ArrowDown');
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(nested.state.selection.main.head).toBe(0);
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(view.state.doc.toString()).toBe(source);
+    press(nested, 'ArrowDown');
+    expect(nested.dom.isConnected).toBe(false);
+    expect(view.hasFocus).toBe(true);
+    expect(view.state.selection.main.head).toBe(source.indexOf('\n\nAfter') + 1);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('does not expose alignment padding on cell activation and preserves newly typed spaces while active', () => {
+    const source = '| Name | Role     |\n| ---- | -------- |\n| Vik  | Designer |\n|      |          |';
+    const view = mount(source, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(nested.state.doc.toString()).toBe('Vik');
+    nested.dispatch({ changes: { from: 3, insert: ' ' } });
+    expect(nested.state.doc.toString()).toBe('Vik ');
+    nested.dispatch({ changes: { from: 4, insert: 'more' } });
+    expect(nested.state.doc.toString()).toBe('Vik more');
+    expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  '));
+    const blank = view.dom.querySelector<HTMLElement>('[data-cell="2,0"]')!;
+    blank.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(nested.state.doc.toString()).toBe('');
+    expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  '));
+    nested.dispatch({ changes: { from: 0, insert: 'x' } });
+    expect(nested.state.doc.toString()).toBe('x');
+    expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  ').replace('|      |', '| x     |'));
+  });
+});
+
 describe('engine editable cell projection', () => {
   it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
     const view = mount(TABLE, false, undefined, true);

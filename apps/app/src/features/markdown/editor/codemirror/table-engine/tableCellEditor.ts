@@ -9,7 +9,7 @@ import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { readTable, TableEngineError } from './tableModel';
-import { createTableTransaction } from './tableTransaction';
+import { createTableTransaction, validatedRootEdit } from './tableTransaction';
 import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
@@ -195,6 +195,53 @@ export class TableCellEditor {
     const anchor = backwards ? Math.max(0, snapshot.from - 1) :
       Math.min(this.root.state.doc.length, snapshot.to + 1);
     this.root.dispatch({ selection: { anchor }, scrollIntoView: true });
+    this.root.focus();
+    return true;
+  }
+
+  /** Restore legacy active-cell arrow semantics without changing the
+   * accepted caret-free selection and Tab behaviour. */
+  private navigateEditingArrow(direction: Direction): boolean {
+    if (!this.active || !this.nested || this.nested.composing) return false;
+    const { tableFrom, cell } = this.active;
+    const sel = this.nested.state.selection.main;
+    const horizontal = direction === 'left' || direction === 'right';
+    const backwards = direction === 'left' || direction === 'up';
+    if (horizontal && (!sel.empty || sel.head !== (backwards ? 0 : this.nested.state.doc.length))) return false;
+    if (!sel.empty) return false;
+    const shape = this.shape(tableFrom);
+    const next = horizontal
+      ? focusCell(tabInteraction(this.interaction, shape, backwards))
+      : { row: cell.row + (backwards ? -1 : 1), col: cell.col };
+    if (next && isValidCell(next, shape)) {
+      this.cancelDrag();
+      return this.enterCell(tableFrom, next, direction === 'left' ? 'end' : 'start');
+    }
+    const snapshot = this.snapshot(tableFrom);
+    // At the first document position there is no preceding text line.
+    if (backwards && snapshot.from === 0) return true;
+    const mark = bookmark(tableFrom, this.interaction);
+    const end = snapshot.to;
+    if (!backwards && end === this.root.state.doc.length) {
+      // Same legacy EOF exit: create an ordinary line below the table.
+      // Preflight it through the root filter and history pipeline.
+      try {
+        const tr = validatedRootEdit(this.root.state, { from: end, insert: '\n' },
+          this.root.state.doc.toString() + '\n', 'input.table.exit', true,
+          tableSelectionTransition.of({ before: mark, after: null }),
+          { selection: { anchor: end + 1 }, scrollIntoView: true });
+        this.cancelDrag();
+        this.close();
+        this.root.dispatch(tr);
+      } catch (error) {
+        if (!(error instanceof TableEngineError)) throw error;
+        return true;
+      }
+    } else {
+      this.cancelDrag();
+      this.close();
+      this.root.dispatch({ selection: { anchor: backwards ? snapshot.from - 1 : end + 1 }, scrollIntoView: true });
+    }
     this.root.focus();
     return true;
   }
@@ -596,6 +643,10 @@ export class TableCellEditor {
           { key: 'Tab', run: () => this.navigateTab(false) },
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
           { key: 'Escape', run: () => this.exitEdit() },
+          { key: 'ArrowLeft', run: () => this.navigateEditingArrow('left') },
+          { key: 'ArrowRight', run: () => this.navigateEditingArrow('right') },
+          { key: 'ArrowUp', run: () => this.navigateEditingArrow('up') },
+          { key: 'ArrowDown', run: () => this.navigateEditingArrow('down') },
           ...defaultKeymap,
         ]),
       ],
