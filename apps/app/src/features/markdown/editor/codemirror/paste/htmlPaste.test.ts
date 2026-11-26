@@ -9,6 +9,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PasteAssets } from './assetPaste';
 import { pasteRouting } from './pasteRouting';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
+import { tableSelectionHistory } from '../table-engine/tableSelectionHistory';
 import { decodeDataImage, hasRichHtml, htmlToPieces } from './htmlToMarkdown';
 
 // 1x1 transparent PNG, and a different one (so "same bytes" and "different bytes" are both real).
@@ -21,7 +23,7 @@ function mount(doc: string, assets: PasteAssets | undefined, cursor = doc.length
     state: EditorState.create({
       doc,
       selection: { anchor: cursor },
-      extensions: [markdown({ extensions: GFM }), pasteRouting(() => assets), history()],
+      extensions: [markdown({ extensions: GFM }), tableCellEditor, tableSelectionHistory, pasteRouting(() => assets), history()],
     }),
     parent,
   });
