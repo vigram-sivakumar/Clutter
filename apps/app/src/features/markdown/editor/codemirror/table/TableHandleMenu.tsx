@@ -5,7 +5,7 @@ import { OverflowMenuBody } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 
 import type { TableColumnAlignment } from './tableAlignment';
-import { TABLE_HANDLE_MENU_CLASS } from './tableSelection';
+import { TABLE_HANDLE_MENU_CLASS } from './tableHandleMenuSync';
 import type { TableHandleMenuSelection } from './tableHandleMenuSync';
 
 export interface TableHandleMenuAnchor {
