@@ -165,8 +165,18 @@ export function tableRootSelectionSnap(): Extension {
     // include its full source span, preserving the drag direction.
     if (!tr.docChanged && !tr.startState.readOnly && tr.isUserEvent('select.pointer')) {
       if (collapsed) {
+        // A point alone cannot distinguish a click on surrounding whitespace
+        // from a table hit. Never convert a collapsed pointer to a selection.
         const table = tableAtCaret(tr.state, range.head);
-        if (table) return [tr, { selection: EditorSelection.single(table.from, table.to), sequential: true }];
+        if (table) {
+          const before = table.from > 0 ? table.from - 1 : null;
+          const after = table.to < tr.newDoc.length ? table.to + 1 : null;
+          const anchor = [range.head >= table.to ? after : before, range.head >= table.to ? before : after]
+            .find(pos => pos !== null && !tableAtCaret(tr.state, pos));
+          if (anchor !== undefined && anchor !== null) {
+            return [tr, { selection: EditorSelection.cursor(anchor), sequential: true }];
+          }
+        }
       } else {
         const lower = tableAtCaret(tr.state, range.from);
         const upper = tableAtCaret(tr.state, range.to);
