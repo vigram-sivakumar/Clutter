@@ -22,6 +22,44 @@
   width: 100%;
   max-width: 100%;
 }
+/* The wrapper already owns an absolute-positioning context. Decorative
+ * strips follow the measured scrollport edges, not the narrower prose width
+ * or the scrolling content. They never add layout or receive pointer input. */
+.cm-editor .cm-table-wrapper::before,
+.cm-editor .cm-table-wrapper::after {
+  content: '';
+  position: absolute;
+  top: var(--cm-table-fade-top, 0px);
+  height: var(--cm-table-fade-height, 0px);
+  width: min(16px, var(--cm-table-fade-viewport-width, 0px));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 6;
+}
+.cm-editor .cm-table-wrapper::before {
+  left: var(--cm-table-fade-left, 0px);
+  background: linear-gradient(to right, var(--cm-table-fade-surface, var(--surface-primary)), transparent);
+}
+.cm-editor .cm-table-wrapper::after {
+  left: var(--cm-table-fade-right, 0px);
+  transform: translateX(-100%);
+  background: linear-gradient(to left, var(--cm-table-fade-surface, var(--surface-primary)), transparent);
+}
+.cm-editor .cm-note-embed .cm-table-wrapper {
+  --cm-table-fade-surface: var(--md-embed-surface);
+}
+.cm-editor .cm-table-wrapper.cm-table-overflow-left::before,
+.cm-editor .cm-table-wrapper.cm-table-overflow-right::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-editor .cm-table-wrapper::before,
+  .cm-editor .cm-table-wrapper::after {
+    transition: none;
+  }
+}
+
 /* The scrollport is the selection overlay's positioning context. */
 .cm-editor .cm-table-scroll {
   overflow: visible;
