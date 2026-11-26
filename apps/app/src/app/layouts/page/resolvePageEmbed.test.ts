@@ -285,14 +285,22 @@ describe('createPageEmbedResolver', () => {
       expect(result).toMatchObject({ icon: 'calendarNote' });
     });
 
-    it('today\'s own daily note gets the "calendarDot" variant instead', () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const page = makePage({ id: 'p1', path: `/vault/${today}.md`, name: today, type: 'daily-note' });
-      const vault = makeVault([page]);
-      const effectivePageState = makeEffectivePageState(() => undefined);
+    it.each([0, 23])('today\'s own daily note gets the "calendarDot" variant at local hour %s', (hour) => {
+      // Exercise both sides of the local day, including UTC date rollover.
+      // Only Date is faked; the resolver must use the local calendar date.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(new Date(2026, 10, 27, hour, 30));
+        const today = '2026-11-27';
+        const page = makePage({ id: 'p1', path: `/vault/${today}.md`, name: today, type: 'daily-note' });
+        const vault = makeVault([page]);
+        const effectivePageState = makeEffectivePageState(() => undefined);
 
-      const result = createPageEmbedResolver(vault, effectivePageState)(today);
-      expect(result).toMatchObject({ icon: 'calendarDot' });
+        const result = createPageEmbedResolver(vault, effectivePageState)(today);
+        expect(result).toMatchObject({ icon: 'calendarDot' });
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("a page's own assigned emoji (durable, no session open) is passed through as emoji, alongside the type's own default icon", () => {
