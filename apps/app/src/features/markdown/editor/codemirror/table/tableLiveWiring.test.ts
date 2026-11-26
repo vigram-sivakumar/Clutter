@@ -399,6 +399,52 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Vik','Va\\|bik'));
     expect(nested.dom.isConnected).toBe(true);
   });
+  it('inserts a copied single cell into the active caret, preserving surrounding text and Markdown', () => {
+    const source = doc.replace('Designer', '**Designer**');
+    const view = mount(source, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(host(view, 1, 1).parentElement!);
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    const { values } = fire(host(view, 1, 1), 'copy');
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 1 } });
+    fire(nested.contentDOM, 'paste', values);
+    expect(nested.state.doc.toString()).toBe('V**Designer**ik');
+    expect(view.state.doc.toString()).toBe(source.replace('Vik', 'V**Designer**ik'));
+    expect(nested.dom.isConnected).toBe(true);
+    expect(nested.state.selection.main.head).toBe('V**Designer**'.length);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it('inserts single-cell HTML and replaces only highlighted text in an active editor', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 1, head: 2 } });
+    fire(nested.contentDOM, 'paste', { 'text/html': '<table><tr><td>X</td></tr></table>', 'text/plain': 'X' });
+    expect(nested.state.doc.toString()).toBe('VXk');
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'VXk'));
+    expect(nested.dom.isConnected).toBe(true);
+  });
+  it('still replaces a caret-free selected cell with a scalar clipboard payload', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(host(view, 1, 0).parentElement!);
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    fire(host(view, 1, 0), 'paste', { 'text/plain': 'New' });
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'New'));
+    expect(selected(view)).toEqual(['1,0']);
+  });
+  it('still fills multiple cells when pasting a grid into an active editor', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 1 } });
+    fire(nested.contentDOM, 'paste', { 'text/plain': 'One\tTwo' });
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'One').replace('Designer', 'Two'));
+    expect(nested.dom.isConnected).toBe(false);
+    expect(selected(view)).toEqual(['1,0']);
+  });
   it('rejects malformed internal data and preserves the selected host and source', () => {
     const view = mount(doc, false, undefined, true);
     selectRange(view);

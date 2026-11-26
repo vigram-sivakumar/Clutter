@@ -200,16 +200,20 @@ export class TableCellEditor {
       consume();
       this.cancelDrag();
       const grid = readGrid(data, !editing);
-      if (!grid) {
-        if (editing && this.nested && this.active) {
-          const text = data.getData('text/plain');
-          if (text !== '') this.nested.dispatch({
-            ...this.nested.state.replaceSelection(externalCell(text, false)),
-            userEvent: 'input.paste',
-          });
-        }
+      // A one-cell clipboard payload is text when a caret is active,
+      // even when the source supplied Clutter MIME or a one-cell HTML
+      // table. Only an actual multi-cell grid replaces cell contents.
+      // In caret-free selection mode a scalar still replaces the cell.
+      if (editing && this.nested && this.active &&
+        (!grid || (grid.length === 1 && grid[0]?.length === 1))) {
+        const text = grid ? grid[0]![0]! : data.getData('text/plain');
+        if (text !== '') this.nested.dispatch({
+          ...this.nested.state.replaceSelection(grid ? text : externalCell(text, false)),
+          userEvent: 'input.paste',
+        });
         return;
       }
+      if (!grid) return;
       const previous = this.interaction;
       const command = pasteSelectedCommand(this.snapshot(from).model, previous, grid);
       if (!command) return;
