@@ -109,4 +109,17 @@ describe('automatic table sizing stylesheet', () => {
     expect(css).not.toContain('cm-table-wrapper--explicit-widths');
     expect(css).not.toContain('table-breakout-max-width');
   });
+  it('suppresses only the original selection and controls during reordering, not the ghost', () => {
+    expect(rule('.cm-editor [data-table-engine-cells="true"] .cm-table-dragging-active > .cm-table-scroll > .cm-table-selection-overlay')).toContain('visibility: hidden');
+    expect(css).not.toContain('.cm-table-dragging-active .cm-table-selection-overlay {');
+    const track = rule('.cm-editor .cm-table-dragging-active .cm-table-quick-add-track');
+    expect(track).toContain('visibility: hidden');
+    expect(track).toContain('pointer-events: none');
+    const handleCss = readFileSync(join(__dirname, 'tableHandleOverlay.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
+    const indicator = handleCss.slice(handleCss.lastIndexOf('.cm-table-column-drop-indicator {'));
+    expect(indicator).not.toContain('top: 0');
+    expect(indicator).not.toContain('bottom: 0');
+    expect(handleCss).toMatch(/\.cm-table-wrapper\.cm-table-dragging-active :is\(th, td\) > :is\([^)]*\) \{ display: none;/);
+  });
+
 });
