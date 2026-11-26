@@ -285,7 +285,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   // pass the option correctly. `tableWidgetDecoration()` still renders a
   // real `<table>` either way (below, unconditional); only activation
   // capability is withheld.
-  const tableActiveCellController = readOnly ? undefined : getTableActiveCellController?.();
+  const tableActiveCellController = readOnly || options.tableEngineCells !== false ? undefined : getTableActiveCellController?.();
 
   const rendering: Extension[] = [
     markdownLanguageExtension(),
@@ -347,7 +347,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   // Explicit false remains only for isolated legacy characterization tests.
   const engineCells = !readOnly && (options.tableEngineCells ?? true);
   const table: Extension[] = [
-    ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
+    ...(engineCells ? [tableEngineIntegration.of({ getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
@@ -365,6 +365,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // gate), so its value there just always stays `null`. See
     // `tableSelection.ts`'s own doc comment.
     tableSelectionField,
+    ...(engineCells ? [tableBoundaryNavigation()] : []),
     ...(tableActiveCellController
       ? [
           tableActiveCellReconciliation(tableActiveCellController),
