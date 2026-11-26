@@ -25,6 +25,20 @@ describe('automatic table sizing stylesheet', () => {
     expect(scroll).toContain('padding-bottom: 12px');
   });
 
+  it('allocates the editable add-column track outside the prose width', () => {
+    const base = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
+    expect(base).toContain('width: 100%');
+    expect(base).toContain('padding-inline: var(--cm-table-handle-gutter)');
+    const editable = rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll');
+    expect(editable).toContain('calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
+    expect(editable).toContain('width: var(--cm-table-scroll-width)');
+    expect(editable).toContain('max-width: var(--cm-table-scroll-width)');
+    expect(editable).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
+    const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
+    expect(layout).toContain('100%,');
+    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: calc(100% - var(--cm-table-add-column-space))');
+  });
+
   it('fills the available width with equally distributed bounded columns', () => {
     const wrapper = rule('.cm-editor .cm-table-wrapper--auto-widths');
     expect(wrapper).toContain('--cm-table-column-min: 110px');

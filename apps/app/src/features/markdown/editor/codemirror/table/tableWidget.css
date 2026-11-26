@@ -367,8 +367,9 @@
 }
 
 /* Equal-width columns fill the available scrollport, bounded by 110–420px
- * per column. The layout reserves the quick-add track only for editable
- * tables; overflow below the minimum remains native horizontal scrolling. */
+ * per column. Editable scrollports extend into the existing page gutter
+ * for the quick-add track and handle padding, so neither reduces the
+ * table's prose width. Only excess column width causes horizontal scrolling. */
 .cm-editor .cm-table-wrapper--auto-widths {
   --cm-table-column-min: 110px;
   --cm-table-column-max: 420px;
@@ -384,6 +385,17 @@
   max-width: 100%;
   margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
   overflow-x: auto;
+}
+/* The wrapper stays at prose width. Compensate for both handle gutters
+ * and the additional column track in the scrollport itself, not the
+ * table. The negative start margin aligns the table with ordinary text.
+ * With the current page inset (40px), the 30px track + 8px end gutter
+ * fit without changing the page's horizontal overflow policy. */
+.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll {
+  --cm-table-scroll-width: calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space));
+  width: var(--cm-table-scroll-width);
+  max-width: var(--cm-table-scroll-width);
+  margin-inline-start: calc(-1 * var(--cm-table-handle-gutter));
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
   width: clamp(
