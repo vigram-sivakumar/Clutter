@@ -87,7 +87,6 @@ import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
-import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
 /**
  * Every getter here follows the same "read fresh per rebuild/per click"
@@ -350,7 +349,6 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
-    ...(!readOnly && !engineCells ? [tableColumnWidthsConcealment()] : []),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
     // reads this field on every rebuild via `state.field(...)`, which
