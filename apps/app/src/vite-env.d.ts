@@ -5,10 +5,6 @@
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string>;
 
 interface ImportMetaEnv {
-  /** Development-only opt-in for staged editable tables in native WKWebView. */
-  readonly VITE_CLUTTER_TABLE_ENGINE_CELLS?: '0' | '1';
-  /** Disposable-note root transaction tracing; development only. */
-  readonly VITE_CLUTTER_TABLE_TRACE?: '0' | '1';
   /** Set to 'true' to expose window.__clutter_devtools in dev (see devtools/index.ts). */
   readonly VITE_DEVTOOLS?: string;
   /**

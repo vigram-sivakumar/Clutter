@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
@@ -298,11 +298,8 @@ describe('verified durable body mutations', () => {
 });
 
 
-describe('staged table engine exact-source save policy', () => {
+describe('production table engine exact-source save policy', () => {
   it('uses the real bootstrap policy and preserves table source through multiple durable saves', async () => {
-    vi.stubEnv('DEV', true);
-    vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '1');
-    try {
       const page = buildPage('Before');
       const { fileSystem, vault, documentRegistry, pageOperations } = setup(page, {
         normalizeMarkdownForSave: markdownForTableSave,
@@ -321,13 +318,11 @@ describe('staged table engine exact-source save policy', () => {
         expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(source);
         expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
       }
-    } finally { vi.unstubAllEnvs(); }
   });
 
-  it('retains the historical normalization policy when the flag is off', () => {
-    vi.stubEnv('DEV', true);
-    vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '0');
-    try { expect(markdownForTableSave(COMPACT_TABLE)).toBe(NORMALIZED_TABLE); }
-    finally { vi.unstubAllEnvs(); }
+  it('preserves exact source regardless of padding or table shape', () => {
+    for (const source of [COMPACT_TABLE, NORMALIZED_TABLE, 'Before\n\n' + COMPACT_TABLE + '\n\nAfter']) {
+      expect(markdownForTableSave(source)).toBe(source);
+    }
   });
 });

@@ -593,8 +593,8 @@ function AppShellContent() {
     const isStale = () => ticketRef.current !== ticket;
 
     const prepare = (path: string) =>
-      // The staged engine persists exact Markdown. The unflagged legacy
-      // editor retains its historical save-time normalization until M12.
+      // Persist exact committed Markdown in every runtime; explicit table
+      // formatting is an undoable editor operation, not a save-time rewrite.
       Application.bootstrap(path, markdownForTableSave);
 
     async function commit(prepared: Application): Promise<void> {

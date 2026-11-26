@@ -1688,47 +1688,27 @@ describe('O. code blocks keep pasted text exactly', () => {
 });
 
 
-// The legacy characterization above remains deliberately unflagged. These
-// cases exercise the real React editor with the staged projection enabled.
-describe('M10b — flagged table engine integration in MarkdownEditor', () => {
-  let originalUrl: string;
-  beforeEach(() => {
-    originalUrl = window.location.href;
-    const url = new URL(originalUrl);
-    url.searchParams.set('tableEngineCells', '');
-    window.history.replaceState(null, '', url.href);
-  });
-  afterEach(() => window.history.replaceState(null, '', originalUrl));
-
+// These integration cases now exercise the production default without a
+// URL or environment opt-in. Earlier characterization cases are also
+// deliberately run against the real default; migrate obsolete expectations
+// only after reviewing actual failures, not by silently bypassing the engine.
+describe('M12 — default table engine integration in MarkdownEditor', () => {
   const engineWidgets = (root: EditorView) => root.dom.querySelectorAll<HTMLElement>('[data-table-engine-cells="true"]');
   const assertEngine = (root: EditorView) => {
     expect(root.plugin(tableCellEditor)).not.toBeNull();
     expect(engineWidgets(root).length).toBeGreaterThan(0);
   };
 
-  it('enables staged editable tables using the native development environment opt-in without a URL flag', () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('tableEngineCells');
-    window.history.replaceState(null, '', url.href);
-    try {
-      vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '0');
-      const legacy = render(<MarkdownEditor pageId="native-flag-off" markdown={DOC_TABLE} />);
-      expect(engineWidgets(rootOf(legacy.container))).toHaveLength(0);
-      expect(rootOf(legacy.container).plugin(tableCellEditor)).toBeNull();
-      legacy.unmount();
-      vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '1');
-      const enabled = render(<MarkdownEditor pageId="native-flag-on" markdown={DOC_TABLE} />);
-      assertEngine(rootOf(enabled.container));
-      activateCell(rootOf(enabled.container), 'a1');
-      expect(nestedOf(enabled.container)!.state.doc.toString()).toBe('a1');
-      enabled.unmount();
-      const readonly = render(<MarkdownEditor pageId="native-flag-readonly" markdown={DOC_TABLE} readOnly />);
-      expect(engineWidgets(rootOf(readonly.container))).toHaveLength(0);
-      expect(rootOf(readonly.container).plugin(tableCellEditor)).toBeNull();
-      readonly.unmount();
-    } finally {
-      vi.unstubAllEnvs();
-    }
+  it('enables editable tables by default and excludes editing controls from read-only views', () => {
+    const enabled = render(<MarkdownEditor pageId="default-engine" markdown={DOC_TABLE} />);
+    assertEngine(rootOf(enabled.container));
+    activateCell(rootOf(enabled.container), 'a1');
+    expect(nestedOf(enabled.container)!.state.doc.toString()).toBe('a1');
+    enabled.unmount();
+    const readonly = render(<MarkdownEditor pageId="default-readonly" markdown={DOC_TABLE} readOnly />);
+    expect(engineWidgets(rootOf(readonly.container))).toHaveLength(0);
+    expect(rootOf(readonly.container).plugin(tableCellEditor)).toBeNull();
+    readonly.unmount();
   });
 
   it('enters the engine cell from adjacent root Markdown using the original boundary keymap', () => {

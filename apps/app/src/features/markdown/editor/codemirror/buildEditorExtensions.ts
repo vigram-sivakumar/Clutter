@@ -86,8 +86,6 @@ import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
-import { tableRootTrace } from './table-engine/tableRootTrace';
-import { tableEngineDevEnabled } from './table-engine/tableSavePolicy';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
@@ -183,7 +181,7 @@ export interface BuildEditorExtensionsOptions {
    * a note embed needs.
    */
   readonly readOnly: boolean;
-  /** Staged editable-cell validation while interaction and menu migration continues. */
+  /** Explicit legacy-only test harness override; app routing always uses the engine. */
   readonly tableEngineCells?: boolean;
   /**
    * Cycle/depth-protection state for recursive note embeds
@@ -346,13 +344,11 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     urlMouseHandlers(),
   ];
 
-  // Native Tauri development windows do not need a browser query string.
-  // Keep the environment opt-in development-only; release builds retain
-  // the existing default until the rollout milestone explicitly changes it.
-  const engineCells = !readOnly && (options.tableEngineCells ?? tableEngineDevEnabled());
+  // Supported tables use the production engine in every editable app view.
+  // Explicit false remains only for isolated legacy characterization tests.
+  const engineCells = !readOnly && (options.tableEngineCells ?? true);
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
-    ...(import.meta.env.DEV && import.meta.env.VITE_CLUTTER_TABLE_TRACE === '1' && !readOnly ? [tableRootTrace(engineCells)] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     tableColumnWidthsConcealment(engineCells),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
