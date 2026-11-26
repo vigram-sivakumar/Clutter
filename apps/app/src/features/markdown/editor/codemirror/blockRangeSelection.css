@@ -1,0 +1,34 @@
+/* Document-range paint, independent of table structural selection and
+ * individual embed-object selection. The table's inner box is exactly the
+ * rendered table, not its scroll viewport or reserved add-bar space. */
+.cm-editor .cm-table-widget.cm-block-range-selected
+  > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner {
+  /* The opaque page surface prevents the underlying CodeMirror selection
+   * rectangle from doubling the tint in the part within the prose width. */
+  background-color: var(--surface-primary);
+}
+
+.cm-editor .cm-media-block.cm-block-range-selected {
+  position: relative;
+  isolation: isolate;
+}
+.cm-editor .cm-image-container.cm-block-range-selected {
+  /* Working image containers otherwise have a transparent background. */
+  background-color: var(--surface-primary);
+}
+
+/* One tint on the rendered object, including opaque media and table
+ * headers. Override the object-selection pseudo-element rather than
+ * stacking a second tint if the two states temporarily coexist. */
+.cm-editor .cm-table-widget.cm-block-range-selected
+  > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner::after,
+.cm-editor .cm-media-block.cm-block-range-selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--selection-surface);
+  opacity: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 5;
+}
