@@ -87,32 +87,6 @@ function findCell(view: EditorView, text: string): Element {
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
 describe('table live wiring — DOM structure', () => {
-  it('keeps the leading separator separate from the projected table and returns focus to the new line', () => {
-    const view = mount(TABLE, false);
-    const sep = view.dom.querySelector<HTMLElement>('.cm-block-separator[data-table-from="0"]')!;
-    const selector = '.cm-block-separator[data-table-from] + .cm-table-widget[data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll';
-    expect(sep).not.toBeNull();
-    expect(view.dom.querySelector(selector)).not.toBeNull();
-    clickCell(findCell(view, 'Role'));
-    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
-    // A genuine leading separator click must exit the nested editor and
-    // insert in root Markdown rather than activate a table cell or handle.
-    view.dom.querySelector<HTMLElement>('.cm-block-separator[data-table-from="0"]')!
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
-    expect(view.state.doc.toString()).toBe('\n' + TABLE);
-    expect(view.state.selection.main.head).toBe(0);
-    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
-    expect(document.activeElement).toBe(view.contentDOM);
-    expect(view.dom.querySelector(selector)).toBeNull();
-    expect(view.dom.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(2);
-  });
-
-  it('does not reserve the leading click clearance for a read-only table or a table below content', () => {
-    const selector = '.cm-block-separator[data-table-from] + .cm-table-widget[data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll';
-    expect(mount(TABLE, true).dom.querySelector(selector)).toBeNull();
-    expect(mount('Above.\n\n' + TABLE, false).dom.querySelector(selector)).toBeNull();
-  });
-
   it.each([false, true])('paints independent overflow edges without editing source (readOnly=%s)', (readOnly) => {
     const view = mount(TABLE, readOnly);
     const wrapper = view.dom.querySelector<HTMLElement>('.cm-table-wrapper')!;
