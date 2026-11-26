@@ -218,34 +218,8 @@ describe('tokenizeCompactMarkdown', () => {
       ]);
     });
 
-    describe('the table\'s own {table-col-widths="..."} attribute line (tableColumnWidthMetadata.ts) — never exposed as sidebar text', () => {
-      it('skips the attribute line along with its table when nothing follows it', () => {
-        expect(tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}')).toEqual([]);
-      });
-
-      it('skips the attribute line and selects the real content that follows it after a blank line', () => {
-        expect(
-          tokenizeCompactMarkdown(
-            '| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}\n\nActual content after the metadata'
-          )
-        ).toEqual([{ kind: 'text', value: 'Actual content after the metadata' }]);
-      });
-
-      it('skips just the attribute line when it is glued (no blank line) to real content on the same paragraph', () => {
-        expect(
-          tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}\nActual content immediately after')
-        ).toEqual([{ kind: 'text', value: 'Actual content immediately after' }]);
-      });
-
-      it('does not swallow a malformed/unrelated attribute-shaped paragraph that merely resembles the syntax', () => {
-        expect(
-          tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="bad..."}')
-        ).toEqual([{ kind: 'text', value: '{table-col-widths="bad..."}' }]);
-      });
-
-      it('leaves an ordinary paragraph containing braces completely unaffected, with no table present', () => {
-        expect(tokenizeCompactMarkdown('Some {curly} text')).toEqual([{ kind: 'text', value: 'Some {curly} text' }]);
-      });
+    it('does not treat ordinary brace text following a table as hidden metadata', () => {
+      expect(tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Alex | 31 |\n\n{table-col-widths="360,159"}')).toEqual([{ kind: 'text', value: '{table-col-widths="360,159"}' }]);
     });
   });
 
