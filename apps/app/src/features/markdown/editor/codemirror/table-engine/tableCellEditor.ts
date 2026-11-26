@@ -54,7 +54,10 @@ export class TableCellEditor {
   });
 
   beginDrag(event: PointerEvent, widget: HTMLElement): void {
-    const host = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-cell]') : null;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('button, .cm-table-row-handle, .cm-table-column-handle, .cm-table-row-handle-hit, .cm-table-column-handle-hit')) return;
+    const host = target?.closest<HTMLElement>('[data-cell]') ??
+      target?.closest('th, td')?.querySelector<HTMLElement>(':scope > [data-cell]') ?? null;
     if (!host || host.closest('[data-table-engine-cells="true"]') !== widget) return;
     const [row, col] = host.dataset.cell!.split(',').map(Number);
     if (!Number.isInteger(row) || !Number.isInteger(col)) return;
@@ -254,7 +257,7 @@ export class TableCellEditor {
     widget.firstElementChild?.classList.toggle('cm-table-wrapper-selected',
       full || (widget.dataset.tableRootSelected === 'true' &&
       !(this.interactionTable === from && this.interaction.kind !== 'none')));
-    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: full ? null : bounds }));
+    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: bounds }));
   }
 
   private paintSelection(): void {
@@ -267,7 +270,10 @@ export class TableCellEditor {
     this.clearRootTableInteraction(tableFrom);
     const host = this.hostAt(tableFrom, cell);
     if (!host) return false;
-    this.close();
+    // Keep the range owner stable while the pointer crosses cells. Only
+    // tear down an editor/interaction when ownership actually changes.
+    if (!(preventScroll && this.interactionTable === tableFrom &&
+        this.interaction.kind === 'range' && interaction.kind === 'range')) this.close();
     this.interactionTable = tableFrom;
     this.interaction = interaction;
     this.paintSelection();
@@ -330,8 +336,7 @@ export class TableCellEditor {
     return this.leaveTable(from, backwards);
   }
 
-  /** Enter navigates vertically like Tab's caret-free selection, but never
-   * wraps, leaves the table, or changes Markdown at either boundary. */
+  /** Enter opens the neighbouring cell for typing; never wrap or leave at a boundary. */
   private navigateEnter(backwards: boolean): boolean {
     if (this.interactionTable === null || this.nested?.composing) return false;
     const from = this.interactionTable;
@@ -348,7 +353,7 @@ export class TableCellEditor {
     const next = { row: cell.row + (backwards ? -1 : 1), col: cell.col };
     if (isValidCell(next, shape)) {
       this.cancelDrag();
-      this.select(from, { kind: 'cell', cell: next });
+      return this.enterCell(from, next, 'start');
     }
     // Consume the boundary key too: preserve the current selection/editor.
     return true;
@@ -803,6 +808,8 @@ export class TableCellEditor {
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
           { key: 'Enter', run: () => this.navigateEnter(false) },
           { key: 'Shift-Enter', run: () => this.navigateEnter(true) },
+          { key: 'Mod-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
+          { key: 'Ctrl-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
           { key: 'Escape', run: () => this.exitEdit() },
           { key: 'ArrowLeft', run: () => this.navigateEditingArrow('left') },
           { key: 'ArrowRight', run: () => this.navigateEditingArrow('right') },
