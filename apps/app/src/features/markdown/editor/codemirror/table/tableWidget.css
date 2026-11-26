@@ -5,7 +5,7 @@
 }
 
 /* Table projection layout. The widget and outer wrapper never clip the
- * content. The scrollport owns horizontal overflow for content-sized
+ * content. The scrollport owns horizontal overflow for bounded fill-width
  * columns; the layout/inner track keeps quick-add controls alongside
  * the intrinsic table. The table itself owns its normal borders.
  * Keep spacing on widget-owned boxes, not CM6-managed line margins. */
@@ -78,8 +78,7 @@
 
 /* Quick-add controls participate in layout so the row bar reserves
  * space below the table instead of covering the next CodeMirror line.
- * The table keeps its original available width; the column bar occupies
- * an additional track beside it. */
+ * The column bar occupies a reserved track beside the table. */
 .cm-editor .cm-table-layout {
   display: flex;
   align-items: flex-start;
@@ -116,6 +115,13 @@
   background: var(--surface-tertiary);
   opacity: 1;
 }
+/* Reveal the relevant control at its corresponding edge, without moving
+ * either control or the table. Direct hover and keyboard focus are retained. */
+.cm-editor .cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-row,
+.cm-editor .cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-row,
+.cm-editor .cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-column {
+  opacity: 1;
+}
 .cm-editor .cm-table-quick-add-row {
   align-self: stretch;
   width: 100%;
@@ -129,12 +135,10 @@
   box-sizing: border-box;
 }
 .cm-editor .cm-table-quick-add svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .cm-editor .cm-table-wrapper th,
@@ -322,10 +326,17 @@
 .cm-editor [data-table-engine-cells="true"] .cm-table-dragging-active .cm-table-selection-overlay { visibility: hidden; }
 
 
-/* Staged engine: intrinsic sizing only. The cell content's intrinsic
- * contribution is bounded so the whole column is roughly 80–320px,
- * including its horizontal padding and border. Long words wrap rather
- * than defeating the maximum. No measured width is persisted. */
+/* Equal-width columns fill the available scrollport, bounded by 110–420px
+ * per column. The layout reserves the quick-add track only for editable
+ * tables; overflow below the minimum remains native horizontal scrolling. */
+.cm-editor .cm-table-wrapper--auto-widths {
+  --cm-table-column-min: 110px;
+  --cm-table-column-max: 420px;
+  --cm-table-add-column-space: 0px;
+}
+.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths {
+  --cm-table-add-column-space: calc(var(--height-sm) + 6px);
+}
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
   --cm-table-handle-gutter: 8px;
   box-sizing: border-box;
@@ -338,29 +349,35 @@
   overflow-x: auto;
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
-  width: max-content;
+  width: clamp(
+    calc(var(--cm-table-column-count) * var(--cm-table-column-min) + var(--cm-table-add-column-space)),
+    100%,
+    calc(var(--cm-table-column-count) * var(--cm-table-column-max) + var(--cm-table-add-column-space))
+  );
   min-width: 0;
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-inner {
-  width: max-content;
+  width: calc(100% - var(--cm-table-add-column-space));
   min-width: 0;
   flex: 0 0 auto;
 }
 .cm-editor .cm-table-wrapper--auto-widths table {
-  table-layout: auto;
-  width: max-content;
+  table-layout: fixed;
+  width: 100%;
+  box-sizing: border-box;
 }
 .cm-editor .cm-table-wrapper--auto-widths th,
 .cm-editor .cm-table-wrapper--auto-widths td {
-  min-width: 80px;
-  max-width: 320px;
+  min-width: var(--cm-table-column-min);
+  max-width: var(--cm-table-column-max);
   box-sizing: border-box;
   overflow-wrap: anywhere;
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-cell-wrapper {
-  width: max-content;
-  min-width: calc(80px - 2 * var(--space-12) - 1px);
-  max-width: calc(320px - 2 * var(--space-12) - 1px);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow-wrap: anywhere;
   white-space: normal;
 }
