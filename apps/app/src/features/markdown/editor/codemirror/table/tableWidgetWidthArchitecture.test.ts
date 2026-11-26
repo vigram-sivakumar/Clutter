@@ -27,10 +27,15 @@ describe('automatic table sizing stylesheet', () => {
     const fade = rule('.cm-editor .cm-table-wrapper::after');
     expect(fade).toContain('position: absolute');
     expect(fade).toContain('pointer-events: none');
-    expect(fade).toContain('width: min(16px, var(--cm-table-fade-viewport-width, 0px))');
+    expect(fade).toContain('width: min(32px, var(--cm-table-fade-viewport-width, 0px))');
     expect(fade).toContain('transition: opacity 120ms ease');
     expect(css).toContain('linear-gradient(to right, var(--cm-table-fade-surface, var(--surface-primary)), transparent)');
     expect(css).toContain('linear-gradient(to left, var(--cm-table-fade-surface, var(--surface-primary)), transparent)');
+    expect(fade).toContain('color-mix(in srgb, var(--cm-table-fade-color) 90%, transparent) 20%');
+    expect(fade).toContain('color-mix(in srgb, var(--cm-table-fade-color) 10%, transparent) 80%');
+    expect(css).toContain('@supports (color: color-mix(in srgb, black, transparent))');
+    expect(css).toContain('linear-gradient(to right, var(--cm-table-fade-stops))');
+    expect(css).toContain('linear-gradient(to left, var(--cm-table-fade-stops))');
   });
 
   it('keeps horizontal overflow and handle gutters in the scrollport', () => {
