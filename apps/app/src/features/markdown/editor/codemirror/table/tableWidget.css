@@ -700,3 +700,50 @@
  * than painting independent inset edges on each cell. */
 .cm-editor [data-table-engine-cells="true"] [data-cell]:focus { outline: none; }
 .cm-editor [data-table-engine-cells="true"] .cm-table-dragging-active .cm-table-selection-overlay { visibility: hidden; }
+
+
+/* Staged engine: intrinsic sizing only. The cell content's intrinsic
+ * contribution is bounded so the whole column is roughly 80–320px,
+ * including its horizontal padding and border. Long words wrap rather
+ * than defeating the maximum. No measured width is persisted. */
+.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
+  --cm-table-handle-gutter: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  padding-inline: var(--cm-table-handle-gutter);
+  padding-block-start: var(--cm-table-handle-gutter);
+  margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
+  padding-bottom: 12px;
+  overflow-x: auto;
+}
+.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
+  width: max-content;
+  min-width: 0;
+}
+.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner {
+  width: max-content;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.cm-editor .cm-table-wrapper--auto-widths table {
+  table-layout: auto;
+  width: max-content;
+}
+.cm-editor .cm-table-wrapper--auto-widths th,
+.cm-editor .cm-table-wrapper--auto-widths td {
+  min-width: 80px;
+  max-width: 320px;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.cm-editor .cm-table-wrapper--auto-widths .cm-table-cell-wrapper {
+  width: max-content;
+  min-width: calc(80px - 2 * var(--space-12) - 1px);
+  max-width: calc(320px - 2 * var(--space-12) - 1px);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.cm-editor .cm-table-wrapper--auto-widths .cm-table-cell-wrapper .cm-editor {
+  max-width: 100%;
+}

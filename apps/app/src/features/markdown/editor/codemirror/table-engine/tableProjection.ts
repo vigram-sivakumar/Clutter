@@ -1,19 +1,15 @@
 import { tableCellEditor } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
-import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from '../table/tableWidgetBreakoutWidth';
 import type { TableSnapshot } from './tableModel';
-import { attachTableColumnResizeHandles } from '../table/tableColumnResizeHandle';
 import { attachTableHandleOverlay } from '../table/tableHandleOverlay';
 import { createTableSelectionOverlay, positionRangeSelectionOverlay, VISIBLE_CLASS } from '../table/tableSelectionOverlay';
 import type { selectionBounds } from './tableInteraction';
 import type { OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 // The mounted DOM can outlive an individual WidgetType during reconciliation.
-const widthObservers = new WeakMap<HTMLElement, BreakoutWidthHandle>();
 const dragDisposers = new WeakMap<HTMLElement, () => void>();
 const structuralDisposers = new WeakMap<HTMLElement, () => void>();
-const resizeDisposers = new WeakMap<HTMLElement, () => void>();
 const handleDisposers = new WeakMap<HTMLElement, () => void>();
 const selectionDisposers = new WeakMap<HTMLElement, () => void>();
 
@@ -131,14 +127,6 @@ export class TableProjection extends WidgetType {
     handleDisposers.set(root, dispose);
   }
 
-  private attachResize(root: HTMLElement, view: EditorView): void {
-    const { from, model } = this.snapshot;
-    const dispose = attachTableColumnResizeHandles(root.firstElementChild as HTMLElement, from, view,
-      model.header.length, model.columnWidths, undefined, false,
-      (col, width, measured) => view.plugin(tableCellEditor)?.resizeColumn(Number(root.dataset.tableFrom), col, width, measured) ?? false);
-    if (dispose) resizeDisposers.set(root, dispose);
-  }
-
   override toDOM(view: EditorView): HTMLElement {
     const root = document.createElement('div');
     root.className = 'cm-table-widget';
@@ -157,7 +145,6 @@ export class TableProjection extends WidgetType {
       selectionDisposers.set(root, attachSelectionOutline(wrapper, scroll, table));
       view.plugin(tableCellEditor)?.paintWidget(root);
       structuralDisposers.set(root, attachStructuralControls(root, view, table, inner, layout));
-      this.attachResize(root, view);
       this.attachHandles(root, view);
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
@@ -181,12 +168,11 @@ export class TableProjection extends WidgetType {
 
   override updateDOM(root: HTMLElement, _view: EditorView, previous: TableProjection): boolean {
     if (this.cellEditing !== previous.cellEditing) return false;
-    const resizeChanged = this.cellEditing && (this.snapshot.from !== previous.snapshot.from || this.snapshot.source !== previous.snapshot.source);
-    if (resizeChanged) {
+    const handlesChanged = this.cellEditing && (this.snapshot.from !== previous.snapshot.from || this.snapshot.source !== previous.snapshot.source);
+    if (handlesChanged) {
       handleDisposers.get(root)?.();
       handleDisposers.delete(root);
-      resizeDisposers.get(root)?.();
-      resizeDisposers.delete(root);
+
     }
     if (this.snapshot.source === previous.snapshot.source) {
       root.dataset.tableFrom = String(this.snapshot.from);
@@ -194,7 +180,7 @@ export class TableProjection extends WidgetType {
     } else {
       this.paint(root, _view, previous.snapshot);
     }
-    if (resizeChanged) { this.attachResize(root, _view); this.attachHandles(root, _view); }
+    if (handlesChanged) this.attachHandles(root, _view);
     if (this.cellEditing) _view.plugin(tableCellEditor)?.paintWidget(root);
     return true;
   }
@@ -206,22 +192,14 @@ export class TableProjection extends WidgetType {
     else delete root.dataset.tableEngineCells;
     const wrapper = root.firstElementChild as HTMLElement;
     wrapper.classList.toggle('cm-table-wrapper-selected', this.selected);
-    wrapper.classList.toggle('cm-table-wrapper--explicit-widths', !!model.columnWidths);
-    if (model.columnWidths && !widthObservers.has(root)) {
-      widthObservers.set(root, attachTableWidgetBreakoutWidth(root, wrapper));
-    } else if (!model.columnWidths) {
-      widthObservers.get(root)?.disconnect();
-      widthObservers.delete(root);
-      wrapper.style.removeProperty('--table-breakout-max-width');
-    }
-
+    wrapper.classList.add('cm-table-wrapper--auto-widths');
     const table = wrapper.querySelector('table')!;
     const columns = table.querySelector('colgroup')!;
     while (columns.children.length > model.header.length) columns.lastElementChild!.remove();
     model.header.forEach((_, index) => {
       const col = (columns.children[index] ?? columns.appendChild(document.createElement('col'))) as HTMLTableColElement;
       col.dataset.columnIndex = String(index);
-      col.style.width = model.columnWidths ? model.columnWidths[index] + 'px' : '';
+      col.style.removeProperty('width');
     });
 
     const body = table.tBodies[0]!;
@@ -268,13 +246,11 @@ export class TableProjection extends WidgetType {
     selectionDisposers.delete(root);
     handleDisposers.get(root)?.();
     handleDisposers.delete(root);
-    resizeDisposers.get(root)?.();
-    resizeDisposers.delete(root);
+
     structuralDisposers.get(root)?.();
     structuralDisposers.delete(root);
     dragDisposers.get(root)?.();
     dragDisposers.delete(root);
-    widthObservers.get(root)?.disconnect();
-    widthObservers.delete(root);
+
   }
 }

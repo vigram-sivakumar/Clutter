@@ -142,7 +142,8 @@ function buildTableWidgetRange(
   state: EditorState,
   table: TableInfo,
   controller: TableActiveCellController | undefined,
-  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
+  automaticSizing = false
 ): Range<Decoration> | null {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
@@ -244,7 +245,8 @@ function buildTableWidgetRange(
     selectedRowIndex,
     selectedRange,
     getOnTableHandleMenuChange,
-    columnWidths
+    automaticSizing ? null : columnWidths,
+    automaticSizing
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
@@ -291,7 +293,7 @@ function buildTableDecorations(
         if (!(error instanceof TableEngineError)) throw error;
       }
     }
-    const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange);
+    const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange, editableProjection || readOnlyProjection);
     if (range) {
       ranges.push(range);
     }

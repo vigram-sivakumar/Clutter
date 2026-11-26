@@ -3,8 +3,6 @@ import {
   type Alignment, type ParseMarkdown, type TableModel, type TableSnapshot,
 } from './tableModel';
 
-import { DEFAULT_TABLE_COLUMN_WIDTH, MIN_TABLE_COLUMN_WIDTH, serializeTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
-
 /** Row 0 is the structural header. Inserting at 0 promotes a blank header and demotes the old header to a body row. */
 export type TableCommand =
   | { readonly kind: 'insertRow'; readonly index: number }
@@ -17,7 +15,6 @@ export type TableCommand =
   | { readonly kind: 'moveColumn'; readonly from: number; readonly to: number }
   | { readonly kind: 'setCell'; readonly row: number; readonly col: number; readonly markdown: string }
   | { readonly kind: 'setAlignment'; readonly col: number; readonly alignment: Alignment }
-  | { readonly kind: 'resizeColumn'; readonly col: number; readonly width: number; readonly initialWidths?: readonly number[] }
   | { readonly kind: 'paste'; readonly row: number; readonly col: number; readonly grid: readonly (readonly string[])[] }
   | { readonly kind: 'materialize' }
   | { readonly kind: 'format' };
@@ -38,17 +35,15 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
   validateModel(model);
   const rows = [model.header.slice(), ...model.rows.map((row) => row.slice())];
   const alignments = model.alignments.slice();
-  let widths = model.columnWidths?.slice() ?? null;
   const cols = () => alignments.length;
   const blank = () => Array<string>(cols()).fill('');
   function insertColumn(index: number, duplicate?: number): void {
     requireIndex(index, 0, cols());
     if (duplicate !== undefined) requireIndex(duplicate, 0, cols() - 1);
     const alignment = duplicate === undefined ? 'none' : alignments[duplicate]!;
-    const width = duplicate === undefined ? DEFAULT_TABLE_COLUMN_WIDTH : widths?.[duplicate] ?? DEFAULT_TABLE_COLUMN_WIDTH;
     for (const row of rows) row.splice(index, 0, duplicate === undefined ? '' : row[duplicate]!);
     alignments.splice(index, 0, alignment);
-    widths?.splice(index, 0, width);
+
   }
   switch (command.kind) {
     case 'insertRow':
@@ -75,7 +70,7 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
       if (cols() === 1) throw new TableEngineError('Use an explicit whole-table removal command');
       for (const row of rows) row.splice(command.index, 1);
       alignments.splice(command.index, 1);
-      widths?.splice(command.index, 1);
+
       break;
     case 'duplicateColumn':
       insertColumn(command.index + 1, command.index);
@@ -85,7 +80,7 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
       requireIndex(command.to, 0, cols() - 1);
       for (const row of rows) move(row, command.from, command.to);
       move(alignments, command.from, command.to);
-      if (widths) move(widths, command.from, command.to);
+
       break;
     case 'setCell':
       requireIndex(command.row, 0, rows.length - 1);
@@ -95,13 +90,6 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
     case 'setAlignment':
       requireIndex(command.col, 0, cols() - 1);
       alignments[command.col] = command.alignment;
-      break;
-    case 'resizeColumn':
-      requireIndex(command.col, 0, cols() - 1);
-      if (!Number.isSafeInteger(command.width) || command.width < MIN_TABLE_COLUMN_WIDTH) throw new TableEngineError('Invalid resize width');
-      widths ??= command.initialWidths?.slice() ?? Array<number>(cols()).fill(DEFAULT_TABLE_COLUMN_WIDTH);
-      if (widths.length !== cols() || widths.some(w => !Number.isSafeInteger(w) || w <= 0)) throw new TableEngineError('Invalid measured widths');
-      widths[command.col] = command.width;
       break;
     case 'paste': {
       requireIndex(command.row, 0, rows.length - 1);
@@ -119,7 +107,7 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
     case 'format':
       break;
   }
-  const next: TableModel = { header: rows[0]!, rows: rows.slice(1), alignments, columnWidths: widths };
+  const next: TableModel = { header: rows[0]!, rows: rows.slice(1), alignments };
   validateModel(next);
   return next;
 }
@@ -140,11 +128,8 @@ export function planTableEdit(source: string, tableFrom: number, command: TableC
   const next = applyTableCommand(before.model, command);
   if (command.kind === 'materialize' && before.cells.every(row => row.every(cell => cell !== null))) return null;
   if (command.kind !== 'format' && command.kind !== 'materialize' && modelsEqual(before.model, next)) return null;
-  // Resize changes metadata only, never normalizes imported cell padding,
-  // optional pipes, delimiter spelling or ragged rows.
-  const resize = command.kind === 'resizeColumn';
-  const from = resize ? (before.model.columnWidths ? before.from + before.source.lastIndexOf('\n') + 1 : before.to) : before.from;
-  const insert = resize ? (before.model.columnWidths ? '' : '\n') + serializeTableColumnWidthsAttribute(next.columnWidths!) : command.kind === 'format' ? serializeFormattedTable(next) : serializeTable(next);
+  const from = before.from;
+  const insert = command.kind === 'format' ? serializeFormattedTable(next) : serializeTable(next);
   if (insert === source.slice(from, before.to)) return null;
   const expectedDocument = source.slice(0, from) + insert + source.slice(before.to);
   const after = readTable(expectedDocument, before.from, parse);

@@ -56,17 +56,22 @@ export function createCellTransaction(
   changes.iterChanges((from, to, _fromB, _toB, inserted) => {
     mapped.push({ from: range.from + from, to: range.from + to, insert: inserted });
   });
+  // Remove a positively identified legacy width suffix in the same
+  // transaction as the first real cell edit. The edit remains minimal,
+  // and undo restores the original source (including the old suffix).
+  const removedSuffix = before.legacyWidthFrom === null ? 0 : before.to - before.legacyWidthFrom;
+  if (before.legacyWidthFrom !== null) mapped.push({ from: before.legacyWidthFrom, to: before.to });
   const expectedDoc = state.changes(mapped).apply(state.doc).toString();
   const nextText = expectedDoc.slice(range.from, range.from + changes.newLength);
   if (/[\r\n]/.test(nextText)) throw new TableEngineError('Cell must stay on one source line');
   const expectedModel = applyTableCommand(before.model, { kind: 'setCell', ...address, markdown: nextText });
   const after = readTable(expectedDoc, tableFrom, parse);
   if (!modelsEqual(expectedModel, after.model) ||
-    after.to !== before.to + changes.newLength - changes.length ||
+    after.to !== before.to + changes.newLength - changes.length - removedSuffix ||
     !after.cells[address.row]?.[address.col]) {
     throw new TableEngineError('Cell edit would alter table structure');
   }
-  return validatedRootEdit(state, mapped, expectedDoc, userEvent, false, effect);
+  return validatedRootEdit(state, mapped, expectedDoc, userEvent, removedSuffix > 0, effect);
 }
 
 /** Compute the minimal contiguous change between two cell strings. */

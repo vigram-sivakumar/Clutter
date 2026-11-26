@@ -574,7 +574,7 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(controller.selectAxis(8, { row: 0, col: 1 }, 'column')).toBe(true);
     expect(controller.axisCommand({ kind: 'column', tableFrom: 8, columnIndex: 1 }, { kind: 'moveColumn', from: 1, to: 2 })).toBe(true);
     const moved = view.state.doc.toString();
-    expect(moved).toContain('{table-col-widths="85,342,88"}');
+    expect(moved).not.toContain('table-col-widths');
     clickCell(findCell(view, 'Sow'));
     controller.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
     expect(select(view)).toEqual(['1,1']);
@@ -665,17 +665,17 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
   });
-  it('duplicates and deletes a column with its alignment and explicit width', () => {
+  it('duplicates and deletes a column with its alignment and retires old widths', () => {
     const source = doc.replace('| --- | --- |', '| --- | :---: |').replace('\n\nAfter', '\n{table-col-widths="120,300"}\n\nAfter');
     const view = mountHistory(source);
     action(view, 1, 1, 'Duplicate column');
     const duplicated = view.state.doc.toString();
     expect(duplicated).toContain('| Name | Role | Role |');
     expect(duplicated).toContain('| --- | :---: | :---: |');
-    expect(duplicated).toContain('{table-col-widths="120,300,300"}');
+    expect(duplicated).not.toContain('table-col-widths');
     expect(select(view)).toEqual(['0,2','1,2']);
     action(view, 0, 2, 'Delete column');
-    expect(view.state.doc.toString()).toBe(source);
+    expect(view.state.doc.toString()).toBe(source.replace('\n{table-col-widths="120,300"}', ''));
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(duplicated);
   });
@@ -704,68 +704,45 @@ describe('engine staged structural commands (M8 candidate)', () => {
   });
 });
 
-describe('engine staged column resizing (M9a candidate)', () => {
-  const pointer = (type: string, target: EventTarget, x: number) =>
-    target.dispatchEvent(new MouseEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true }));
+describe('engine automatic column sizing (M11 simplification)', () => {
   const mountHistory = (source: string) => {
     const view = mount(source, false, undefined, true);
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     return view;
   };
-  const hits = (view: EditorView) => view.dom.querySelectorAll<HTMLElement>('.cm-table-column-resize-hit');
-  it('commits the measured first resize as width metadata only and reverses it through root history', () => {
-    const source = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n\nAfter';
+  it('renders content-sized columns without resize handles or writing metadata', () => {
+    const view = mountHistory(TABLE);
+    expect(view.dom.querySelector('.cm-table-wrapper--auto-widths')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
+    expect([...view.dom.querySelectorAll('col')].every(col => col.style.width === '')).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+  it('ignores legacy widths until the first real cell edit, then removes them atomically and reversibly', () => {
+    const source = TABLE + '\n{table-col-widths="120,260"}';
     const view = mountHistory(source);
-    const widget = view.dom.querySelector('[data-table-engine-cells="true"]');
-    const headers = widget!.querySelectorAll('th');
-    const measure = (width: number) => ({ width } as DOMRect);
-    vi.spyOn(headers[0]!, 'getBoundingClientRect').mockReturnValue(measure(120));
-    vi.spyOn(headers[1]!, 'getBoundingClientRect').mockReturnValue(measure(260));
-    expect(hits(view)).toHaveLength(2);
-    pointer('pointerdown', hits(view)[0]!, 100);
-    pointer('pointermove', document, 150);
-    expect(widget!.querySelector<HTMLElement>('col')!.style.width).toBe('170px');
+    expect(view.dom.querySelector('.cm-table-wrapper--explicit-widths')).toBeNull();
+    expect(view.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
     expect(view.state.doc.toString()).toBe(source);
     expect(undoDepth(view.state)).toBe(0);
-    pointer('pointerup', document, 150);
-    const sized = source.replace('\n\nAfter', '\n{table-col-widths="170,260"}\n\nAfter');
-    expect(view.state.doc.toString()).toBe(sized);
-    expect(view.dom.querySelector('[data-table-engine-cells="true"]')).toBe(widget);
-    expect(hits(view)).toHaveLength(2);
+    nested.dispatch({ changes: { from: 3, insert: '!' }, userEvent: 'input.type' });
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', 'Vik!'));
+    expect(nested.state.doc.toString()).toBe('Vik!');
     expect(undoDepth(view.state)).toBe(1);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
     expect(redo(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe(sized);
-    expect(hits(view)).toHaveLength(2);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', 'Vik!'));
   });
-  it('supports successive resizes and cancellation without committing preview widths', () => {
-    const source = TABLE + '\n{table-col-widths="120,260"}';
-    const view = mountHistory(source);
-    pointer('pointerdown', hits(view)[1]!, 100);
-    pointer('pointermove', document, 20);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    expect(view.state.doc.toString()).toBe(source);
-    expect(view.dom.querySelectorAll<HTMLTableColElement>('col')[1]!.style.width).toBe('260px');
-    expect(undoDepth(view.state)).toBe(0);
-    pointer('pointerdown', hits(view)[1]!, 100);
-    pointer('pointerup', document, 150);
-    expect(view.state.doc.toString()).toBe(source.replace('120,260', '120,310'));
-    pointer('pointerdown', hits(view)[0]!, 100);
-    pointer('pointerup', document, -100);
-    expect(view.state.doc.toString()).toBe(source.replace('120,260', '60,310'));
-    expect(undoDepth(view.state)).toBe(2);
-    expect(undo(view)).toBe(true);
-    expect(undo(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe(source);
-  });
-  it('reconciles resize hit targets after adding and undoing a column; read-only tables have none', () => {
+  it('keeps resizing absent after adding and undoing columns and in read-only projection', () => {
     const view = mountHistory(TABLE);
     view.dom.querySelector<HTMLButtonElement>('[aria-label="Add column"]')!.click();
-    expect(hits(view)).toHaveLength(3);
+    expect(view.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
     expect(undo(view)).toBe(true);
-    expect(hits(view)).toHaveLength(2);
-    expect(hits(mount(TABLE, true))).toHaveLength(0);
+    expect(view.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
+    expect(mount(TABLE, true).dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
   });
 });
 
@@ -832,7 +809,7 @@ describe('engine original table handles (M9b candidate)', () => {
       expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(0);
     } finally { portal.remove(); }
   });
-  it('reorders columns by their original handle and carries alignment and width metadata together', () => {
+  it('reorders columns by their original handle and carries alignment without legacy widths', () => {
     const source = TABLE.replace('| --- | --- |', '| --- | :---: |') + '\n{table-col-widths="120,260"}';
     const view = mountHistory(source);
     const hits = view.dom.querySelectorAll<HTMLElement>('.cm-table-column-handle-hit');
@@ -840,12 +817,12 @@ describe('engine original table handles (M9b candidate)', () => {
     pointer('pointermove', view.dom.querySelectorAll('th')[1]!, 100, 10);
     expect(view.state.doc.toString()).toBe(source);
     pointer('pointerup', document, 100, 10);
-    expect(view.state.doc.toString()).toBe('| Role | Name |\n| :---: | --- |\n| Designer | Vik |\n{table-col-widths="260,120"}');
+    expect(view.state.doc.toString()).toBe('| Role | Name |\n| :---: | --- |\n| Designer | Vik |');
     expect(view.plugin(tableCellEditor)!.currentAxisSelection()).toEqual({kind: 'column', tableFrom: 0, columnIndex: 1});
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
     expect(redo(view)).toBe(true);
-    expect(view.state.doc.toString()).toContain('{table-col-widths="260,120"}');
+    expect(view.state.doc.toString()).not.toContain('table-col-widths');
   });
   it('reorders the header by row drag, cancels a second drag, and reconciles handle count', () => {
     const view = mountHistory();
@@ -1096,7 +1073,7 @@ describe('table live wiring — read-only (note embed) table', () => {
     expect(cell.querySelector('.cm-table-cell-wrapper')!.children.length).toBeGreaterThan(0);
     expect(table.rows[1]!.cells[1]!.textContent).toBe('');
     expect(table.rows[1]!.cells[1]!.className).toContain('align-right');
-    expect(table.querySelectorAll('col')[1]!.style.width).toBe('280px');
+    expect(table.querySelectorAll('col')[1]!.style.width).toBe('');
     expect(view.state.doc.toString()).toBe(doc);
     scroll.scrollLeft = 37;
     const pos = doc.indexOf('Vik');

@@ -86,7 +86,7 @@ function buildDecorations(view: EditorView, editableProjection: boolean): Decora
     if (editableProjection) {
       try {
         const snapshot = snapshotFromTableNode(view.state.doc.toString(), table.node);
-        if (snapshot.model.columnWidths !== null && snapshot.to === range.to) continue;
+        if (snapshot.legacyWidthFrom !== null && snapshot.to === range.to) continue;
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
       }

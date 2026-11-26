@@ -328,28 +328,6 @@ export class TableCellEditor {
     }
   }
 
-  /** Commit a pointer resize once, through the same root history gate.
-   * Retain caret-free selection intent; do not mutate the nested document. */
-  resizeColumn(tableFrom: number, col: number, width: number, initialWidths: readonly number[]): boolean {
-    if (this.root.state.readOnly) return false;
-    try {
-      this.releaseCompatibility();
-      const mark = this.interactionTable === tableFrom ? bookmark(tableFrom, this.interaction) : null;
-      const tr = createTableTransaction(this.root.state, tableFrom, { kind: 'resizeColumn', col, width, initialWidths }, parse,
-        tableSelectionTransition.of({ before: mark, after: mark }));
-      if (!tr) return false;
-      this.cancelDrag();
-      this.close();
-      this.forwarding = true;
-      try { this.root.dispatch(tr); } finally { this.forwarding = false; }
-      if (!mark || !this.select(tableFrom, mark.interaction, true)) this.root.focus();
-      return true;
-    } catch (error) {
-      if (!(error instanceof TableEngineError)) throw error;
-      return false;
-    }
-  }
-
   selectAxis(tableFrom: number, cell: CellAddress, axis: 'row' | 'column'): boolean {
     try {
       this.cancelDrag();
@@ -652,6 +630,7 @@ export class TableCellEditor {
         // The root's drawSelection theme hides native descendant carets.
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
+        EditorView.lineWrapping,
         formatShortcutsKeymap(),
         keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },

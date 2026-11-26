@@ -306,7 +306,8 @@ export class TableWidget extends WidgetType {
      * is what actually notices a resize happened and triggers a rebuild —
      * see `toDOM()`'s own `<colgroup>` rendering below for how it's applied.
      */
-    readonly columnWidths: readonly number[] | null = null
+    readonly columnWidths: readonly number[] | null = null,
+    readonly automaticSizing = false
   ) {
     super();
   }
@@ -365,7 +366,7 @@ export class TableWidget extends WidgetType {
       this.selectedColumnIndex === other.selectedColumnIndex &&
       this.selectedRowIndex === other.selectedRowIndex &&
       rangeEq(this.selectedRange, other.selectedRange) &&
-      columnWidthsEq(this.columnWidths, other.columnWidths)
+      this.automaticSizing === other.automaticSizing && columnWidthsEq(this.columnWidths, other.columnWidths)
     );
   }
 
@@ -502,6 +503,7 @@ export class TableWidget extends WidgetType {
     // `.cm-table-scroll`) implements both halves together. Scoped to only
     // tables that actually have resized widths, not applied globally — an
     // untouched table keeps today's exact rendering.
+    if (this.automaticSizing) tableWrapper.classList.add('cm-table-wrapper--auto-widths');
     if (this.columnWidths !== null) {
       tableWrapper.classList.add('cm-table-wrapper--explicit-widths');
       // `tableWidgetBreakoutWidth.ts`'s own top doc comment has the full
@@ -726,7 +728,7 @@ export class TableWidget extends WidgetType {
       // The outgoing widget restores scroll after the final replacement
       // in the transaction chain. Resize boundaries position in a microtask
       // first; the lifecycle restore runs in the following animation frame.
-      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
+      if (!this.automaticSizing) attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
     }
 
     // Column/row-selection outline (range outlines land later, reusing

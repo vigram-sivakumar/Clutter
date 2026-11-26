@@ -14,7 +14,7 @@ export function createPastedTable(state: EditorState, grid: Grid, parse: ParseMa
   const header = grid[0];
   if (!header?.length) return null;
   const model: TableModel = { header: header.map(cell => cell.trim()), rows: grid.slice(1).map(row => row.map(cell => cell.trim())),
-    alignments: header.map(() => 'none'), columnWidths: null };
+    alignments: header.map(() => 'none') };
   if (grid.some(row => row.some(cell => /[\r\n]/.test(cell)))) throw new TableEngineError('Multiline source cell');
   const source = state.doc.toString();
   const { from, to } = state.selection.main;

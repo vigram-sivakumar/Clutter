@@ -15,7 +15,7 @@ import {
   type TableInfo,
 } from './tableGeometry';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
-import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
+import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';
 
 /**
  * Root-editor counterpart to `tableCellNavigation.ts`'s own nested-editor
@@ -242,7 +242,7 @@ function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } |
 export function tableBoundaryNavigation(controller: TableActiveCellController): Extension {
   // Valid width metadata is concealed and belongs to the visual table.
   const lastVisibleLine = (state: EditorState, table: TableInfo): number =>
-    state.doc.lineAt(resolveTableColumnWidths(state, table)?.to ?? table.to).number;
+    state.doc.lineAt(resolveExistingAttributeLineRange(state, table)?.to ?? table.to).number;
   const arrowDown: Command = (view) => {
     const sel = view.state.selection.main;
     if (!sel.empty) {

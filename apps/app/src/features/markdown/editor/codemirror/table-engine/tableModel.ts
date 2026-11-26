@@ -1,4 +1,4 @@
-import { parseTableColumnWidthsAttribute, serializeTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
+import { parseTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { buildDelimiterCellText, cellGapWidth, minimumDelimiterGapWidth } from '../table/tableAlignment';
 import { padCellContent } from '../table/tableGeometry';
@@ -9,7 +9,6 @@ export interface TableModel {
   readonly header: readonly string[];
   readonly rows: readonly (readonly string[])[];
   readonly alignments: readonly Alignment[];
-  readonly columnWidths: readonly number[] | null;
 }
 export interface CellSource {
   readonly rawFrom: number;
@@ -19,8 +18,10 @@ export interface CellSource {
 }
 export interface TableSnapshot {
   readonly from: number;
-  /** Includes the width attribute when present. */
+  /** Includes an adjacent recognised legacy width line, if any. */
   readonly to: number;
+  /** Start of the legacy suffix (including its leading newline). Not model state. */
+  readonly legacyWidthFrom: number | null;
   readonly source: string;
   readonly model: TableModel;
   /** Header first; null denotes an absent cell in an imported ragged row. */
@@ -91,16 +92,6 @@ function readAlignments(source: string): Alignment[] {
   });
 }
 
-function readWidths(line: string, count: number): readonly number[] | null {
-  if (!line.trim().startsWith('{table-col-widths')) return null;
-  const values = parseTableColumnWidthsAttribute(line);
-  if (!values) fail('Malformed width metadata: preserve source instead of guessing');
-  if (values.length !== count || values.some((width) => !Number.isSafeInteger(width))) {
-    fail('Width metadata does not match columns');
-  }
-  return values;
-}
-
 /** The engine supports top-level tables. It refuses
  * nested or overflowing rows instead of silently discarding source content.
  * Parsing does not modify the document, including ragged rows.
@@ -148,15 +139,22 @@ export function snapshotFromTableNode(source: string, node: SyntaxNode): TableSn
   const end = lineEnd(source, node.to);
   if (source.slice(node.to, end).trim() !== '') fail('Table has unexpected trailing content');
   let to = end;
-  let widths: readonly number[] | null = null;
+  let legacyWidthFrom: number | null = null;
   if (end < source.length) {
     const attributeEnd = lineEnd(source, end + 1);
-    widths = readWidths(source.slice(end + 1, attributeEnd), count);
-    if (widths !== null) to = attributeEnd;
+    const line = source.slice(end + 1, attributeEnd);
+    if (line.trim().startsWith('{table-col-widths')) {
+      // Recognise the old format only, never infer or use pixel widths.
+      // A stale column count is immaterial; malformed text stays in the
+      // compatibility renderer rather than being silently discarded.
+      if (!parseTableColumnWidthsAttribute(line)) fail('Malformed legacy width metadata');
+      legacyWidthFrom = end;
+      to = attributeEnd;
+    }
   }
-  const model: TableModel = { header: textRows[0]!, rows: textRows.slice(1), alignments, columnWidths: widths };
+  const model: TableModel = { header: textRows[0]!, rows: textRows.slice(1), alignments };
   validateModel(model);
-  return { from: node.from, to, source: source.slice(node.from, to), model, cells };
+  return { from: node.from, to, legacyWidthFrom, source: source.slice(node.from, to), model, cells };
 }
 
 export function validateModel(model: TableModel): void {
@@ -165,8 +163,6 @@ export function validateModel(model: TableModel): void {
   if (model.alignments.length !== n || model.alignments.some((a) => !['none', 'left', 'center', 'right'].includes(a))) {
     fail('Invalid alignment count or value');
   }
-  if (model.columnWidths !== null && (model.columnWidths.length !== n ||
-    model.columnWidths.some((w) => !Number.isSafeInteger(w) || w <= 0))) fail('Invalid widths');
   for (const row of [model.header, ...model.rows]) {
     for (const cell of row) {
       if (typeof cell !== 'string' || /[\r\n]/.test(cell) || cell.trim() !== cell) fail('Cell must be trimmed single-line Markdown');
@@ -180,7 +176,6 @@ export function serializeTable(model: TableModel): string {
   const row = (cells: readonly string[]) => '| ' + cells.join(' | ') + ' |';
   const delimiter = model.alignments.map((a) => a === 'center' ? ':---:' : a === 'left' ? ':---' : a === 'right' ? '---:' : '---');
   const lines = [row(model.header), row(delimiter), ...model.rows.map(row)];
-  if (model.columnWidths !== null) lines.push(serializeTableColumnWidthsAttribute(model.columnWidths));
   return lines.join('\n');
 }
 
@@ -195,11 +190,10 @@ export function serializeFormattedTable(model: TableModel): string {
   const line = (row: readonly string[]) => '|' + row.map((cell, col) => padCellContent(cell, widths[col]!) + '|').join('');
   const delimiter = '|' + widths.map((width, col) => ' ' + buildDelimiterCellText(alignments[col] ?? null, width) + ' |').join('');
   const lines = [line(model.header), delimiter, ...model.rows.map(line)];
-  if (model.columnWidths !== null) lines.push(serializeTableColumnWidthsAttribute(model.columnWidths));
   return lines.join('\n');
 }
 
 export function modelsEqual(a: TableModel, b: TableModel): boolean {
-  return JSON.stringify([a.header, a.rows, a.alignments, a.columnWidths]) ===
-    JSON.stringify([b.header, b.rows, b.alignments, b.columnWidths]);
+  return JSON.stringify([a.header, a.rows, a.alignments]) ===
+    JSON.stringify([b.header, b.rows, b.alignments]);
 }

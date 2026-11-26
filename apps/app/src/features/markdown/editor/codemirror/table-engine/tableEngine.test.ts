@@ -36,7 +36,7 @@ describe('table engine model and structural commands', () => {
 
   it('derives one model and range map from the shared parser', () => {
     const snapshot = readTable(doc, start, parse);
-    expect(snapshot.model).toEqual({ header: ['A', 'B'], rows: [['one', 'two']], alignments: ['none', 'center'], columnWidths: null });
+    expect(snapshot.model).toEqual({ header: ['A', 'B'], rows: [['one', 'two']], alignments: ['none', 'center'] });
     const cell = snapshot.cells[1]![1]!;
     expect(doc.slice(cell.from, cell.to)).toBe('two');
     expect(snapshot.source).toBe(table);
@@ -52,14 +52,14 @@ describe('table engine model and structural commands', () => {
     expect(snapshot.source).toBe(text);
   });
 
-  it('keeps all column metadata aligned during move, duplicate and delete', () => {
+  it('keeps column alignment during structural edits and retires legacy width metadata', () => {
     const input = table + '\n{table-col-widths="120,300"}';
     const moved = planTableEdit(input, 0, { kind: 'moveColumn', from: 0, to: 1 }, parse)!;
     expect(moved.after.model.header).toEqual(['B', 'A']);
     expect(moved.after.model.alignments).toEqual(['center', 'none']);
-    expect(moved.after.model.columnWidths).toEqual([300, 120]);
+    expect(moved.expectedDocument).not.toContain('table-col-widths');
     const duplicate = planTableEdit(moved.expectedDocument, 0, { kind: 'duplicateColumn', index: 0 }, parse)!;
-    expect(duplicate.after.model.columnWidths).toEqual([300, 300, 120]);
+    expect(duplicate.after.model.alignments).toEqual(['center', 'center', 'none']);
     const deleted = planTableEdit(duplicate.expectedDocument, 0, { kind: 'deleteColumn', index: 1 }, parse)!;
     expect(deleted.expectedDocument).toBe(moved.expectedDocument);
   });
@@ -74,19 +74,20 @@ describe('table engine model and structural commands', () => {
     const formatted = planTableEdit(source, 0, { kind: 'format' }, parse)!;
     expect(formatted.expectedDocument).not.toBe(materialized.expectedDocument);
   });
-  it('formats source columns to their widest cell, preserving alignment, Markdown and widths', () => {
+  it('formats source columns, preserving alignment and Markdown while retiring legacy widths', () => {
     const source = '|A|B|\n|---|:---:|\n|longer|**x**|\n{table-col-widths="120,260"}';
     const result = planTableEdit(source, 0, { kind: 'format' }, parse)!;
-    expect(result.expectedDocument).toBe('| A      | B     |\n| ------ | :---: |\n| longer | **x** |\n{table-col-widths="120,260"}');
+    expect(result.expectedDocument).toBe('| A      | B     |\n| ------ | :---: |\n| longer | **x** |');
     expect(result.after.model).toEqual(result.before.model);
     expect(planTableEdit(result.expectedDocument, 0, { kind: 'format' }, parse)).toBeNull();
   });
-  it('grows every row and width array together on paste', () => {
+  it('grows every row and alignment array together on paste', () => {
     const input = before + table + '\n{table-col-widths="120,300"}' + after;
     const edit = planTableEdit(input, start, { kind: 'paste', row: 1, col: 1, grid: [['x', 'y'], ['z', 'w']] }, parse)!;
     expect(edit.after.model.header).toEqual(['A', 'B', '']);
     expect(edit.after.model.rows).toEqual([['one', 'x', 'y'], ['', 'z', 'w']]);
-    expect(edit.after.model.columnWidths).toEqual([120, 300, 200]);
+    expect(edit.after.model.alignments).toEqual(['none', 'center', 'none']);
+    expect(edit.expectedDocument).not.toContain('table-col-widths');
     expect(edit.expectedDocument.startsWith(before)).toBe(true);
     expect(edit.expectedDocument.endsWith(after)).toBe(true);
   });
@@ -98,7 +99,8 @@ describe('table engine model and structural commands', () => {
 
   it('rejects multiline cells and malformed metadata before committing', () => {
     expect(() => planTableEdit(doc, start, { kind: 'setCell', row: 1, col: 0, markdown: 'a\nb' }, parse)).toThrow(TableEngineError);
-    expect(() => planTableEdit(table + '\n{table-col-widths="120"}', 0, { kind: 'insertColumn', index: 1 }, parse)).toThrow(TableEngineError);
+    expect(() => planTableEdit(table + '\n{table-col-widths="bad"}', 0, { kind: 'insertColumn', index: 1 }, parse)).toThrow(TableEngineError);
+    expect(planTableEdit(table + '\n{table-col-widths="120"}', 0, { kind: 'insertColumn', index: 1 }, parse)!.expectedDocument).not.toContain('table-col-widths');
     expect(() => readTable('| A | B |\n| --- | --- |\n| x | y | z |', 0, parse)).toThrow(TableEngineError);
   });
 
@@ -197,7 +199,7 @@ describe('table engine root history', () => {
         { kind: 'insertRow', index: 1 + pick(r) },
         { kind: 'insertColumn', index: pick(n + 1) },
         { kind: 'setCell', row, col, markdown: 'value ' + i },
-        { kind: 'resizeColumn', col, width: 60 + pick(400) },
+        { kind: 'duplicateColumn', index: col },
         { kind: 'moveColumn', from: col, to: pick(n) },
         { kind: 'moveRow', from: row, to: pick(r) },
         { kind: 'setAlignment', col, alignment: 'right' },

@@ -2,7 +2,7 @@ import { EditorSelection, EditorState, type Extension } from '@codemirror/state'
 import type { SyntaxNode } from '@lezer/common';
 
 import { findAllTables, findEnclosingTable } from './tableGeometry';
-import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
+import { resolveExistingAttributeLineRange } from './tableColumnWidthMetadata';
 import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
 
 /**
@@ -205,11 +205,11 @@ function snapPosition(state: EditorState, pos: number, collapsed: boolean, edita
   if (editableProjection) {
     for (const candidate of findAllTables(state)) {
       if (pos < candidate.from) continue;
-      const widths = resolveTableColumnWidths(state, candidate);
+      const widths = resolveExistingAttributeLineRange(state, candidate);
       if (!widths || pos > widths.to) continue;
       try {
         const snapshot = snapshotFromTableNode(state.doc.toString(), candidate.node);
-        if (snapshot.model.columnWidths !== null) { table = snapshot; break; }
+        if (snapshot.legacyWidthFrom !== null) { table = snapshot; break; }
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
       }
