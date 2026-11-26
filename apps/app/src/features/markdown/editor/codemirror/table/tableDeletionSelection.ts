@@ -177,7 +177,7 @@ export function tableWholeDeletionKeymap(): Extension {
     if (!table || !isCaretAdjacentToTable(view.state, sel, table)) {
       return null;
     }
-    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null), true);
+    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null));
     // Consume the armed gesture even if a root filter refuses the edit.
     return true;
   }
