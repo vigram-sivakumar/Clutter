@@ -102,8 +102,8 @@
   padding: 0;
   border: 0;
   border-radius: var(--radius-md, 6px);
-  color: var(--foreground-secondary);
-  background: var(--surface-secondary);
+  color: var(--foreground-tertiary);
+  background: var(--surface-layer-subtle);
   opacity: 0;
   cursor: pointer;
   transition:
@@ -113,8 +113,8 @@
 }
 .cm-editor .cm-table-quick-add:hover,
 .cm-editor .cm-table-quick-add:focus-visible {
-  color: var(--foreground-primary);
-  background: var(--surface-layer-subtle);
+  color: var(--foreground-secondary);
+  background: var(--surface-layer-strong);
   opacity: 1;
 }
 /* The track owns the 6px gap as transparent padding. It is hoverable
@@ -129,13 +129,30 @@
 }
 .cm-editor .cm-table-quick-add-track-column {
   align-self: flex-start;
-  flex: 0 0 calc(var(--height-sm) + 6px);
+  flex: 0 0 calc(var(--height-xs));
   padding-inline-start: 6px;
 }
 /* Reveal only the corresponding control, including its own gap. */
-.cm-editor .cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row,
-.cm-editor .cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row,
-.cm-editor .cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-track-column > .cm-table-quick-add-column,
+.cm-editor
+  .cm-table-inner:has(> table > tbody > tr:last-child:hover)
+  > .cm-table-quick-add-track-row
+  > .cm-table-quick-add-row,
+.cm-editor
+  .cm-table-inner:has(> table > tbody:empty):has(
+    > table > thead > tr:last-child:hover
+  )
+  > .cm-table-quick-add-track-row
+  > .cm-table-quick-add-row,
+.cm-editor
+  .cm-table-layout:has(
+    > .cm-table-inner
+      > table
+      > :is(thead, tbody)
+      > tr
+      > :is(th, td):last-child:hover
+  )
+  > .cm-table-quick-add-track-column
+  > .cm-table-quick-add-column,
 .cm-editor .cm-table-quick-add-track:hover > .cm-table-quick-add {
   opacity: 1;
 }
@@ -357,7 +374,7 @@
   --cm-table-column-max: 420px;
   --cm-table-add-column-space: 0px;
 }
-.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths {
+.cm-editor [data-table-engine-cells='true'] > .cm-table-wrapper--auto-widths {
   --cm-table-add-column-space: calc(var(--height-sm) + 6px);
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
@@ -370,9 +387,15 @@
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
   width: clamp(
-    calc(var(--cm-table-column-count) * var(--cm-table-column-min) + var(--cm-table-add-column-space)),
+    calc(
+      var(--cm-table-column-count) * var(--cm-table-column-min) +
+        var(--cm-table-add-column-space)
+    ),
     100%,
-    calc(var(--cm-table-column-count) * var(--cm-table-column-max) + var(--cm-table-add-column-space))
+    calc(
+      var(--cm-table-column-count) * var(--cm-table-column-max) +
+        var(--cm-table-add-column-space)
+    )
   );
   min-width: 0;
 }
