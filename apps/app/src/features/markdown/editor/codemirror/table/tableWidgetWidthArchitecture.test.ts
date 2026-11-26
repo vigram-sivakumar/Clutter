@@ -1,268 +1,53 @@
-// @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
 
-import { markdownLanguageExtension } from '../markdownLanguage';
-import { tableWidgetDecoration } from './tableWidgetField';
-
-/**
- * Regression coverage for the wrapper→scroll-viewport→table width
- * architecture (`tableWidget.css`'s own "three-layer" doc comments) — the
- * Notion-style model where the outer wrapper/scroll viewport stay pinned
- * to the editor's own content width while the actual `<table>` is free to
- * become wider (its own `<colgroup>`-derived intrinsic width) and scroll
- * horizontally inside that fixed viewport.
- *
- * jsdom does not apply real stylesheets or compute real layout/cascade
- * (`vite.config.ts`'s own `test.css` is unset, its documented default) —
- * every existing table test in this codebase already works within that
- * constraint by asserting DOM structure/classes (the *inputs* the real
- * cascade reacts to), never computed styles. This file adds one more
- * layer specifically because the bug this architecture fixes *was* a pure
- * CSS cascade-ordering mistake (two selectors of equal specificity, the
- * wrong one declared last) — invisible to any DOM-structure assertion,
- * since the DOM/class outputs were already correct before the fix; only
- * the stylesheet's own rule order was wrong. Reading the raw CSS source
- * and asserting on its structure directly is the only way, in this test
- * environment, to actually guard against that exact class of regression
- * recurring. The real, pixel-accurate behavior (wrapper stays capped,
- * table renders at its own intrinsic width, horizontal scroll reaches the
- * table's own right edge) was verified live in a real browser before this
- * fix shipped — see the accompanying report for that reproduction; it is
- * not, and cannot be, re-verified by this file.
- */
-
-const CSS_PATH = join(__dirname, 'tableWidget.css');
-
-/** Comments stripped — this file's own doc comments (this test file's own subject) deliberately quote real declarations as prose (e.g. "why `overflow-x: auto` stays conditional"), which would otherwise produce false-positive substring matches against the very assertions checking for those declarations' *real* presence/absence. */
-function readCss(): string {
-  return readFileSync(CSS_PATH, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+// jsdom cannot compute the actual layout. Assert the stylesheet contract;
+// real scroll/handle clipping remains a native smoke-test requirement.
+const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+function rule(selector: string): string {
+  const start = css.indexOf(selector + ' {');
+  expect(start).toBeGreaterThanOrEqual(0);
+  return css.slice(start, css.indexOf('}', start));
 }
 
-/** The index of `selector`'s own rule block start (`selector {`) in `css`, ignoring comments — `-1` if not found. Good enough for this file's own "which comes first" ordering checks; doesn't need a real CSS parser for a handful of known, simple selectors. */
-function ruleIndex(css: string, selector: string): number {
-  return css.indexOf(`${selector} {`);
-}
-
-describe('tableWidget.css — width architecture source', () => {
-  const css = readCss();
-
-  it('the outer wrapper is capped to 100%/max-width 100% (layer 1)', () => {
-    const wrapperRule = css.slice(ruleIndex(css, '.cm-editor .cm-table-wrapper'), ruleIndex(css, '.cm-editor .cm-table-scroll'));
-    expect(wrapperRule).toContain('width: 100%');
-    expect(wrapperRule).toContain('max-width: 100%');
+describe('automatic table sizing stylesheet', () => {
+  it('never clips at the block widget or outer wrapper', () => {
+    expect(rule('.cm-editor .cm-table-widget')).toContain('overflow: visible');
+    const wrapper = rule('.cm-editor .cm-table-wrapper');
+    expect(wrapper).toContain('overflow: visible');
+    expect(wrapper).toContain('max-width: 100%');
   });
 
-  it('the scroll viewport is capped to 100%/max-width 100% (layer 2)', () => {
-    const scrollRuleStart = ruleIndex(css, '.cm-editor .cm-table-scroll');
-    const scrollRule = css.slice(scrollRuleStart, css.indexOf('}', scrollRuleStart));
-    expect(scrollRule).toContain('width: 100%');
-    expect(scrollRule).toContain('max-width: 100%');
+  it('keeps horizontal overflow in the scrollport', () => {
+    const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
+    expect(scroll).toContain('overflow-x: auto');
+    expect(scroll).toContain('padding-bottom: 12px');
   });
 
-  it('the base table rule sets width: 100% (default, no-metadata behavior)', () => {
-    // The `width: 100%` declaration lives in the combined
-    // `.cm-table-wrapper table, .cm-table-wrapper .cm-line` selector, a
-    // separate rule block from the `border`/`table-layout` one right
-    // after it — both target `table`, so this checks the actual
-    // combined-selector rule rather than assuming a single rule owns
-    // every `table`-targeting declaration.
-    const combinedIndex = css.indexOf('.cm-editor .cm-table-wrapper table,');
-    expect(combinedIndex).toBeGreaterThan(-1);
-    const combinedRule = css.slice(combinedIndex, css.indexOf('}', combinedIndex));
-    expect(combinedRule).toContain('width: 100%');
-
-    const baseTableIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper table');
-    expect(baseTableIndex).toBeGreaterThan(-1);
-    expect(baseTableIndex).toBeGreaterThan(combinedIndex); // the border/table-layout rule comes after the width:100% one
+  it('keeps intrinsic tracks and content-sized columns', () => {
+    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout')).toContain('width: max-content');
+    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: max-content');
+    const table = rule('.cm-editor .cm-table-wrapper--auto-widths table');
+    expect(table).toContain('table-layout: auto');
+    expect(table).toContain('width: max-content');
   });
 
-  it('the explicit-widths override table rule uses max-content, not auto or 100%', () => {
-    const overrideIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths table');
-    expect(overrideIndex).toBeGreaterThan(-1);
-    const overrideRule = css.slice(overrideIndex, css.indexOf('}', overrideIndex));
-    expect(overrideRule).toContain('width: max-content');
-    expect(overrideRule).not.toContain('width: 100%');
-    expect(overrideRule).not.toContain('width: auto');
+  it('retains bounded cell widths and wrapping', () => {
+    const cell = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-cell-wrapper');
+    expect(cell).toContain('min-width:');
+    expect(cell).toContain('max-width:');
+    expect(cell).toContain('overflow-wrap: anywhere');
   });
 
-  it('CASCADE ORDER: the explicit-widths table override is declared AFTER the base width:100% table rule (the actual bug this file guards against)', () => {
-    // Both selectors have identical specificity (`.cm-editor` + one class +
-    // `table` element) — with no `!important` anywhere, the LATER rule in
-    // source order wins a tie. The override was once declared *before* the
-    // base rule, which the base rule then silently won every time,
-    // permanently forcing every explicit-width table back to 100% from the
-    // moment the resize feature shipped. This assertion is the actual
-    // regression guard: it fails immediately if that ordering mistake is
-    // ever reintroduced, regardless of what either rule's own body says.
-    const baseIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper table');
-    const overrideIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths table');
-    expect(baseIndex).toBeGreaterThan(-1);
-    expect(overrideIndex).toBeGreaterThan(-1);
-    expect(overrideIndex).toBeGreaterThan(baseIndex);
+  it('keeps the border and whole-table halo on the actual table', () => {
+    expect(rule('.cm-editor .cm-table-wrapper table')).toContain('border:');
+    expect(rule('.cm-editor .cm-table-wrapper-selected table')).toContain('background:');
+    expect(rule('.cm-editor .cm-table-wrapper-selected table')).toContain('box-shadow:');
   });
 
-  it('.cm-table-widget is overflow: visible — the CM6 block-widget layer must never become a clipping boundary', () => {
-    const widgetRuleStart = ruleIndex(css, '.cm-editor .cm-table-widget');
-    expect(widgetRuleStart).toBeGreaterThan(-1);
-    const widgetRule = css.slice(widgetRuleStart, css.indexOf('}', widgetRuleStart));
-    expect(widgetRule).toContain('overflow: visible');
-  });
-
-  it('.cm-table-wrapper is overflow: visible unconditionally — not a clipping layer either', () => {
-    const wrapperRuleStart = ruleIndex(css, '.cm-editor .cm-table-wrapper');
-    expect(wrapperRuleStart).toBeGreaterThan(-1);
-    const wrapperRule = css.slice(wrapperRuleStart, css.indexOf('}', wrapperRuleStart));
-    expect(wrapperRule).toContain('overflow: visible');
-  });
-
-  it('.cm-table-scroll is the one and only horizontal-clipping layer: overflow: visible by default, overflow-x: auto only for explicit-width tables', () => {
-    const baseScrollStart = ruleIndex(css, '.cm-editor .cm-table-scroll');
-    const baseScrollRule = css.slice(baseScrollStart, css.indexOf('}', baseScrollStart));
-    expect(baseScrollRule).toContain('overflow: visible');
-    expect(baseScrollRule).not.toContain('overflow-x: auto');
-
-    const overrideScrollIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll');
-    expect(overrideScrollIndex).toBeGreaterThan(-1);
-    const overrideScrollRule = css.slice(overrideScrollIndex, css.indexOf('}', overrideScrollIndex));
-    expect(overrideScrollRule).toContain('overflow-x: auto');
-  });
-
-  it('the border lives on the table, not the outer wrapper — so it extends with an intrinsic-width table rather than staying pinned at the editor edge', () => {
-    const wrapperRuleStart = ruleIndex(css, '.cm-editor .cm-table-wrapper {');
-    const wrapperRule = css.slice(wrapperRuleStart, css.indexOf('}', wrapperRuleStart));
-    expect(wrapperRule).not.toContain('border:');
-
-    const tableRuleStart = ruleIndex(css, '.cm-editor .cm-table-wrapper table');
-    const tableRule = css.slice(tableRuleStart, css.indexOf('border-collapse: separate', tableRuleStart));
-    expect(tableRule).toContain('border: var(--cm-table-border-thickness)');
-  });
-
-  it('the whole-table-selected background/box-shadow paints the intrinsic <table> itself, not .cm-table-wrapper or .cm-table-scroll', () => {
-    // Regression guard: `.cm-table-scroll` is unconditionally `width:
-    // 100%; max-width: 100%` regardless of the table's own intrinsic
-    // width, so it would always over-paint a smaller explicit-width table
-    // and always under-paint an oversized one. `table` itself is the one
-    // element whose own border-box always equals the actual rendered
-    // table, at whatever intrinsic width it currently has.
-    const selectedRuleStart = ruleIndex(css, '.cm-editor .cm-table-wrapper-selected table');
-    expect(selectedRuleStart).toBeGreaterThan(-1);
-    const selectedRule = css.slice(selectedRuleStart, css.indexOf('}', selectedRuleStart));
-    expect(selectedRule).toContain('background: var(--selection-surface)');
-    expect(selectedRule).toContain('box-shadow: inset 0 0 0 1.5px var(--surface-primary)');
-
-    // The class must still land on `.cm-table-wrapper` itself in the DOM
-    // (`tableWidget.ts`'s own `isSelected` toggle) — `tableSelectionHalo.test.ts`
-    // and `tableDeletionSelection.test.ts` both assert that placement —
-    // only the *paint target* changed; a bare rule targeting the wrapper
-    // directly, or one targeting `.cm-table-scroll`, must not reappear.
-    const bareWrapperSelectedIndex = css.indexOf('.cm-editor .cm-table-wrapper-selected {');
-    expect(bareWrapperSelectedIndex).toBe(-1);
-    const scrollTargetIndex = css.indexOf('.cm-editor .cm-table-wrapper-selected .cm-table-scroll');
-    expect(scrollTargetIndex).toBe(-1);
-  });
-
-  it('the explicit-widths .cm-table-scroll override adds the table-widget breakout (centered via left/transform, capped via a live-measured max-width, overflow-x: auto) and the handle-clipping fix (a padding gutter on both axes, with a canceling margin on the vertical axis only, on this same element)', () => {
-    const overrideScrollIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll');
-    expect(overrideScrollIndex).toBeGreaterThan(-1);
-    const overrideScrollRule = css.slice(overrideScrollIndex, css.indexOf('}', overrideScrollIndex));
-
-    expect(overrideScrollRule).toContain('overflow-x: auto');
-    // Centers on the reading column's own center regardless of this
-    // element's own width — see `tableWidget.css`'s own doc comment on this
-    // exact rule for the algebra.
-    expect(overrideScrollRule).toContain('left: 50%');
-    expect(overrideScrollRule).toContain('transform: translateX(-50%)');
-    expect(overrideScrollRule).toContain('box-sizing: content-box');
-    expect(overrideScrollRule).toContain('width: max-content');
-    expect(overrideScrollRule).toContain('min-width: 100%');
-    expect(overrideScrollRule).toContain('max-width: calc(');
-    expect(overrideScrollRule).toContain('var(--table-breakout-max-width');
-    // The handle-clipping fix: since `overflow: auto`'s own scrollport
-    // coincides with this element's *padding box* (the CSS Overflow spec),
-    // padding alone genuinely extends the reachable/visible area — no
-    // canceling margin needed for the row handle's symmetric horizontal
-    // gutter (equal padding on both sides never shifts the centered
-    // element's own visual position). The column handle's vertical gutter
-    // is one-sided and *does* pair with a canceling margin, but the margin
-    // lives on this same element (not a child) — only a margin on the
-    // element whose own box *is* the scrollport can move the scrollport's
-    // own clip boundary; a child's margin only repositions content inside
-    // an unchanged boundary, which an earlier, live-measured attempt proved
-    // does not fix the crop at all. See `tableWidget.css`'s own doc comment
-    // on this rule for the full reasoning and the measurement that
-    // disproved the child-margin version.
-    expect(overrideScrollRule).toContain('padding-inline: var(--cm-table-handle-gutter');
-    expect(overrideScrollRule).toContain('padding-block-start: var(--cm-table-handle-gutter');
-    expect(overrideScrollRule).toContain('margin-block-start: calc(-1 * var(--cm-table-handle-gutter');
-    expect(overrideScrollRule).not.toContain('margin-inline');
-  });
-
-  it('.cm-table-inner keeps its intrinsic width without stretching into the quick-add column track or introducing clipping', () => {
-    const innerIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner');
-    expect(innerIndex).toBeGreaterThan(-1);
-    const innerRule = css.slice(innerIndex, css.indexOf('}', innerIndex));
-
-    expect(innerRule).toContain('width: max-content');
-    expect(innerRule).toContain('min-width: 0');
-    expect(innerRule).toContain('flex: 0 0 auto');
-    expect(innerRule).not.toContain('min-width: 100%');
-    expect(innerRule).not.toContain('margin');
-    expect(innerRule).not.toContain('overflow');
-    expect(innerRule).not.toContain('max-width');
-  });
-});
-
-function mountView(doc: string): EditorView {
-  const parent = document.createElement('div');
-  document.body.appendChild(parent);
-  const state = EditorState.create({
-    doc,
-    extensions: [markdownLanguageExtension(), tableWidgetDecoration()],
-  });
-  return new EditorView({ state, parent });
-}
-
-const TABLE = '| Name | Role | City | Dept | Notes |\n| ---- | ---- | ---- | ---- | ----- |\n| Vik  | UI   | Chennai | Design | Long note text here |';
-
-describe('TableWidget — colgroup drives the width architecture (DOM inputs to the CSS above)', () => {
-  it('no metadata: wrapper does not get the explicit-widths class (table stays 100%, no scroll)', () => {
-    const view = mountView(TABLE);
-
-    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
-    expect(wrapper.classList.contains('cm-table-wrapper--explicit-widths')).toBe(false);
-    const colEls = view.dom.querySelectorAll('col');
-    for (const col of colEls) {
-      expect((col as HTMLElement).style.width).toBe('');
-    }
-  });
-
-  it('explicit widths matching the reference example (306+120+120+120+240=906): wrapper gets the modifier class, <col> widths sum to 906', () => {
-    const doc = `${TABLE}\n{table-col-widths="306,120,120,120,240"}`;
-    const view = mountView(doc);
-
-    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
-    expect(wrapper.classList.contains('cm-table-wrapper--explicit-widths')).toBe(true);
-
-    const colEls = Array.from(view.dom.querySelectorAll('col')) as HTMLElement[];
-    const widths = colEls.map((c) => Number.parseInt(c.style.width, 10));
-    expect(widths).toEqual([306, 120, 120, 120, 240]);
-    expect(widths.reduce((a, b) => a + b, 0)).toBe(906);
-  });
-
-  it('resizing the last column changes only its own <col> width, contributing directly to the table\'s own intrinsic (summed) width', () => {
-    const doc = `${TABLE}\n{table-col-widths="306,120,120,120,240"}`;
-    const view = mountView(doc);
-    const attrStart = doc.indexOf('{table-col-widths');
-
-    view.dispatch({ changes: { from: attrStart, to: doc.length, insert: '{table-col-widths="306,120,120,120,400"}' } });
-
-    const colEls = Array.from(view.dom.querySelectorAll('col')) as HTMLElement[];
-    const widths = colEls.map((c) => Number.parseInt(c.style.width, 10));
-    expect(widths).toEqual([306, 120, 120, 120, 400]);
-    expect(widths.reduce((a, b) => a + b, 0)).toBe(1066);
+  it('does not contain the retired explicit-width selectors', () => {
+    expect(css).not.toContain('cm-table-wrapper--explicit-widths');
+    expect(css).not.toContain('table-breakout-max-width');
   });
 });
