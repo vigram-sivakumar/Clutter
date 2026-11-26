@@ -90,8 +90,8 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
 });
 
 describe('whole-table deletion through root history', () => {
-  it.each(['above', 'below'])('includes the attached width line when armed from %s', (side) => {
-    const source = 'Before\n\n' + TABLE + '\n{table-col-widths=" 80, 240 "}\n\nAfter';
+  it.each(['above', 'below'])('deletes only the table when armed from %s', (side) => {
+    const source = 'Before\n\n' + TABLE + '\n\nAfter';
     const start = source.indexOf('|');
     const { view } = mountRootView(source, side === 'above' ? start - 1 : source.indexOf('\n\nAfter') + 1, history());
     dispatchKey(view, side === 'above' ? 'Delete' : 'Backspace');
@@ -108,7 +108,7 @@ describe('whole-table deletion through root history', () => {
     expect(view.state.doc.toString()).toBe(deleted);
   });
 
-  it('preserves a following malformed width line when deleting from above', () => {
+  it('preserves a following ordinary paragraph when deleting from above', () => {
     const source = '\n' + TABLE + '\n{table-col-widths="oops"}';
     const { view } = mountRootView(source, 0);
     dispatchKey(view, 'Delete');
