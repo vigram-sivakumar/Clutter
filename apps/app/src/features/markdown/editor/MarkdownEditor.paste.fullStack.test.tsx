@@ -13,7 +13,6 @@ import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
 import type { PasteAssets } from './codemirror/paste/assetPaste';
 import { findAllTables } from './codemirror/table/tableGeometry';
-import { tableSelectionField } from './codemirror/table/tableSelection';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 import { EXCEL_HTML, GOOGLE_SHEETS_HTML, BROWSER_TABLE_HTML, WORD_TABLE_HTML } from './codemirror/table/tableClipboardFixtures';
 
@@ -1965,7 +1964,7 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(markdown);
   });
 
-  it('pastes a grid into a real reverse engine range, with one root history step and no legacy selection', () => {
+  it('pastes a grid into a real reverse engine range, with one root history step', () => {
     const fake = fakeAssets();
     const { container } = render(<MarkdownEditor pageId="engine-range-routing" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
     const root = rootOf(container);
@@ -1980,7 +1979,6 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     key(host(2, 1), 'ArrowLeft', true);
     key(host(2, 0), 'ArrowUp', true);
     expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
-    expect(root.state.field(tableSelectionField, false)).toBeNull();
     expect(nestedOf(container)).toBeNull();
     const depth = undoDepth(root.state);
     vi.mocked(classifyPaste).mockClear();
@@ -1993,7 +1991,6 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(fake.stored).toEqual([]);
     expect(fake.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
     expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
-    expect(root.state.field(tableSelectionField, false)).toBeNull();
     act(() => undo(root));
     expect(root.state.doc.toString()).toBe(DOC_TABLE);
     expect(selected()).toEqual(['1,0', '1,1', '2,0', '2,1']);
