@@ -107,7 +107,7 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
 
 describe('classifyPaste — the files a strategy leaves out', () => {
   const skipped = (payload: Parameters<typeof clipboard>[0], doc = 'Start', caret = 5, options: { canEmbed?: boolean } = {}) =>
-    classifyPaste(clipboard(payload), { state: stateAt(doc, caret, options), canEmbed: options.canEmbed ?? true }).skipped;
+    classifyPaste(clipboard(payload), { state: stateAt(doc, caret), canEmbed: options.canEmbed ?? true }).skipped;
 
   it('reports nothing when every file is embedded, or there are no files', () => {
     expect(skipped({ files: [png, pdf], text: '' })).toBeNull();
