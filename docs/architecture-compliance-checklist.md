@@ -71,6 +71,17 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 - [ ] Does this PR construct the same collaborator object more than once for the same long-lived purpose (duplicate `FrontmatterParser`, `FrontmatterSerializer`, `PageRebuilder`, etc.) outside the one documented bootstrap/runtime split?
 - [ ] Does this PR import `LocalFileSystem`/`LocalFileSystemWatcher` (or any other concrete Platform implementation) from anywhere other than the Composition Root?
 
+## Mandatory implementation gate (all agents and contributors)
+
+- [ ] Was the root cause identified and the current baseline recorded? **(must be YES)**
+- [ ] Were architecture and interaction contracts checked, with the smallest correct change and regression coverage? **(must be YES)**
+- [ ] Were required type/build and complete affected regression checks actually executed and passed, including the full app suite for editor/table runtime changes? **(must be YES, or not applicable for documentation-only changes)**
+- [ ] Was native WebKit/Tauri behaviour verified on the changed revision where required by rulebook §7? **(must be YES, or explicitly not applicable)**
+- [ ] Did the author skip, weaken, or misrepresent a check, or commit/push unverified runtime work? (must be No)
+- [ ] Are the checks, outcomes, deviations and verified milestone recorded? **(must be YES)**
+
+For editor/table work use the full regression contract in [implementation-rules.md §7](implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents). A failed/unavailable required check blocks publication; a prior accepted milestone is not evidence for a newer revision.
+
 ## Testing Rules
 
 - [ ] **(must be YES)** If this PR adds or changes a `PersistenceOperation` kind, does it include a concurrency test proving two operations on the same page id serialize correctly?
