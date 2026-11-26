@@ -23,6 +23,16 @@ describe('automatic table sizing stylesheet', () => {
     expect(wrapper).toContain('max-width: 100%');
   });
 
+  it('paints overflow gradients without layout or pointer ownership', () => {
+    const fade = rule('.cm-editor .cm-table-wrapper::after');
+    expect(fade).toContain('position: absolute');
+    expect(fade).toContain('pointer-events: none');
+    expect(fade).toContain('width: min(16px, var(--cm-table-fade-viewport-width, 0px))');
+    expect(fade).toContain('transition: opacity 120ms ease');
+    expect(css).toContain('linear-gradient(to right, var(--cm-table-fade-surface, var(--surface-primary)), transparent)');
+    expect(css).toContain('linear-gradient(to left, var(--cm-table-fade-surface, var(--surface-primary)), transparent)');
+  });
+
   it('keeps horizontal overflow and handle gutters in the scrollport', () => {
     const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
     expect(scroll).toContain('overflow-x: auto');
