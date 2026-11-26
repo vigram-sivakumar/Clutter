@@ -10,7 +10,8 @@ import {
 } from '@codemirror/view';
 
 import { isConstructEngaged } from '../semanticToken/tokenEngagement';
-import { revealedMarkNodeRanges, type ParticipantRenderer } from './inlineLivePreviewParticipants';
+import { createInlineLivePreviewParticipants, revealedMarkNodeRanges, type ParticipantRenderer, type ParticipantResolvers } from './inlineLivePreviewParticipants';
+import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 
 /**
  * Heading content classing (`tok-heading1`-`tok-heading6`), folded into
@@ -270,4 +271,15 @@ export function inlineLivePreviewRegion(
   const atomic = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none);
 
   return [plugin, atomic];
+}
+
+/** Shared inline presentation, with only heading styling disabled for a cell. */
+export function inlinePreviewExtensions(resolvers: Partial<ParticipantResolvers> = {}, includeHeadings = true): Extension {
+  return [
+    inlineLivePreviewRegion(createInlineLivePreviewParticipants({
+      resolveTag: resolvers.resolveTag ?? (() => undefined),
+      resolveDate: resolvers.resolveDate ?? (() => undefined),
+    }), { includeHeadings }),
+    wikiLinkLivePreview(resolvers.resolveWikiLink ?? (() => undefined)),
+  ];
 }
