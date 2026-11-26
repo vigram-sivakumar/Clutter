@@ -279,7 +279,7 @@ function buildTableDecorations(
       try {
         const snapshot = snapshotFromTableNode(source, table.node);
         const selected = tableIntersectsSelectionRange(state.selection.main, table);
-        const widget = new TableProjection(snapshot, selected, editableProjection);
+        const widget = new TableProjection(snapshot, selected, editableProjection, getOnTableHandleMenuChange);
         ranges.push(Decoration.replace({ widget, block: true }).range(table.from, table.to));
         continue;
       } catch (error) {

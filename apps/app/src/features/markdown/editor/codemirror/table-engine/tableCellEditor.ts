@@ -13,6 +13,7 @@ import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteract
 import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid } from './tableClipboard';
 import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
+import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
 
@@ -28,6 +29,7 @@ export class TableCellEditor {
   private interactionTable: number | null = null;
   private pendingHistory: SelectionBookmark | null | undefined;
   private historyFocus: SelectionBookmark | null = null;
+  private handleMenu: { selection: TableHandleMenuSelection; notify: OnTableHandleMenuChange } | null = null;
 
   private readonly drag = new TableDragSelection((widget, anchor, head) => {
     if (!this.root.dom.contains(widget)) return false;
@@ -81,6 +83,7 @@ export class TableCellEditor {
   private outsideClick = (event: MouseEvent): void => {
     if (this.interactionTable === null) return;
     const target = event.target;
+    if (target instanceof Element && target.closest('.cm-table-handle-menu')) return;
     if (target instanceof Element &&
       this.root.dom.contains(target) && target.closest('[data-table-engine-cells="true"]')) return;
     this.cancelDrag();
@@ -122,12 +125,16 @@ export class TableCellEditor {
         col! >= bounds.left && col! <= bounds.right;
       host.tabIndex = selected && focus?.row === row && focus?.col === col ? 0 : -1;
       const cell = host.parentElement!;
+      const axis = this.interactionTable === from ? this.interaction.kind : 'none';
+      cell.classList.toggle('cm-table-column-selected', selected && axis === 'column');
+      cell.parentElement?.classList.toggle('cm-table-row-selected', axis === 'row' && focus?.row === row);
       cell.classList.toggle('cm-table-engine-selected', selected);
       cell.classList.toggle('cm-table-engine-top', selected && row === bounds?.top);
       cell.classList.toggle('cm-table-engine-bottom', selected && row === bounds?.bottom);
       cell.classList.toggle('cm-table-engine-left', selected && col === bounds?.left);
       cell.classList.toggle('cm-table-engine-right', selected && col === bounds?.right);
     }
+    widget.firstElementChild?.dispatchEvent(new Event('table-engine-selection'));
   }
 
   private paintSelection(): void {
@@ -241,6 +248,58 @@ export class TableCellEditor {
     try {
       this.cancelDrag();
       return this.select(tableFrom, { kind: axis, cell });
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  }
+
+  currentAxisSelection(): TableHandleMenuSelection | null {
+    if (this.interactionTable === null) return null;
+    const i = this.interaction;
+    if (i.kind === 'row') return { kind: 'row', tableFrom: this.interactionTable, rowIndex: i.cell.row };
+    if (i.kind === 'column') return { kind: 'column', tableFrom: this.interactionTable, columnIndex: i.cell.col };
+    return null;
+  }
+
+  matchesAxis(selection: TableHandleMenuSelection): boolean {
+    const current = this.currentAxisSelection();
+    return !!current && current.tableFrom === selection.tableFrom &&
+      (current.kind === 'row' && selection.kind === 'row' ? current.rowIndex === selection.rowIndex :
+        current.kind === 'column' && selection.kind === 'column' && current.columnIndex === selection.columnIndex);
+  }
+
+  openHandleMenu(selection: TableHandleMenuSelection, notify: OnTableHandleMenuChange): void {
+    if (!this.matchesAxis(selection)) return;
+    this.handleMenu = { selection, notify };
+    notify({ selection });
+  }
+
+  dismissHandleMenu(): void { this.handleMenu = null; }
+
+  /** The original menu/drag surface supplies logical commands only.
+   * No legacy selection field or mutation is used for an engine table. */
+  axisCommand(selection: TableHandleMenuSelection, action: TableCommand | 'clear'): boolean {
+    if (!this.matchesAxis(selection) || this.root.state.readOnly) return false;
+    const from = selection.tableFrom;
+    try {
+      if (action === 'clear') return this.clearSelected();
+      if (action.kind === 'insertRow' || action.kind === 'deleteRow' || action.kind === 'duplicateRow' ||
+          action.kind === 'insertColumn' || action.kind === 'deleteColumn' || action.kind === 'duplicateColumn') {
+        return this.structural(from, action);
+      }
+      const next: TableInteraction = action.kind === 'moveRow' ? { kind: 'row', cell: { row: action.to, col: 0 } } :
+        action.kind === 'moveColumn' ? { kind: 'column', cell: { row: 0, col: action.to } } : this.interaction;
+      const tr = createTableTransaction(this.root.state, from, action, parse, tableSelectionTransition.of({
+        before: bookmark(from, this.interaction), after: bookmark(from, next),
+      }));
+      if (!tr) return false;
+      this.cancelDrag();
+      this.close();
+      this.forwarding = true;
+      try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+      this.select(from, next, true);
+      return true;
     } catch (error) {
       if (!(error instanceof TableEngineError)) throw error;
       return false;
@@ -531,6 +590,9 @@ export class TableCellEditor {
   }
 
   close(): void {
+    const menu = this.handleMenu;
+    this.handleMenu = null;
+    menu?.notify(null);
     this.historyFocus = null;
     const host = this.nested?.dom.parentElement;
     this.nested?.dom.remove();
@@ -550,6 +612,7 @@ export class TableCellEditor {
   }
 
   destroy(): void {
+    this.handleMenu = null;
     this.cancelDrag();
     this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
     this.root.dom.ownerDocument.removeEventListener('keydown', this.historyKey, true);

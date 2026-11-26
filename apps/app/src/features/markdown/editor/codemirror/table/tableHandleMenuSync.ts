@@ -2,6 +2,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { tableSelectionField, type TableSelection } from './tableSelection';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
 
 /**
  * The row/column handle's own floating menu (`TableHandleMenu.tsx`) —
@@ -28,8 +29,9 @@ export function resolveTableHandleMenuAnchor(
     return null;
   }
 
-  const currentSelection = view.state.field(tableSelectionField, false) ?? null;
-  if (!currentSelection) {
+  const engineWidget = view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${requestedSelection.tableFrom}"]`);
+  const currentSelection = engineWidget ? view.plugin(tableCellEditor)?.currentAxisSelection() ?? null : view.state.field(tableSelectionField, false) ?? null;
+  if (!currentSelection || (engineWidget && currentSelection.tableFrom !== requestedSelection.tableFrom)) {
     return null;
   }
 

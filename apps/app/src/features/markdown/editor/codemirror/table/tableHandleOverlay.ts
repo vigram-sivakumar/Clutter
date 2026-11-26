@@ -276,16 +276,25 @@ function showPair(pair: HandlePair): void {
  * and every test call site in this file — a wider, separate cleanup from
  * the bug this change actually fixes.
  */
+export interface EngineHandleAdapter {
+  select(axis: 'row' | 'column', index: number): boolean;
+  move(axis: 'row' | 'column', from: number, to: number): boolean;
+  selected(axis: 'row' | 'column'): number | null;
+}
+
 export function attachTableHandleOverlay(
   wrapper: HTMLElement,
   _columnCount: number,
   view: EditorView,
-  controller: TableActiveCellController,
+  controller: TableActiveCellController | null,
   tableFrom: number,
   selectedColumnIndex: number | null,
   selectedRowIndex: number | null,
-  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
-): void {
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
+  engine?: EngineHandleAdapter,
+): () => void {
+  const listeners = new AbortController();
+  const options = { signal: listeners.signal };
   function resolveTableElement(): HTMLTableElement | null {
     // A descendant combinator for the final hop, not `>` — `<table>` now
     // always sits one layer deeper (`.cm-table-scroll > .cm-table-inner >
@@ -357,11 +366,13 @@ export function attachTableHandleOverlay(
   }
 
   function selectedColumnFallback(): HandlePair | null {
-    return selectedColumnIndex !== null ? columnHandlePair(selectedColumnIndex) : null;
+    const index = engine ? engine.selected('column') : selectedColumnIndex;
+    return index !== null ? columnHandlePair(index) : null;
   }
 
   function selectedRowFallback(): HandlePair | null {
-    return selectedRowIndex !== null ? rowHandlePair(selectedRowIndex) : null;
+    const index = engine ? engine.selected('row') : selectedRowIndex;
+    return index !== null ? rowHandlePair(index) : null;
   }
 
   /**
@@ -388,7 +399,7 @@ export function attachTableHandleOverlay(
     }
     setVisibleColumn(columnHandlePair(hovered.columnIndex));
     setVisibleRow(rowHandlePair(hovered.row.rowIndex));
-  });
+  }, options);
 
   wrapper.addEventListener('pointerleave', () => {
     if (dragHoverSuppressed) {
@@ -396,7 +407,12 @@ export function attachTableHandleOverlay(
     }
     setVisibleColumn(selectedColumnFallback());
     setVisibleRow(selectedRowFallback());
-  });
+  }, options);
+  if (engine) wrapper.addEventListener('table-engine-selection', () => {
+    if (dragHoverSuppressed) return;
+    setVisibleColumn(selectedColumnFallback());
+    setVisibleRow(selectedRowFallback());
+  }, options);
 
   // ---------------------------------------------------------------------
   // Drag-to-reorder (this file's own top doc comment, § "Drag-to-reorder")
@@ -596,6 +612,8 @@ export function attachTableHandleOverlay(
     document.removeEventListener('pointermove', handlePointerMove);
     document.removeEventListener('pointerup', handlePointerUp);
     document.removeEventListener('pointercancel', handlePointerCancel);
+    document.removeEventListener('keydown', cancelOnEscape);
+    wrapper.ownerDocument.defaultView?.removeEventListener('blur', handlePointerCancel);
   }
 
   /**
@@ -694,6 +712,7 @@ export function attachTableHandleOverlay(
     if (targetIndex === startIndex) {
       return;
     }
+    if (engine) { engine.move(axis, startIndex, targetIndex); return; }
     const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
     const moved = axis === 'row' ? moveSelectedRowToIndex(view, selection, targetIndex) : moveSelectedColumnToIndex(view, selection, targetIndex);
     if (moved) {
@@ -712,7 +731,7 @@ export function attachTableHandleOverlay(
         return;
       }
       session.dragging = true;
-      controller.deactivate();
+      controller?.deactivate();
       materializeDragVisuals(session, event);
     }
     // See `DragTargetResolution`'s own doc comment for what each of the
@@ -778,8 +797,11 @@ export function attachTableHandleOverlay(
     // milestone's own stated order, and means a failed/no-op move (the
     // "moved" check inside `commitDrag`, mirroring the pre-ghost behavior)
     // still always cleans up regardless of outcome.
+    // Stable engine cells survive a move: restore hidden source before painting
+    // the new revision, rather than restoring old visual state onto new data.
+    if (engine) cleanupDragVisuals(session);
     commitDrag(session.axis, session.startIndex, session.targetIndex);
-    cleanupDragVisuals(session);
+    if (!engine) cleanupDragVisuals(session);
   }
 
   function handlePointerCancel(): void {
@@ -802,11 +824,19 @@ export function attachTableHandleOverlay(
    * instance's own setup (a rebuild happened), and either way the only
    * thing this function needs is the four primitive values below.
    */
+  function cancelOnEscape(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && dragSession) { event.preventDefault(); event.stopPropagation(); handlePointerCancel(); }
+  }
+
   function startDragSession(axis: 'row' | 'column', startIndex: number, startClientX: number, startClientY: number): void {
     dragSession = { axis, startIndex, targetIndex: startIndex, startClientX, startClientY, dragging: false, ghost: null, restoreSource: null };
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
     document.addEventListener('pointercancel', handlePointerCancel);
+    if (engine) {
+      document.addEventListener('keydown', cancelOnEscape);
+      wrapper.ownerDocument.defaultView?.addEventListener('blur', handlePointerCancel);
+    }
   }
 
   /** Consumes this exact `tableFrom`'s own pending drag-resume entry, if one is still there, and starts tracking it against *this* instance's own (now-live) `wrapper` — see this file's own top doc comment, "Selection model," for why at most one of two possible call sites ever actually finds an entry here. */
@@ -859,7 +889,7 @@ export function attachTableHandleOverlay(
         event.stopPropagation();
       }
     },
-    { capture: true }
+    { capture: true, ...options }
   );
 
   // **Selection dispatch lives here, not in the `click` handler below** —
@@ -883,8 +913,13 @@ export function attachTableHandleOverlay(
       return;
     }
     const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
+    if (engine) {
+      pe.preventDefault(); pe.stopPropagation();
+      if (engine.select(axis, startIndex)) startDragSession(axis, startIndex, pe.clientX, pe.clientY);
+      return;
+    }
     const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
-    controller.deactivate();
+    controller?.deactivate();
     // The outgoing TableWidget captures its scroll position in destroy().
     // Selection handles therefore need no separate scroll bookkeeping.
     // Set *before* dispatching — a rebuild this dispatch triggers runs
@@ -902,7 +937,7 @@ export function attachTableHandleOverlay(
     // already the sole selection) — this exact closure/`wrapper` is still
     // the live one, so resume tracking the possible drag right here.
     resumePendingDragIfMine();
-  });
+  }, options);
 
   // Menu opening is coordinated with the drag session's document-level
   // pointerup handler above. Do not attach it to this widget's wrapper:
@@ -922,5 +957,11 @@ export function attachTableHandleOverlay(
   // entry is still there — this fresh instance's own `wrapper` is now the
   // live one, so pick the drag session back up here (this file's own top
   // doc comment, "Selection model," has the full reasoning).
-  resumePendingDragIfMine();
+  if (!engine) resumePendingDragIfMine();
+  return () => {
+    handlePointerCancel();
+    listeners.abort();
+    columnDropIndicator.remove(); rowDropIndicator.remove();
+    wrapper.querySelectorAll('.cm-table-column-handle-hit, .cm-table-column-handle, .cm-table-row-handle-hit, .cm-table-row-handle').forEach(el => el.remove());
+  };
 }

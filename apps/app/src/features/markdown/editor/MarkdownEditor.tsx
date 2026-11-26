@@ -27,6 +27,8 @@ import { caretBottomClearanceExtension } from './codemirror/caretBottomClearance
 import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
+import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
+import type { TableCommand } from './codemirror/table-engine/tableCommands';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { escapeTableCellText } from './codemirror/table/tablePaste';
@@ -704,7 +706,18 @@ export const MarkdownEditor = forwardRef<
   });
 
   const closeTableHandleMenu = () => {
+    viewRef.current?.plugin(tableCellEditor)?.dismissHandleMenu();
     setTableHandleMenu(null);
+  };
+
+  // Engine menu actions never fall through to the legacy source writer,
+  // including a stale/rejected engine command. Compatibility tables keep it.
+  const engineMenuAction = (view: EditorView, selection: TableHandleMenuSelection, action: (index: number) => TableCommand | 'clear'): boolean => {
+    if (!view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${selection.tableFrom}"]`)) return false;
+    const controller = view.plugin(tableCellEditor);
+    const index = selection.kind === 'row' ? selection.rowIndex : selection.columnIndex;
+    controller?.axisCommand(selection, action(index));
+    return true;
   };
 
   // "Clear contents" — the only menu item wired to a real operation this
@@ -738,6 +751,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, () => 'clear')) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     clearTableSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -753,6 +767,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'duplicateRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     duplicateSelectedRow(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -762,6 +777,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'duplicateColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     duplicateSelectedColumn(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -776,6 +792,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveRow', from: index, to: index - 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     moveSelectedRowUp(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -785,6 +802,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveRow', from: index, to: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     moveSelectedRowDown(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -794,6 +812,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveColumn', from: index, to: index - 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     moveSelectedColumnLeft(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -803,6 +822,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'moveColumn', from: index, to: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     moveSelectedColumnRight(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -819,6 +839,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     insertRowAboveSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -828,6 +849,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertRow', index: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     insertRowBelowSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -837,6 +859,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     insertColumnLeftSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -846,6 +869,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'insertColumn', index: index + 1 }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     insertColumnRightSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -861,6 +885,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'setAlignment', col: index, alignment: alignment ?? 'none' }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     setSelectedColumnAlignment(view, tableHandleMenu.selection, alignment);
     view.focus();
   };
@@ -878,6 +903,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, () => ({ kind: 'format' }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     normalizeTableAt(view, tableHandleMenu.selection.tableFrom);
     view.focus();
   };
@@ -895,6 +921,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'deleteRow', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     deleteRowSelection(view, tableHandleMenu.selection);
     view.focus();
   };
@@ -904,6 +931,7 @@ export const MarkdownEditor = forwardRef<
     if (!tableHandleMenu || !view) {
       return;
     }
+    if (engineMenuAction(view, tableHandleMenu.selection, index => ({ kind: 'deleteColumn', index }))) { tableHandleMenuSuppressReturnFocusRef.current = true; return; }
     deleteColumnSelection(view, tableHandleMenu.selection);
     view.focus();
   };

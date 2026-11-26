@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { history, undo, redo, undoDepth, redoDepth, historyKeymap } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
+import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange } from './tableHandleMenuSync';
+import type { TableCommand } from '../table-engine/tableCommands';
 import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
 
@@ -55,7 +57,7 @@ afterEach(() => {
   }
 });
 
-function mount(doc: string, readOnly: boolean, controller?: TableActiveCellController, engine = false): EditorView {
+function mount(doc: string, readOnly: boolean, controller?: TableActiveCellController, engine = false, onMenu?: OnTableHandleMenuChange): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -65,6 +67,7 @@ function mount(doc: string, readOnly: boolean, controller?: TableActiveCellContr
         ...REQUIRED,
         readOnly,
         tableEngineCells: engine,
+        onOpenTableHandleMenu: () => onMenu,
         hostPageId: 'test-page',
         getTableActiveCellController: controller ? () => controller : undefined,
       }),
@@ -483,10 +486,23 @@ describe('engine staged structural commands (M8 candidate)', () => {
   const host = (view: EditorView, row: number, col: number) =>
     widget(view).querySelector<HTMLElement>(`[data-cell="${row},${col}"]`)!;
   const action = (view: EditorView, row: number, col: number, label: string) => {
-    host(view, row, col).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-    const b = widget(view).querySelector<HTMLButtonElement>(`[data-table-action="${label}"]`)!;
-    expect(b).not.toBeNull();
-    b.click();
+    const controller = view.plugin(tableCellEditor)!;
+    const axis = label.toLowerCase().includes('row') ? 'row' : 'column';
+    const index = axis === 'row' ? row : col;
+    const selection = axis === 'row' ? { kind: 'row' as const, tableFrom: 8, rowIndex: index } :
+      { kind: 'column' as const, tableFrom: 8, columnIndex: index };
+    const commands: Record<string, TableCommand> = {
+      'Insert row above': { kind: 'insertRow', index },
+      'Insert row below': { kind: 'insertRow', index: index + 1 },
+      'Duplicate row': { kind: 'duplicateRow', index },
+      'Delete row': { kind: 'deleteRow', index },
+      'Insert column left': { kind: 'insertColumn', index },
+      'Insert column right': { kind: 'insertColumn', index: index + 1 },
+      'Duplicate column': { kind: 'duplicateColumn', index },
+      'Delete column': { kind: 'deleteColumn', index },
+    };
+    expect(controller.selectAxis(8, { row, col }, axis)).toBe(true);
+    expect(controller.axisCommand(selection, commands[label]!)).toBe(true);
   };
   const select = (view: EditorView) => Array.from(widget(view).querySelectorAll('.cm-table-engine-selected [data-cell]')).map(h => (h as HTMLElement).dataset.cell);
   it('quick-adds rows and columns with one history entry each and retains the widget', () => {
@@ -703,6 +719,83 @@ describe('engine staged column resizing (M9a candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(hits(view)).toHaveLength(2);
     expect(hits(mount(TABLE, true))).toHaveLength(0);
+  });
+});
+
+describe('engine original table handles (M9b candidate)', () => {
+  const pointer = (type: string, target: EventTarget, x = 10, y = 10) =>
+    target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true }));
+  const mountHistory = (source = TABLE, notify?: OnTableHandleMenuChange) => {
+    const view = mount(source, false, undefined, true, notify);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    return view;
+  };
+  it('opens the original logical menu on handle release and resolves its live anchor without legacy selection', () => {
+    const notify = vi.fn<OnTableHandleMenuChange>();
+    const view = mountHistory(TABLE, notify);
+    const hit = view.dom.querySelector<HTMLElement>('th .cm-table-column-handle-hit')!;
+    expect(hit).not.toBeNull();
+    pointer('pointerdown', hit);
+    expect(notify).not.toHaveBeenCalled();
+    pointer('pointerup', document);
+    const selection = { kind: 'column' as const, tableFrom: 0, columnIndex: 0 };
+    expect(notify).toHaveBeenCalledWith({ selection });
+    expect(resolveTableHandleMenuAnchor(view, selection)).toBe(view.dom.querySelector('th .cm-table-column-handle'));
+    expect(view.state.field(tableSelectionField, false) ?? null).toBeNull();
+    expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(2);
+    const c = view.plugin(tableCellEditor)!;
+    expect(c.axisCommand(selection, { kind: 'setAlignment', col: 0, alignment: 'center' })).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('| --- | --- |', '| :---: | --- |'));
+    expect(notify).toHaveBeenCalledWith(null);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+  it('reorders columns by their original handle and carries alignment and width metadata together', () => {
+    const source = TABLE.replace('| --- | --- |', '| --- | :---: |') + '\n{table-col-widths="120,260"}';
+    const view = mountHistory(source);
+    const hits = view.dom.querySelectorAll<HTMLElement>('.cm-table-column-handle-hit');
+    pointer('pointerdown', hits[0]!, 10, 10);
+    pointer('pointermove', view.dom.querySelectorAll('th')[1]!, 100, 10);
+    expect(view.state.doc.toString()).toBe(source);
+    pointer('pointerup', document, 100, 10);
+    expect(view.state.doc.toString()).toBe('| Role | Name |\n| :---: | --- |\n| Designer | Vik |\n{table-col-widths="260,120"}');
+    expect(view.plugin(tableCellEditor)!.currentAxisSelection()).toEqual({kind: 'column', tableFrom: 0, columnIndex: 1});
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toContain('{table-col-widths="260,120"}');
+  });
+  it('reorders the header by row drag, cancels a second drag, and reconciles handle count', () => {
+    const view = mountHistory();
+    pointer('pointerdown', view.dom.querySelector('.cm-table-row-handle-hit')!, 10, 10);
+    pointer('pointermove', view.dom.querySelector('tbody td')!, 10, 100);
+    pointer('pointerup', document, 10, 100);
+    const moved = '| Vik | Designer |\n| --- | --- |\n| Name | Role |';
+    expect(view.state.doc.toString()).toBe(moved);
+    pointer('pointerdown', view.dom.querySelector('.cm-table-row-handle-hit')!, 10, 10);
+    pointer('pointermove', view.dom.querySelector('tbody td')!, 10, 100);
+    pointer('pointercancel', document);
+    expect(view.state.doc.toString()).toBe(moved);
+    expect(undoDepth(view.state)).toBe(1);
+    view.dom.querySelector<HTMLButtonElement>('[aria-label="Add row"]')!.click();
+    expect(view.dom.querySelectorAll('.cm-table-row-handle-hit')).toHaveLength(3);
+    expect(view.dom.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(2);
+    expect(mount(TABLE, true).dom.querySelectorAll('.cm-table-row-handle-hit, .cm-table-column-handle-hit')).toHaveLength(0);
+  });
+  it('clears and formats through engine commands and refuses a stale axis identity', () => {
+    const source = '|A|B|\n|---|---|\n|one|two|';
+    const view = mountHistory(source);
+    const c = view.plugin(tableCellEditor)!;
+    const row = { kind: 'row' as const, tableFrom: 0, rowIndex: 1 };
+    expect(c.selectAxis(0, {row: 1, col: 0}, 'row')).toBe(true);
+    expect(c.axisCommand(row, {kind: 'format'})).toBe(true);
+    expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n| one | two |');
+    expect(c.axisCommand({...row, rowIndex: 0}, 'clear')).toBe(false);
+    expect(c.axisCommand(row, 'clear')).toBe(true);
+    expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n|  |  |');
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
   });
 });
 

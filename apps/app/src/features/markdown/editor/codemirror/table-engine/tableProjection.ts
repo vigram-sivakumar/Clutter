@@ -4,12 +4,15 @@ import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from '../table/tableWidgetBreakoutWidth';
 import type { TableSnapshot } from './tableModel';
 import { attachTableColumnResizeHandles } from '../table/tableColumnResizeHandle';
+import { attachTableHandleOverlay } from '../table/tableHandleOverlay';
+import type { OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 // The mounted DOM can outlive an individual WidgetType during reconciliation.
 const widthObservers = new WeakMap<HTMLElement, BreakoutWidthHandle>();
 const dragDisposers = new WeakMap<HTMLElement, () => void>();
 const structuralDisposers = new WeakMap<HTMLElement, () => void>();
 const resizeDisposers = new WeakMap<HTMLElement, () => void>();
+const handleDisposers = new WeakMap<HTMLElement, () => void>();
 
 function container(parent: HTMLElement, className: string): HTMLDivElement {
   const child = parent.ownerDocument.createElement('div');
@@ -18,9 +21,7 @@ function container(parent: HTMLElement, className: string): HTMLDivElement {
   return child;
 }
 
-/** Stage M8 with the established quick-add bars. A small context-action
- * surface exposes the same structural API for browser acceptance until
- * M9 replaces it with the product's row/column handle menu. */
+/** Quick-add bars use the validated structural command pipeline. */
 function attachStructuralControls(root: HTMLElement, view: EditorView, table: HTMLTableElement, inner: HTMLElement, layout: HTMLElement): () => void {
   const doc = root.ownerDocument;
   const controller = () => view.plugin(tableCellEditor);
@@ -57,79 +58,45 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
   observer?.observe(table);
   size();
 
-  let menu: HTMLElement | null = null;
-  const close = () => {
-    menu?.remove(); menu = null;
-    doc.removeEventListener('mousedown', outside, true);
-    doc.removeEventListener('keydown', escape, true);
-  };
-  const outside = (event: MouseEvent) => { if (!menu?.contains(event.target as Node)) close(); };
-  const escape = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && menu) { event.preventDefault(); event.stopPropagation(); close(); }
-  };
-  const open = (event: MouseEvent) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const host = target.closest<HTMLElement>('[data-cell]');
-    if (!host || host.closest('[data-table-engine-cells="true"]') !== root) return;
-    const [row, col] = host.dataset.cell!.split(',').map(Number);
-    if (row === undefined || col === undefined) return;
-    event.preventDefault(); event.stopPropagation(); close();
-    menu = doc.createElement('div');
-    menu.className = 'cm-table-engine-structural-actions';
-    menu.setAttribute('role', 'group');
-    menu.setAttribute('aria-label', 'Table structural actions');
-    const actions = [
-      ['Insert row above', { kind: 'insertRow', index: row }, 'row'],
-      ['Insert row below', { kind: 'insertRow', index: row + 1 }, 'row'],
-      ['Duplicate row', { kind: 'duplicateRow', index: row }, 'row'],
-      ['Delete row', { kind: 'deleteRow', index: row }, 'row'],
-      ['Insert column left', { kind: 'insertColumn', index: col }, 'column'],
-      ['Insert column right', { kind: 'insertColumn', index: col + 1 }, 'column'],
-      ['Duplicate column', { kind: 'duplicateColumn', index: col }, 'column'],
-      ['Delete column', { kind: 'deleteColumn', index: col }, 'column'],
-    ] as const;
-    for (const [label, command, axis] of actions) {
-      const action = doc.createElement('button');
-      action.type = 'button';
-      action.textContent = label;
-      action.dataset.tableAction = label;
-      action.onmousedown = e => { e.preventDefault(); e.stopPropagation(); };
-      action.onclick = e => {
-        e.preventDefault(); e.stopPropagation();
-        close();
-        const c = controller();
-        if (c?.selectAxis(from(), { row, col }, axis)) c.structural(from(), command);
-      };
-      menu.append(action);
-    }
-    root.append(menu);
-    const win = doc.defaultView;
-    const rect = menu.getBoundingClientRect();
-    menu.style.left = Math.max(4, Math.min(event.clientX, (win?.innerWidth ?? 1024) - rect.width - 4)) + 'px';
-    menu.style.top = Math.max(4, Math.min(event.clientY, (win?.innerHeight ?? 768) - rect.height - 4)) + 'px';
-    doc.addEventListener('mousedown', outside, true);
-    doc.addEventListener('keydown', escape, true);
-  };
-  root.addEventListener('contextmenu', open);
-  return () => {
-    observer?.disconnect();
-    root.removeEventListener('contextmenu', open);
-    close();
-  };
+  return () => observer?.disconnect();
 }
 
 /** A read-only projection of root Markdown. Reconcile by logical cell address so
  * a source refresh preserves the scrollport and mounted cells at surviving addresses.
  */
 export class TableProjection extends WidgetType {
-  constructor(readonly snapshot: TableSnapshot, readonly selected: boolean, readonly cellEditing = false) {
+  constructor(readonly snapshot: TableSnapshot, readonly selected: boolean, readonly cellEditing = false,
+    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined) {
     super();
   }
 
   override eq(other: TableProjection): boolean {
     return other.snapshot.from === this.snapshot.from && other.snapshot.source === this.snapshot.source &&
       other.selected === this.selected && other.cellEditing === this.cellEditing;
+  }
+
+  private attachHandles(root: HTMLElement, view: EditorView): void {
+    const controller = () => view.plugin(tableCellEditor);
+    const from = () => Number(root.dataset.tableFrom);
+    const selection = (axis: 'row' | 'column', index: number) => axis === 'row'
+      ? { kind: 'row' as const, tableFrom: from(), rowIndex: index }
+      : { kind: 'column' as const, tableFrom: from(), columnIndex: index };
+    const dispose = attachTableHandleOverlay(root.firstElementChild as HTMLElement, this.snapshot.model.header.length,
+      view, null, from(), null, null, () => params => {
+        const notify = this.getOnTableHandleMenuChange();
+        if (params && notify) controller()?.openHandleMenu(params.selection, notify);
+      }, {
+        select: (axis, index) => controller()?.selectAxis(from(), axis === 'row' ? { row: index, col: 0 } : { row: 0, col: index }, axis) ?? false,
+        move: (axis, index, to) => controller()?.axisCommand(selection(axis, index),
+          axis === 'row' ? { kind: 'moveRow', from: index, to } : { kind: 'moveColumn', from: index, to }) ?? false,
+        selected: axis => {
+          const current = controller()?.currentAxisSelection();
+          if (!current || current.tableFrom !== from()) return null;
+          return axis === 'row' && current.kind === 'row' ? current.rowIndex :
+            axis === 'column' && current.kind === 'column' ? current.columnIndex : null;
+        },
+      });
+    handleDisposers.set(root, dispose);
   }
 
   private attachResize(root: HTMLElement, view: EditorView): void {
@@ -157,6 +124,7 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) {
       structuralDisposers.set(root, attachStructuralControls(root, view, table, inner, layout));
       this.attachResize(root, view);
+      this.attachHandles(root, view);
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
       const clipboard = (event: ClipboardEvent) => view.plugin(tableCellEditor)?.clipboard(root, event);
@@ -181,6 +149,8 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing !== previous.cellEditing) return false;
     const resizeChanged = this.cellEditing && (this.snapshot.from !== previous.snapshot.from || this.snapshot.source !== previous.snapshot.source);
     if (resizeChanged) {
+      handleDisposers.get(root)?.();
+      handleDisposers.delete(root);
       resizeDisposers.get(root)?.();
       resizeDisposers.delete(root);
     }
@@ -190,7 +160,7 @@ export class TableProjection extends WidgetType {
     } else {
       this.paint(root, _view, previous.snapshot);
     }
-    if (resizeChanged) this.attachResize(root, _view);
+    if (resizeChanged) { this.attachResize(root, _view); this.attachHandles(root, _view); }
     if (this.cellEditing) _view.plugin(tableCellEditor)?.paintWidget(root);
     return true;
   }
@@ -249,6 +219,8 @@ export class TableProjection extends WidgetType {
   override ignoreEvent(): boolean { return false; }
 
   override destroy(root: HTMLElement): void {
+    handleDisposers.get(root)?.();
+    handleDisposers.delete(root);
     resizeDisposers.get(root)?.();
     resizeDisposers.delete(root);
     structuralDisposers.get(root)?.();
