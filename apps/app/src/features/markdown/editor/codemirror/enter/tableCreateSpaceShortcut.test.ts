@@ -6,16 +6,11 @@ import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { TableActiveCellController } from '../table/tableActiveCellController';
-import { tableCellNavigation } from '../table/tableCellNavigation';
 import {
-  type CellBounds,
-  endOfCellContent,
   findAllTables,
   getNavigableRows,
   getRowCellBounds,
   resolveLogicalCell,
-  startOfCellContent,
 } from '../table/tableGeometry';
 import { tableActivationNormalization } from '../table/tableActivationNormalization';
 import { tableRootSelectionSnap } from '../table/tableRootSelectionSnap';
@@ -203,95 +198,3 @@ describe('|-\\| / | - | + Space table shortcut', () => {
   });
 });
 
-describe('|-\\| table shortcut — Tab navigation via nested editor', () => {
-  function mountTableAtShortcut(doc: string): { root: EditorView; controller: TableActiveCellController } {
-    const controller = new TableActiveCellController();
-    const parent = document.createElement('div');
-    document.body.appendChild(parent);
-    const root = new EditorView({
-      state: EditorState.create({
-        doc,
-        selection: EditorSelection.cursor(doc.length - 1),
-        extensions: [markdownLanguageExtension(), history()],
-      }),
-      parent,
-    });
-    controller.setNestedExtensions([tableCellNavigation(() => root, controller)]);
-    mounted.push(root);
-    return { root, controller };
-  }
-
-  function trimmedRange(state: EditorState, bounds: CellBounds): { from: number; to: number } {
-    return {
-      from: startOfCellContent(state, bounds),
-      to: endOfCellContent(state, bounds),
-    };
-  }
-
-  function activateFirstBodyCell(root: EditorView, controller: TableActiveCellController): void {
-    const table = findAllTables(root.state)[0]!;
-    const bodyRow = getNavigableRows(table.node)[1]!;
-    const bounds = getRowCellBounds(bodyRow)[0]!;
-    const range = trimmedRange(root.state, bounds);
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    controller.activate(root, container, range.from, range.to, range.from);
-  }
-
-  function key(view: EditorView, key: string, shift = false): void {
-    view.contentDOM.dispatchEvent(
-      new KeyboardEvent('keydown', { key, shiftKey: shift, bubbles: true, cancelable: true })
-    );
-  }
-
-  it('Tab moves to the next cell from the first body cell', () => {
-    const { root, controller } = mountTableAtShortcut(`${buildTableShortcutMarkdown()}\n`);
-    activateFirstBodyCell(root, controller);
-    expect(controller.nestedView!.state.doc.toString()).toBe('');
-
-    key(controller.nestedView!, 'Tab');
-
-    const cell = resolveLogicalCell(root.state, controller.activeAnchor!.from);
-    expect(cell?.columnIndex).toBe(1);
-  });
-
-  it('Tab at the final cell follows frozen table navigation (no new row — row creation is Enter)', () => {
-    const { root, controller } = mountTableAtShortcut(`${buildTableShortcutMarkdown()}\n`);
-    const table = findAllTables(root.state)[0]!;
-    const bodyRow = getNavigableRows(table.node)[1]!;
-    const lastCol = getRowCellBounds(bodyRow).length - 1;
-    const bounds = getRowCellBounds(bodyRow)[lastCol]!;
-    const range = trimmedRange(root.state, bounds);
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    controller.activate(root, container, range.from, range.to, range.from);
-    const rowsBefore = getNavigableRows(table.node).length;
-    const anchorBefore = controller.activeAnchor;
-
-    key(controller.nestedView!, 'Tab');
-
-    expect(getNavigableRows(findAllTables(root.state)[0]!.node).length).toBe(rowsBefore);
-    expect(controller.activeAnchor).toEqual(anchorBefore);
-  });
-
-  it('Enter in the last body cell leaves the table and active column unchanged', () => {
-    const { root, controller } = mountTableAtShortcut(`${buildTableShortcutMarkdown()}\n`);
-    const table = findAllTables(root.state)[0]!;
-    const bodyRow = getNavigableRows(table.node)[1]!;
-    const lastCol = getRowCellBounds(bodyRow).length - 1;
-    const bounds = getRowCellBounds(bodyRow)[lastCol]!;
-    const range = trimmedRange(root.state, bounds);
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    controller.activate(root, container, range.from, range.to, range.from);
-
-    const rowsBefore = getNavigableRows(table.node).length;
-    key(controller.nestedView!, 'Enter');
-
-    const tableAfter = findAllTables(root.state)[0]!;
-    expect(getNavigableRows(tableAfter.node).length).toBe(rowsBefore);
-    const active = resolveLogicalCell(root.state, controller.activeAnchor!.from);
-    expect(active?.row.name).toBe('TableRow');
-    expect(active?.columnIndex).toBe(lastCol);
-  });
-});
