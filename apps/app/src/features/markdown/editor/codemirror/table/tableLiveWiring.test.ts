@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { history, undo, redo } from '@codemirror/commands';
+import { history, undo, redo, undoDepth, redoDepth, historyKeymap } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { EditorState, StateEffect } from '@codemirror/state';
-import { EditorView, drawSelection } from '@codemirror/view';
+import { EditorView, drawSelection, keymap } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { TableActiveCellController } from './tableActiveCellController';
@@ -506,6 +506,64 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(redo(view)).toBe(true);
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(cols);
+  });
+  it('undoes and redoes mixed cell and structural history using consecutive keyboard events', () => {
+    const view = mountHistory();
+    view.dispatch({ effects: StateEffect.appendConfig.of(keymap.of(historyKeymap)) });
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ changes: { from: 3, insert: '!' }, userEvent: 'input.type' });
+    const edited = view.state.doc.toString();
+    widget(view).querySelector<HTMLButtonElement>('[aria-label="Add row"]')!.click();
+    const row = view.state.doc.toString();
+    widget(view).querySelector<HTMLButtonElement>('[aria-label="Add column"]')!.click();
+    const col = view.state.doc.toString();
+    clickCell(findCell(view, 'Designer'));
+    expect(undoDepth(view.state)).toBe(3);
+    const press = (shiftKey = false) => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', {
+        key: shiftKey ? 'Z' : 'z', code: 'KeyZ', ctrlKey: true, shiftKey, bubbles: true, cancelable: true,
+      }));
+    };
+    press(); expect(view.state.doc.toString()).toBe(row);
+    press(); expect(view.state.doc.toString()).toBe(edited);
+    expect(select(view)).toEqual(['1,0']);
+    expect(document.activeElement).toBe(host(view, 1, 0));
+    press(); expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
+    expect(redoDepth(view.state)).toBe(3);
+    press(true); expect(view.state.doc.toString()).toBe(edited);
+    press(true); expect(view.state.doc.toString()).toBe(row);
+    press(true); expect(view.state.doc.toString()).toBe(col);
+    expect(redoDepth(view.state)).toBe(0);
+  });
+  it('continues history if a restored cell loses DOM focus, without taking another input's shortcut', async () => {
+    const view = mountHistory();
+    clickCell(findCell(view, 'Vik'));
+    view.plugin(tableCellEditor)!.nested!.dispatch({ changes: { from: 3, insert: '!' }, userEvent: 'input.type' });
+    const edited = view.state.doc.toString();
+    widget(view).querySelector<HTMLButtonElement>('[aria-label="Add row"]')!.click();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(edited);
+    const cell = host(view, 1, 0);
+    expect(document.activeElement).toBe(cell);
+    cell.blur();
+    expect(document.activeElement).toBe(document.body);
+    const input = document.createElement('input');
+    document.body.append(input);
+    input.focus();
+    const press = (target: Element) => target.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true,
+    }));
+    try {
+      expect(press(input)).toBe(true);
+      expect(view.state.doc.toString()).toBe(edited);
+      await Promise.resolve();
+      expect(document.activeElement).toBe(input);
+      input.blur();
+      expect(press(document.body)).toBe(false);
+      expect(view.state.doc.toString()).toBe(doc);
+    } finally { input.remove(); }
   });
   it('inserts above the header, promotes a blank header and restores row selection on undo', () => {
     const view = mountHistory();

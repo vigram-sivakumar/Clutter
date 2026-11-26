@@ -1,6 +1,6 @@
 import { EditorState, Transaction } from '@codemirror/state';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
-import { defaultKeymap, undo, redo } from '@codemirror/commands';
+import { defaultKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
@@ -27,6 +27,7 @@ export class TableCellEditor {
   private interaction: TableInteraction = noInteraction;
   private interactionTable: number | null = null;
   private pendingHistory: SelectionBookmark | null | undefined;
+  private historyFocus: SelectionBookmark | null = null;
 
   private readonly drag = new TableDragSelection((widget, anchor, head) => {
     if (!this.root.dom.contains(widget)) return false;
@@ -52,7 +53,30 @@ export class TableCellEditor {
 
   constructor(readonly root: EditorView) {
     root.dom.ownerDocument.addEventListener('mousedown', this.outsideClick, true);
+    root.dom.ownerDocument.addEventListener('keydown', this.historyKey, true);
   }
+
+  /** History is owned by the root even when the focused element is a
+   * non-editable cell host. Capture before either CM view or the browser
+   * can handle it. Only this controller's table owns the shortcut.
+   * A restored selection may briefly lose DOM focus to body during
+   * reconciliation; recover that one case, never another input's focus. */
+  private historyKey = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented || event.isComposing || event.altKey ||
+      !(event.metaKey || event.ctrlKey) || (event.code !== 'KeyZ' && event.key.toLowerCase() !== 'z') ||
+      this.interactionTable === null || this.interaction.kind === 'none') return;
+    const doc = this.root.dom.ownerDocument;
+    const target = event.target;
+    const cell = focusCell(this.interaction);
+    const host = cell && this.hostAt(this.interactionTable, cell);
+    const ownsTarget = target instanceof Node && !!host?.contains(target);
+    const lostRestoredFocus = !!this.historyFocus && target === doc.body && doc.activeElement === doc.body;
+    const rootRestoredFocus = !!this.historyFocus && target === this.root.contentDOM;
+    if (!ownsTarget && !lostRestoredFocus && !rootRestoredFocus) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.stepHistory(!event.shiftKey);
+  };
 
   private outsideClick = (event: MouseEvent): void => {
     if (this.interactionTable === null) return;
@@ -302,10 +326,13 @@ export class TableCellEditor {
   }
 
   private stepHistory(backwards: boolean): boolean {
+    if ((backwards ? undoDepth : redoDepth)(this.root.state) === 0) return true;
     this.cancelDrag();
+    // Do not focus the root before dispatch: history restoration chooses
+    // the focus destination, including an ordinary root text position.
     this.close();
-    this.root.focus();
     (backwards ? undo : redo)(this.root);
+    if (this.interaction.kind === 'none') this.root.focus();
     return true;
   }
 
@@ -318,7 +345,19 @@ export class TableCellEditor {
     this.close();
     if (!mark) { this.root.focus(); return; }
     try {
-      if (this.select(mark.tableFrom, mark.interaction, true)) return;
+      if (this.select(mark.tableFrom, mark.interaction, true)) {
+        this.historyFocus = mark;
+        // Reconcile first, then repair a lost focus without taking it
+        // from a different editor, input or deliberate outside click.
+        queueMicrotask(() => {
+          if (this.historyFocus !== mark || !this.root.dom.isConnected) return;
+          const doc = this.root.dom.ownerDocument;
+          if (doc.activeElement !== doc.body && doc.activeElement !== this.root.contentDOM) return;
+          const cell = focusCell(mark.interaction);
+          if (cell) this.hostAt(mark.tableFrom, cell)?.focus({ preventScroll: true });
+        });
+        return;
+      }
     } catch (error) {
       if (!(error instanceof TableEngineError)) throw error;
     }
@@ -471,6 +510,7 @@ export class TableCellEditor {
   }
 
   close(): void {
+    this.historyFocus = null;
     const host = this.nested?.dom.parentElement;
     this.nested?.dom.remove();
     this.active = null;
@@ -491,6 +531,8 @@ export class TableCellEditor {
   destroy(): void {
     this.cancelDrag();
     this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
+    this.root.dom.ownerDocument.removeEventListener('keydown', this.historyKey, true);
+    this.historyFocus = null;
     this.nested?.destroy(); this.nested = null; this.active = null;
     this.interaction = noInteraction; this.interactionTable = null; this.pendingHistory = undefined;
   }
