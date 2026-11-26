@@ -169,3 +169,18 @@ describe('table fill sizing and quick-add icons', () => {
     expect(wrapper().querySelectorAll('colgroup col')).toHaveLength(3);
   });
 });
+
+describe('quick-add gap hit area', () => {
+  it.each(['row', 'column'])('keeps the %s gap separate from its actionable button', axis => {
+    const { view } = mount();
+    const track = view.dom.querySelector<HTMLElement>('.cm-table-quick-add-track-' + axis)!;
+    expect(track).not.toBeNull();
+    expect(track.querySelector('button.cm-table-quick-add-' + axis)).not.toBeNull();
+    expect(track.tagName).not.toBe('BUTTON');
+    down(track);
+    track.click();
+    expect(view.state.doc.toString()).toBe(source);
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+});
