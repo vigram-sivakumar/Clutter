@@ -1,3 +1,4 @@
+import { markBlockRange } from '../blockRangeSelection';
 import '../table/tableWidget.css';
 import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import { tableCellEditor } from './tableCellEditor';
@@ -193,6 +194,7 @@ export class TableProjection extends WidgetType {
     }
     if (this.snapshot.source === previous.snapshot.source) {
       root.dataset.tableFrom = String(this.snapshot.from);
+      markBlockRange(root, _view, this.snapshot.from, this.snapshot.to);
       root.dataset.tableRootSelected = String(this.selected);
       root.firstElementChild!.classList.toggle('cm-table-wrapper-selected', this.selected);
     } else {
@@ -206,6 +208,7 @@ export class TableProjection extends WidgetType {
   private paint(root: HTMLElement, view: EditorView, previous?: TableSnapshot): void {
     const { model, from } = this.snapshot;
     root.dataset.tableFrom = String(from);
+    markBlockRange(root, view, from, this.snapshot.to);
     if (this.cellEditing) root.dataset.tableEngineCells = 'true';
     else delete root.dataset.tableEngineCells;
     const wrapper = root.firstElementChild as HTMLElement;
