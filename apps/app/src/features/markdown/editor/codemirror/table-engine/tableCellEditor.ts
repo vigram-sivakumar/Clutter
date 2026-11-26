@@ -362,6 +362,7 @@ export class TableCellEditor {
     if (!this.matchesAxis(selection)) return null;
     try {
       const { model } = this.snapshot(selection.tableFrom);
+      const alignment = selection.kind === 'column' ? model.alignments[selection.columnIndex] : undefined;
       return {
         rowMoveAvailability: selection.kind === 'row' ? {
           canMoveUp: selection.rowIndex > 0,
@@ -371,8 +372,7 @@ export class TableCellEditor {
           canMoveLeft: selection.columnIndex > 0,
           canMoveRight: selection.columnIndex < model.header.length - 1,
         } : null,
-        columnAlignment: selection.kind === 'column' && model.alignments[selection.columnIndex] !== 'none'
-          ? model.alignments[selection.columnIndex] ?? null : null,
+        columnAlignment: alignment && alignment !== 'none' ? alignment : null,
       };
     } catch (error) {
       if (!(error instanceof TableEngineError)) throw error;
