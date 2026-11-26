@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 // jsdom cannot compute the actual layout. Assert the stylesheet contract;
 // real scroll/handle clipping remains a native smoke-test requirement.
-const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\s+/g, ' ')
+  .replace(/\(\s+/g, '(')
+  .replace(/\s+\)/g, ')')
+  .replace(/'/g, '"');
 function rule(selector: string): string {
   const start = css.indexOf(selector + ' {');
   expect(start).toBeGreaterThanOrEqual(0);
@@ -19,24 +23,34 @@ describe('automatic table sizing stylesheet', () => {
     expect(wrapper).toContain('max-width: 100%');
   });
 
-  it('keeps horizontal overflow in the scrollport', () => {
+  it('keeps horizontal overflow and handle gutters in the scrollport', () => {
     const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
     expect(scroll).toContain('overflow-x: auto');
-    expect(scroll).toContain('padding-bottom: 12px');
+    expect(scroll).toContain('box-sizing: border-box');
+    expect(scroll).toContain('padding-inline: var(--cm-table-handle-gutter)');
+    expect(scroll).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
   });
 
-  it('allocates the editable add-column track outside the prose width', () => {
-    const base = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
-    expect(base).toContain('width: 100%');
-    expect(base).toContain('padding-inline: var(--cm-table-handle-gutter)');
-    const editable = rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll');
-    expect(editable).toContain('calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
-    expect(editable).toContain('width: var(--cm-table-scroll-width)');
-    expect(editable).toContain('max-width: var(--cm-table-scroll-width)');
-    expect(editable).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
+  it('pairs the expanded border-box with its padding so the add-column track is extra', () => {
+    const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
+    expect(scroll).toContain('calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space))');
+    expect(scroll).toContain('width: var(--cm-table-scroll-width)');
+    expect(scroll).toContain('max-width: var(--cm-table-scroll-width)');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
     expect(layout).toContain('100%,');
-    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('width: calc(100% - var(--cm-table-add-column-space))');
+    const inner = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner');
+    expect(inner).toContain('width: calc(100% - var(--cm-table-add-column-space))');
+    expect(inner).toContain('flex: 0 0 calc(100% - var(--cm-table-add-column-space))');
+    const wrapper = rule('.cm-editor .cm-table-wrapper--auto-widths');
+    expect(wrapper).toContain('--cm-table-add-column-width: var(--height-xs)');
+    expect(rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths')).toContain('--cm-table-add-column-space: calc(var(--cm-table-add-column-width) + 6px)');
+    const track = rule('.cm-editor .cm-table-quick-add-track-column');
+    expect(track).toContain('flex: 0 0 var(--cm-table-add-column-space)');
+    expect(track).toContain('width: var(--cm-table-add-column-space)');
+    expect(track).toContain('padding-inline-start: 6px');
+    const button = rule('.cm-editor .cm-table-quick-add-column');
+    expect(button).toContain('width: var(--cm-table-add-column-width)');
+    expect(button).toContain('flex: 0 0 var(--cm-table-add-column-width)');
   });
 
   it('fills the available width with equally distributed bounded columns', () => {
