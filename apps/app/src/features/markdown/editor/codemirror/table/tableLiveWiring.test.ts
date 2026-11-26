@@ -567,6 +567,53 @@ describe('engine staged structural commands (M8 candidate)', () => {
     press(true); expect(view.state.doc.toString()).toBe(col);
     expect(redoDepth(view.state)).toBe(0);
   });
+  it('routes native history events from a Tab-selected cell through one root history with width metadata intact', async () => {
+    const source = 'Before\n\n| Name | Sex | Age |\n| --- | --- | --- |\n| Sow |  | 28 |\n| Vigram | Male | 32 |\n| Ram | Male | 31 |\n{table-col-widths="85,88,342"}\n\nAfter';
+    const view = mountHistory(source);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.selectAxis(8, { row: 0, col: 1 }, 'column')).toBe(true);
+    expect(controller.axisCommand({ kind: 'column', tableFrom: 8, columnIndex: 1 }, { kind: 'moveColumn', from: 1, to: 2 })).toBe(true);
+    const moved = view.state.doc.toString();
+    expect(moved).toContain('{table-col-widths="85,342,88"}');
+    clickCell(findCell(view, 'Sow'));
+    controller.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(select(view)).toEqual(['1,1']);
+    const cell = host(view, 1, 1);
+    expect(document.activeElement).toBe(cell);
+    cell.blur();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(cell);
+    const native = (target: Element, inputType: string) => target.dispatchEvent(new InputEvent('beforeinput', { inputType, bubbles: true, cancelable: true }));
+    expect(native(cell, 'historyUndo')).toBe(false);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
+    expect(redoDepth(view.state)).toBe(1);
+    expect(select(view)).toEqual(['0,1','1,1','2,1','3,1']);
+    expect(native(document.activeElement!, 'historyRedo')).toBe(false);
+    expect(view.state.doc.toString()).toBe(moved);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(redoDepth(view.state)).toBe(0);
+    expect(view.dom.querySelectorAll('[data-table-engine-cells="true"]')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('tr')).toHaveLength(4);
+  });
+
+  it('protects the width attribute from root caret placement and keeps a Tab selection through an unrelated prefix edit', async () => {
+    const source = 'Before\n\n' + TABLE + '\n{table-col-widths="85,342"}\n\nAfter';
+    const view = mountHistory(source);
+    const metadata = source.indexOf('{table-col-widths');
+    view.dispatch({ selection: { anchor: metadata + 5 } });
+    expect(view.state.selection.main.head).toBe(source.indexOf('\n\nAfter') + 1);
+    expect(view.dom.querySelector('.cm-table-col-widths-hidden-line')).toBeNull();
+    clickCell(findCell(view, 'Vik'));
+    view.plugin(tableCellEditor)!.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(select(view)).toEqual(['1,1']);
+    view.dispatch({ changes: { from: 0, insert: 'Prefix\n\n' } });
+    await Promise.resolve();
+    expect(select(view)).toEqual(['1,1']);
+    expect(document.activeElement).toBe(host(view, 1, 1));
+    expect(view.state.doc.toString()).toBe('Prefix\n\n' + source);
+  });
+
   it('continues history after restored cell focus loss without intercepting unrelated input shortcuts', async () => {
     const view = mountHistory();
     clickCell(findCell(view, 'Vik'));

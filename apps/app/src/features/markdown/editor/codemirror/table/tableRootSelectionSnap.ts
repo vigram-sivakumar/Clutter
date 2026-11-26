@@ -1,7 +1,9 @@
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { findEnclosingTable } from './tableGeometry';
+import { findAllTables, findEnclosingTable } from './tableGeometry';
+import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
+import { snapshotFromTableNode, TableEngineError } from '../table-engine/tableModel';
 
 /**
  * Centralized invariant enforcement for "root selection is never inside a
@@ -152,7 +154,7 @@ import { findEnclosingTable } from './tableGeometry';
  * mapping for an arbitrary position inside a single-DOM-node block-replace
  * widget is not something this change has verified is safe to rely on.
  */
-export function tableRootSelectionSnap(): Extension {
+export function tableRootSelectionSnap(editableProjection = false): Extension {
   return EditorState.transactionFilter.of((tr) => {
     if (!tr.selection) {
       return tr;
@@ -160,8 +162,8 @@ export function tableRootSelectionSnap(): Extension {
 
     const range = tr.selection.main;
     const collapsed = range.anchor === range.head;
-    const anchor = snapPosition(tr.state, range.anchor, collapsed);
-    const head = snapPosition(tr.state, range.head, collapsed);
+    const anchor = snapPosition(tr.state, range.anchor, collapsed, editableProjection);
+    const head = snapPosition(tr.state, range.head, collapsed, editableProjection);
 
     if (anchor === range.anchor && head === range.head) {
       return tr;
@@ -198,8 +200,21 @@ function findViolatedTable(state: EditorState, pos: number): SyntaxNode | null {
   return null;
 }
 
-function snapPosition(state: EditorState, pos: number, collapsed: boolean): number {
-  const table = findViolatedTable(state, pos);
+function snapPosition(state: EditorState, pos: number, collapsed: boolean, editableProjection: boolean): number {
+  let table: { from: number; to: number } | null = findViolatedTable(state, pos);
+  if (editableProjection) {
+    for (const candidate of findAllTables(state)) {
+      if (pos < candidate.from) continue;
+      const widths = resolveTableColumnWidths(state, candidate);
+      if (!widths || pos > widths.to) continue;
+      try {
+        const snapshot = snapshotFromTableNode(state.doc.toString(), candidate.node);
+        if (snapshot.model.columnWidths !== null) { table = snapshot; break; }
+      } catch (error) {
+        if (!(error instanceof TableEngineError)) throw error;
+      }
+    }
+  }
   if (!table) {
     return pos;
   }

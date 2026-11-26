@@ -256,7 +256,12 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) view.plugin(tableCellEditor)?.paintWidget(root);
   }
 
-  override ignoreEvent(): boolean { return false; }
+  // The editable projection owns its pointer, keyboard and clipboard
+  // events; the root must not interpret nested native input as Markdown.
+  // Read-only widgets retain the original root event behaviour.
+  override ignoreEvent(event: Event): boolean {
+    return this.cellEditing && /^(?:key(?:down|up|press)|beforeinput|input|composition(?:start|update|end)|copy|cut|paste)$/.test(event.type);
+  }
 
   override destroy(root: HTMLElement): void {
     selectionDisposers.get(root)?.();

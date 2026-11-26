@@ -278,9 +278,13 @@ function buildTableDecorations(
     if (source !== null) {
       try {
         const snapshot = snapshotFromTableNode(source, table.node);
-        const selected = tableIntersectsSelectionRange(state.selection.main, table);
+        // Editable projection owns its full source, including valid width
+        // metadata. Leaving a concealed paragraph outside the widget gives
+        // the native selection/undo system a second editable landing site.
+        const to = editableProjection ? snapshot.to : table.to;
+        const selected = tableIntersectsSelectionRange(state.selection.main, { ...table, to });
         const widget = new TableProjection(snapshot, selected, editableProjection, getOnTableHandleMenuChange);
-        ranges.push(Decoration.replace({ widget, block: true }).range(table.from, table.to));
+        ranges.push(Decoration.replace({ widget, block: true }).range(table.from, to));
         continue;
       } catch (error) {
         // Imported tables outside the engine's domain retain their existing renderer.

@@ -353,7 +353,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
-    tableColumnWidthsConcealment(),
+    tableColumnWidthsConcealment(engineCells),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
     // reads this field on every rebuild via `state.field(...)`, which
@@ -429,7 +429,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // finished shaping the document. See `tableRootSelectionSnap.ts`'s own
     // doc comment for the full reasoning — do not move this without reading
     // it first.
-    tableRootSelectionSnap(),
+    tableRootSelectionSnap(engineCells),
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
