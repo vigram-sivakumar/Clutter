@@ -176,6 +176,6 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 **Why it exists:** Table layout and visual-selection changes exposed hidden dependencies between CSS, selection rendering, keyboard navigation and pointer handling. Passing an earlier milestone or inspecting source alone does not establish that later changes preserve its behaviour.
 
-**How it is enforced:** Architecture compliance review, executed regression tests, native runtime evidence where applicable, and the verified milestone gate before commit/push. Required CI checks are the automated enforcement target; native verification is an additional gate.
+**How it is enforced:** Architecture compliance review, executed regression tests, native runtime evidence where applicable, and the verified milestone gate before commit/push to shared development or main. Required CI checks are the automated enforcement target; native verification is an additional gate.
 
 **Regression signature:** A changed behaviour without explicit approval, weakened regression coverage, an architecture violation hidden behind a styling workaround, or a shared-branch runtime commit without the required verification evidence (isolated testing candidates are not accepted milestones).
