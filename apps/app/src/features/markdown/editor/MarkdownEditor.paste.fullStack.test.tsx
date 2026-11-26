@@ -15,6 +15,7 @@ import type { PasteAssets } from './codemirror/paste/assetPaste';
 import { findAllTables } from './codemirror/table/tableGeometry';
 import { tableSelectionField } from './codemirror/table/tableSelection';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
+import { EXCEL_HTML, GOOGLE_SHEETS_HTML, BROWSER_TABLE_HTML, WORD_TABLE_HTML } from './codemirror/table/tableClipboardFixtures';
 
 /**
  * CHARACTERIZATION of the paste pipeline as the app runs it: a real `<MarkdownEditor>` (so the real
@@ -273,6 +274,31 @@ const FILLED = 'Intro\n\n| A | B |\n| --- | --- |\n| x1 | y1 |\n| x2 | y2 |\n\nO
 vi.mock('./codemirror/paste/pasteClassification', async (importOriginal) => {
   const original = await importOriginal<typeof import('./codemirror/paste/pasteClassification')>();
   return { ...original, classifyPaste: vi.fn(original.classifyPaste) };
+});
+
+describe('real spreadsheet clipboard formats through the single engine', () => {
+  it.each([
+    ['Excel', EXCEL_HTML, ['Name', 'Role', 'City'], ['Sam', 'UX', '']],
+    ['Google Sheets', GOOGLE_SHEETS_HTML, ['Name', 'Role'], ['Sam', 'UX']],
+    ['browser selection', BROWSER_TABLE_HTML, ['Name', 'Link'], ['Sam', 'site']],
+    ['Word', WORD_TABLE_HTML, ['Name', 'Role'], ['Sam', 'UX']],
+  ] as const)('creates a table from %s HTML and undoes it in one step', async (_name, html, header, body) => {
+    const o = await paste({ markdown: '' }, { html });
+    const line = (cells: readonly string[]) => '| ' + cells.join(' | ') + ' |';
+    expect(o.doc).toBe([line(header), line(header.map(() => '---')), line(body)].join('\n'));
+    expect(o.userEvents).toEqual(['input.paste.table']);
+    expect(o.undoSteps).toBe(1);
+    expect(o.undoRestores).toBe(true);
+    expect(o.redoRestores).toBe(true);
+  });
+
+  it('does not turn tab-indented Markdown into a new table', async () => {
+    const o = await paste({ markdown: '' }, { text: '\t- item\n\t- another' });
+    expect(findAllTables(rootStateFor(o.doc))).toHaveLength(0);
+    expect(o.doc).toContain('item');
+    expect(o.doc).toContain('another');
+    expect(o.undoRestores).toBe(true);
+  });
 });
 
 describe('A. table range selection — which handler takes the paste', () => {
