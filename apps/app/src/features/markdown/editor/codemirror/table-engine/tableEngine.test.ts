@@ -64,6 +64,13 @@ describe('table engine model and structural commands', () => {
     expect(deleted.expectedDocument).toBe(moved.expectedDocument);
   });
 
+  it('formats source columns to their widest cell, preserving alignment, Markdown and widths', () => {
+    const source = '|A|B|\n|---|:---:|\n|longer|**x**|\n{table-col-widths="120,260"}';
+    const result = planTableEdit(source, 0, { kind: 'format' }, parse)!;
+    expect(result.expectedDocument).toBe('| A      | B     |\n| ------ | :---: |\n| longer | **x** |\n{table-col-widths="120,260"}');
+    expect(result.after.model).toEqual(result.before.model);
+    expect(planTableEdit(result.expectedDocument, 0, { kind: 'format' }, parse)).toBeNull();
+  });
   it('grows every row and width array together on paste', () => {
     const input = before + table + '\n{table-col-widths="120,300"}' + after;
     const edit = planTableEdit(input, start, { kind: 'paste', row: 1, col: 1, grid: [['x', 'y'], ['z', 'w']] }, parse)!;

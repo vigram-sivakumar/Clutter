@@ -1,5 +1,5 @@
 import {
-  modelsEqual, readTable, serializeTable, TableEngineError, validateModel,
+  modelsEqual, readTable, serializeTable, serializeFormattedTable, TableEngineError, validateModel,
   type Alignment, type ParseMarkdown, type TableModel, type TableSnapshot,
 } from './tableModel';
 
@@ -141,7 +141,7 @@ export function planTableEdit(source: string, tableFrom: number, command: TableC
   // optional pipes, delimiter spelling or ragged rows.
   const resize = command.kind === 'resizeColumn';
   const from = resize ? (before.model.columnWidths ? before.from + before.source.lastIndexOf('\n') + 1 : before.to) : before.from;
-  const insert = resize ? (before.model.columnWidths ? '' : '\n') + serializeTableColumnWidthsAttribute(next.columnWidths!) : serializeTable(next);
+  const insert = resize ? (before.model.columnWidths ? '' : '\n') + serializeTableColumnWidthsAttribute(next.columnWidths!) : command.kind === 'format' ? serializeFormattedTable(next) : serializeTable(next);
   if (insert === source.slice(from, before.to)) return null;
   const expectedDocument = source.slice(0, from) + insert + source.slice(before.to);
   const after = readTable(expectedDocument, before.from, parse);

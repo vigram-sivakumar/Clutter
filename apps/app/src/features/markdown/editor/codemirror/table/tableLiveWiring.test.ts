@@ -824,13 +824,70 @@ describe('engine original table handles (M9b candidate)', () => {
     const row = { kind: 'row' as const, tableFrom: 0, rowIndex: 1 };
     expect(c.selectAxis(0, {row: 1, col: 0}, 'row')).toBe(true);
     expect(c.axisCommand(row, {kind: 'format'})).toBe(true);
-    expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n| one | two |');
+    expect(view.state.doc.toString()).toBe('| A   | B   |\n| --- | --- |\n| one | two |');
     expect(c.axisCommand({...row, rowIndex: 0}, 'clear')).toBe(false);
     expect(c.axisCommand(row, 'clear')).toBe(true);
     expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n|  |  |');
     expect(undo(view)).toBe(true);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(source);
+  });
+});
+
+describe('engine visual and formatting parity (M10a candidate)', () => {
+  it('uses one existing selection outline, updates its geometry, and hides it on deselection', () => {
+    const view = mount(TABLE, false, undefined, true);
+    const widget = view.dom.querySelector<HTMLElement>('[data-table-engine-cells="true"]')!;
+    const scroll = widget.querySelector<HTMLElement>('.cm-table-scroll')!;
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height } as DOMRect);
+    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(rect(20, 30, 400, 100));
+    const cells = widget.querySelectorAll('th,td');
+    for (let i = 0; i < cells.length; i++) vi.spyOn(cells[i]!, 'getBoundingClientRect')
+      .mockReturnValue(rect(20 + (i % 2) * 100, 30 + Math.floor(i / 2) * 36, 100, 36));
+    const overlay = scroll.querySelector<HTMLElement>('.cm-table-selection-overlay')!;
+    expect(overlay).not.toBeNull();
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    const c = view.plugin(tableCellEditor)!;
+    expect(c.selectAxis(0, { row: 1, col: 0 }, 'row')).toBe(true);
+    expect(scroll.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+    expect(overlay.style.left).toBe('-1px');
+    expect(overlay.style.top).toBe('35px');
+    expect(overlay.style.width).toBe('202px');
+    expect(overlay.style.height).toBe('38px');
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+    expect(c.selectAxis(0, { row: 0, col: 1 }, 'column')).toBe(true);
+    expect(overlay.style.left).toBe('99px');
+    expect(overlay.style.height).toBe('74px');
+    c.close();
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    expect(mount(TABLE, true).dom.querySelector('.cm-table-selection-overlay')).toBeNull();
+  });
+  it('activates a cell from its padded area, not only its text wrapper', () => {
+    const view = mount(TABLE, false, undefined, true);
+    const cell = findCell(view, 'Vik');
+    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(nested.dom.parentElement).toBe(wrapperOf(cell));
+  });
+  it('applies existing inline format shortcuts in the nested editor and commits to root history', () => {
+    const view = mount(TABLE, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Vik'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: 3 } });
+    const press = (key: string, keyCode: number, mac: boolean) => nested.contentDOM.dispatchEvent(
+      new KeyboardEvent('keydown', { key, keyCode, metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
+    const mac = /Mac/.test(navigator.platform);
+    press('b', 66, mac);
+    if (nested.state.doc.toString() === 'Vik') press('b', 66, !mac);
+    expect(nested.state.doc.toString()).toBe('**Vik**');
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '**Vik**'));
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '**Vik**'));
   });
 });
 

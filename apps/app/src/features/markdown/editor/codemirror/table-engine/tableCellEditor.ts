@@ -1,6 +1,7 @@
 import { EditorState, Transaction } from '@codemirror/state';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
@@ -143,7 +144,7 @@ export class TableCellEditor {
       cell.classList.toggle('cm-table-engine-left', selected && col === bounds?.left);
       cell.classList.toggle('cm-table-engine-right', selected && col === bounds?.right);
     }
-    widget.firstElementChild?.dispatchEvent(new Event('table-engine-selection'));
+    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: bounds }));
   }
 
   private paintSelection(): void {
@@ -480,7 +481,7 @@ export class TableCellEditor {
       if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
       if (event.key === 'Escape') { consume(); this.close(); host.blur(); return; }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-        consume(); this.stepHistory(event.shiftKey); return;
+        consume(); this.stepHistory(!event.shiftKey); return;
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
         consume(); this.select(tableFrom, { kind: 'table', cell }); return;
@@ -543,9 +544,11 @@ export class TableCellEditor {
         // The root's drawSelection theme hides native descendant carets.
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
+        formatShortcutsKeymap(),
         keymap.of([
-          { key: 'Mod-z', run: () => this.stepHistory(false) },
-          { key: 'Mod-Shift-z', run: () => this.stepHistory(true) },
+          { key: 'Mod-z', run: () => this.stepHistory(true) },
+          { key: 'Mod-Shift-z', run: () => this.stepHistory(false) },
+          { key: 'Mod-y', run: () => this.stepHistory(false) },
           { key: 'Tab', run: () => this.navigateTab(false) },
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
           { key: 'Escape', run: () => this.exitEdit() },

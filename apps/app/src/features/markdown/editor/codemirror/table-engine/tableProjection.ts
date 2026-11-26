@@ -5,6 +5,8 @@ import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from '../tab
 import type { TableSnapshot } from './tableModel';
 import { attachTableColumnResizeHandles } from '../table/tableColumnResizeHandle';
 import { attachTableHandleOverlay } from '../table/tableHandleOverlay';
+import { createTableSelectionOverlay, positionRangeSelectionOverlay, VISIBLE_CLASS } from '../table/tableSelectionOverlay';
+import type { selectionBounds } from './tableInteraction';
 import type { OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 // The mounted DOM can outlive an individual WidgetType during reconciliation.
@@ -13,6 +15,7 @@ const dragDisposers = new WeakMap<HTMLElement, () => void>();
 const structuralDisposers = new WeakMap<HTMLElement, () => void>();
 const resizeDisposers = new WeakMap<HTMLElement, () => void>();
 const handleDisposers = new WeakMap<HTMLElement, () => void>();
+const selectionDisposers = new WeakMap<HTMLElement, () => void>();
 
 function container(parent: HTMLElement, className: string): HTMLDivElement {
   const child = parent.ownerDocument.createElement('div');
@@ -59,6 +62,35 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
   size();
 
   return () => observer?.disconnect();
+}
+
+/** Reuse the existing scroll-content-coordinate selection outline. The
+ * controller publishes derived bounds; this helper has no selection state
+ * other than the last paint instruction, and never edits Markdown. */
+function attachSelectionOutline(wrapper: HTMLElement, scroll: HTMLElement, table: HTMLTableElement): () => void {
+  const overlay = createTableSelectionOverlay();
+  scroll.append(overlay);
+  let bounds: ReturnType<typeof selectionBounds> = null;
+  let disposed = false;
+  const measure = () => {
+    if (disposed || !overlay.isConnected) return;
+    if (!bounds) { overlay.classList.remove(VISIBLE_CLASS); return; }
+    positionRangeSelectionOverlay(overlay, scroll, table, bounds.top, bounds.bottom, bounds.left, bounds.right);
+  };
+  const update = (event: Event) => {
+    bounds = (event as CustomEvent<ReturnType<typeof selectionBounds>>).detail;
+    measure();
+  };
+  wrapper.addEventListener('table-engine-selection', update);
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+  observer?.observe(table);
+  queueMicrotask(measure);
+  return () => {
+    disposed = true;
+    observer?.disconnect();
+    wrapper.removeEventListener('table-engine-selection', update);
+    overlay.remove();
+  };
 }
 
 /** A read-only projection of root Markdown. Reconcile by logical cell address so
@@ -122,6 +154,8 @@ export class TableProjection extends WidgetType {
     table.createTBody();
     this.paint(root, view);
     if (this.cellEditing) {
+      selectionDisposers.set(root, attachSelectionOutline(wrapper, scroll, table));
+      view.plugin(tableCellEditor)?.paintWidget(root);
       structuralDisposers.set(root, attachStructuralControls(root, view, table, inner, layout));
       this.attachResize(root, view);
       this.attachHandles(root, view);
@@ -206,6 +240,12 @@ export class TableProjection extends WidgetType {
           (host as HTMLElement).tabIndex = -1;
           (host as HTMLElement).onmousedown = event => view.plugin(tableCellEditor)?.click(
             Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
+          // The padded area and blank area below short text in a tall row
+          // belong to the same cell, not to root Markdown.
+          (cell as HTMLElement).onmousedown = event => {
+            if (event.target instanceof Node && host.contains(event.target)) return;
+            view.plugin(tableCellEditor)?.click(Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
+          };
           (host as HTMLElement).onkeydown = event => view.plugin(tableCellEditor)?.selectedKey(
             Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
         }
@@ -219,6 +259,8 @@ export class TableProjection extends WidgetType {
   override ignoreEvent(): boolean { return false; }
 
   override destroy(root: HTMLElement): void {
+    selectionDisposers.get(root)?.();
+    selectionDisposers.delete(root);
     handleDisposers.get(root)?.();
     handleDisposers.delete(root);
     resizeDisposers.get(root)?.();

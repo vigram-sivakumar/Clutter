@@ -1,5 +1,7 @@
 import { parseTableColumnWidthsAttribute, serializeTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
 import type { SyntaxNode, Tree } from '@lezer/common';
+import { buildDelimiterCellText, cellGapWidth, minimumDelimiterGapWidth } from '../table/tableAlignment';
+import { padCellContent } from '../table/tableGeometry';
 
 /** Raw Markdown cell contents, not HTML or decoded display strings. */
 export type Alignment = 'none' | 'left' | 'center' | 'right';
@@ -178,6 +180,21 @@ export function serializeTable(model: TableModel): string {
   const row = (cells: readonly string[]) => '| ' + cells.join(' | ') + ' |';
   const delimiter = model.alignments.map((a) => a === 'center' ? ':---:' : a === 'left' ? ':---' : a === 'right' ? '---:' : '---');
   const lines = [row(model.header), row(delimiter), ...model.rows.map(row)];
+  if (model.columnWidths !== null) lines.push(serializeTableColumnWidthsAttribute(model.columnWidths));
+  return lines.join('\n');
+}
+
+/** Explicit Format table: align raw source columns with the same width
+ * primitives as the existing product formatter. Ordinary edits remain compact. */
+export function serializeFormattedTable(model: TableModel): string {
+  validateModel(model);
+  const rows = [model.header, ...model.rows];
+  const alignments = model.alignments.map(a => a === 'none' ? null : a);
+  const widths = alignments.map((alignment, col) => rows.reduce(
+    (width, row) => Math.max(width, cellGapWidth(row[col]!)), minimumDelimiterGapWidth(alignment)));
+  const line = (row: readonly string[]) => '|' + row.map((cell, col) => padCellContent(cell, widths[col]!) + '|').join('');
+  const delimiter = '|' + widths.map((width, col) => ' ' + buildDelimiterCellText(alignments[col] ?? null, width) + ' |').join('');
+  const lines = [line(model.header), delimiter, ...model.rows.map(line)];
   if (model.columnWidths !== null) lines.push(serializeTableColumnWidthsAttribute(model.columnWidths));
   return lines.join('\n');
 }
