@@ -274,15 +274,15 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('clicking blank widget space at EOF transfers focus to a whole-table selection', () => {
+  it('clicking blank widget space at EOF deselects without focusing hidden text', () => {
     const view = mount(TABLE, false);
     const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
     const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true });
     wrapper.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
-    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
-    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(true);
-    expect(document.activeElement).toBe(host(view, 0, 0));
+    expect(selected(view)).toEqual([]);
+    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(false);
+    expect(document.activeElement).toBe(wrapper.parentElement);
     expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     expect(view.state.doc.toString()).toBe(TABLE);
     clickCell(findCell(view, 'Role'));
@@ -291,14 +291,60 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(TABLE);
   });
 
-  it('transfers an actual root focus at a hidden table boundary to the block', async () => {
+  it('parks actual root focus at EOF without selecting the table', async () => {
     const view = mount(TABLE, false);
     view.dispatch({ selection: { anchor: TABLE.length } });
     view.focus();
     await Promise.resolve();
-    expect(document.activeElement).toBe(host(view, 0, 0));
-    expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(document.activeElement).toBe(view.dom.querySelector('.cm-table-widget'));
+    expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeNull();
     expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('Enter from whole-table selection edits the first cell rather than navigating vertically', () => {
+    const view = mount(TABLE, false);
+    const c = view.plugin(tableCellEditor)!;
+    expect(c.selectBlock(0)).toBe(true);
+    key(host(view, 0, 0), 'Enter');
+    expect(c.nested!.state.doc.toString()).toBe('Name');
+    expect(c.nested!.state.selection.main.head).toBe(0);
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('Enter from an exact root table selection edits the first cell', () => {
+    const view = mount(TABLE, false);
+    view.dispatch({ selection: { anchor: 0, head: TABLE.length } });
+    key(view.contentDOM, 'Enter');
+    expect(view.plugin(tableCellEditor)!.nested!.state.doc.toString()).toBe('Name');
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('table border or row-divider targets do not select the table', () => {
+    const view = mount(TABLE, false);
+    const c = view.plugin(tableCellEditor)!;
+    for (const selector of ['table', 'tr']) {
+      c.selectBlock(0);
+      const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true });
+      view.dom.querySelector(selector)!.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(selected(view)).toEqual([]);
+      expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeNull();
+    }
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('quick-add at EOF does not select the whole table or focus hidden Markdown', async () => {
+    const view = mount(TABLE, false);
+    for (const label of ['Add row', 'Add column']) {
+      view.dom.querySelector<HTMLButtonElement>('[aria-label="' + label + '"]')!.click();
+      await Promise.resolve();
+      expect(selected(view)).toEqual([]);
+      expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeNull();
+      expect(document.activeElement).toBe(view.dom.querySelector('.cm-table-widget'));
+    }
+    expect(view.dom.querySelectorAll('tr')).toHaveLength(3);
+    expect(view.dom.querySelectorAll('th')).toHaveLength(3);
   });
 
   it('Tab at EOF leaves through a real text line, not a hidden caret', () => {
