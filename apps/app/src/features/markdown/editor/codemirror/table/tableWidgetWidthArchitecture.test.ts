@@ -44,18 +44,8 @@ describe('automatic table sizing stylesheet', () => {
     expect(scroll).toContain('box-sizing: border-box');
     expect(scroll).toContain('padding-inline-start: var(--cm-table-handle-gutter)');
     expect(scroll).toContain('padding-block-start: var(--cm-table-handle-gutter)');
-    expect(scroll).toContain('margin-block-start: calc(-1 * var(--cm-table-handle-gutter))');
+    expect(scroll).not.toContain('margin-block-start');
     expect(scroll).toContain('margin-inline-start: calc(-1 * var(--cm-table-handle-gutter))');
-  });
-
-  it('keeps the clickable leading separator outside the column handle gutter', () => {
-    const leading = rule('.cm-editor .cm-block-separator[data-table-from] + .cm-table-widget[data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll');
-    expect(leading).toContain('margin-block-start: 0');
-    expect(leading).not.toContain('pointer-events');
-    expect(leading).not.toContain('z-index');
-    const scroll = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll');
-    expect(scroll).toContain('padding-block-start: var(--cm-table-handle-gutter)');
-    expect(scroll).toContain('margin-block-start: calc(-1 * var(--cm-table-handle-gutter))');
   });
 
   it('reserves control space independently from the actual table dimensions', () => {
