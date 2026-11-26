@@ -142,13 +142,15 @@ function attachOverflowFades(wrapper: HTMLElement, scroll: HTMLElement, table: H
  */
 export class TableProjection extends WidgetType {
   constructor(readonly snapshot: TableSnapshot, readonly selected: boolean, readonly cellEditing = false,
-    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined) {
+    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined,
+    readonly presentationRefresh?: object) {
     super();
   }
 
   override eq(other: TableProjection): boolean {
     return other.snapshot.from === this.snapshot.from && other.snapshot.source === this.snapshot.source &&
-      other.selected === this.selected && other.cellEditing === this.cellEditing;
+      other.selected === this.selected && other.cellEditing === this.cellEditing &&
+      other.presentationRefresh === this.presentationRefresh;
   }
 
   private attachHandles(root: HTMLElement, view: EditorView): void {
@@ -223,7 +225,11 @@ export class TableProjection extends WidgetType {
       handleDisposers.delete(root);
 
     }
-    if (this.snapshot.source === previous.snapshot.source) {
+    if (this.presentationRefresh && this.presentationRefresh !== previous.presentationRefresh) {
+      // Existing cell hosts, handles and scrollport stay mounted; repaint
+      // only inactive content using the same fresh resolver getters.
+      this.paint(root, _view);
+    } else if (this.snapshot.source === previous.snapshot.source) {
       root.dataset.tableFrom = String(this.snapshot.from);
       markBlockRange(root, _view, this.snapshot.from, this.snapshot.to);
       root.dataset.tableRootSelected = String(this.selected);
