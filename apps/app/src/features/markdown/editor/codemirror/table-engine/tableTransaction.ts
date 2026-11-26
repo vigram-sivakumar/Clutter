@@ -1,7 +1,6 @@
 import { isolateHistory } from '@codemirror/commands';
 import { EditorState, Transaction, type StateEffect, type ChangeSpec, type TransactionSpec } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { resolveTableColumnWidths, tableRemovalRangeIncludingWidths } from '../table/tableColumnWidthMetadata';
 import type { TableInfo } from '../table/tableGeometry';
 import { planTableEdit, type TableCommand } from './tableCommands';
 import { projectableTableSnapshot, readTable, TableEngineError, type ParseMarkdown } from './tableModel';
@@ -40,13 +39,13 @@ function createTableRemoval(state: EditorState, from: number, to: number, effect
 
 /** The live projection already has the shared grammar node. Removing a complete
  * table also works for imported rows the rectangular model cannot represent.
- * Only a width line positively associated with that table belongs to the edit.
+ * Adjacent Markdown belongs to the root document, not the table.
  */
 export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>, engineOnly = false): boolean {
   if (view.state.readOnly) return false;
   const range = engineOnly
     ? projectableTableSnapshot(view.state.doc.toString(), table.node)
-    : tableRemovalRangeIncludingWidths(table, resolveTableColumnWidths(view.state, table));
+    : table;
   if (!range) return false;
   const { from, to } = range;
   let transaction: Transaction;
