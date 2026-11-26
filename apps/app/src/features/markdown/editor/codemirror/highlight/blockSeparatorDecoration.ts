@@ -63,7 +63,6 @@ class SeparatorWidget extends WidgetType {
       // convention) — no visual effect, not read by this listener itself.
       dom.dataset.tableFrom = String(tableFrom);
       dom.addEventListener('mousedown', (event) => {
-        if (event.button !== 0 || view.state.readOnly) return;
         // Same pairing `TableWidget`'s own non-cell-click suppression uses
         // (`tableWidget.ts`): `preventDefault()` blocks the browser's
         // default action, `stopPropagation()` stops root CM6's own
@@ -86,9 +85,6 @@ class SeparatorWidget extends WidgetType {
           selection: { anchor: tableFrom },
           scrollIntoView: true,
         });
-        // preventDefault suppresses native focus transfer. Explicitly return
-        // focus to the root so typing starts on the inserted empty line.
-        view.focus();
       });
     }
     return dom;
