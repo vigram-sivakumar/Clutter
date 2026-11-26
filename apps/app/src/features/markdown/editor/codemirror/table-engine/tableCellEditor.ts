@@ -115,8 +115,37 @@ export class TableCellEditor {
   }
 
   private outsideClick = (event: MouseEvent): void => {
-    if (this.interactionTable === null) return;
     const target = event.target;
+    // The scrollport and layout occupy more space than the intrinsic table.
+    // Treat their blank area as root editor space, not as a cell or a
+    // whole-table selection. Keep actual cells, handles and quick-add controls
+    // on their existing interaction paths.
+    const widget = target instanceof Element
+      ? target.closest<HTMLElement>('[data-table-engine-cells="true"]') : null;
+    if (event.button === 0 && widget && widget.closest('.cm-editor') === this.root.dom &&
+        target instanceof Element && !target.closest('table, .cm-table-quick-add')) {
+      // Leave native scrollbar gestures alone; the scrollport's padding
+      // above a scrollbar is still ordinary surrounding whitespace.
+      if (target instanceof HTMLElement && target.classList.contains('cm-table-scroll')) {
+        const rect = target.getBoundingClientRect();
+        if (target.offsetHeight > target.clientHeight + target.clientTop &&
+            event.clientY >= rect.top + target.clientTop + target.clientHeight) return;
+      }
+      try {
+        const snapshot = this.snapshot(Number(widget.dataset.tableFrom));
+        const anchor = Math.min(snapshot.to + 1, this.root.state.doc.length);
+        event.preventDefault();
+        event.stopPropagation();
+        this.cancelDrag();
+        if (this.interactionTable !== null) this.close();
+        this.root.dispatch({ selection: { anchor }, effects: tableDeletionSelectionChanged.of(null) });
+        this.root.focus();
+        return;
+      } catch (error) {
+        if (!(error instanceof TableEngineError)) throw error;
+      }
+    }
+    if (this.interactionTable === null) return;
     if (target instanceof Element && target.closest('.cm-table-handle-menu')) return;
     // The portaled backdrop is a sibling of the menu surface, not a
     // descendant of the menu. Its mousedown precedes Overlay's click-to-
