@@ -11,7 +11,7 @@ import {
 import { readLaunchSidebarTab } from '../features/settings/sidebar-setting/defaultSidebarTab';
 import { readStartupBehavior } from '../features/settings/startup-setting/startupPreference';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
-import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
+import { markdownForTableSave } from '../features/markdown/editor/codemirror/table-engine/tableSavePolicy';
 
 import { useToast } from '../components/toast/ToastProvider';
 import {
@@ -593,11 +593,9 @@ function AppShellContent() {
     const isStale = () => ticketRef.current !== ticket;
 
     const prepare = (path: string) =>
-      // Table-column normalization applies to what's written to disk (the durable representation),
-      // not to the live editing session — see `PageOperations`'s own constructor doc comment for why
-      // this is injected here, the one place UI and the Composition Root already meet, rather than
-      // imported inside `core/application/`.
-      Application.bootstrap(path, normalizeAllTablesInMarkdown);
+      // The staged engine persists exact Markdown. The unflagged legacy
+      // editor retains its historical save-time normalization until M12.
+      Application.bootstrap(path, markdownForTableSave);
 
     async function commit(prepared: Application): Promise<void> {
       if (isStale()) {

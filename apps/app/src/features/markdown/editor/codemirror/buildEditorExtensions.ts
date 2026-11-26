@@ -87,6 +87,7 @@ import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableRootTrace } from './table-engine/tableRootTrace';
+import { tableEngineDevEnabled } from './table-engine/tableSavePolicy';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
@@ -348,9 +349,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   // Native Tauri development windows do not need a browser query string.
   // Keep the environment opt-in development-only; release builds retain
   // the existing default until the rollout milestone explicitly changes it.
-  const engineCells = !readOnly && (options.tableEngineCells ??
-    (import.meta.env.DEV && (import.meta.env.VITE_CLUTTER_TABLE_ENGINE_CELLS === '1' ||
-      (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')))));
+  const engineCells = !readOnly && (options.tableEngineCells ?? tableEngineDevEnabled());
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     ...(import.meta.env.DEV && import.meta.env.VITE_CLUTTER_TABLE_TRACE === '1' && !readOnly ? [tableRootTrace(engineCells)] : []),

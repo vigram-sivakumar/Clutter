@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
@@ -25,6 +25,7 @@ import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import { normalizeAllTablesInMarkdown } from '../../../features/markdown/editor/codemirror/table/tableColumnNormalization';
+import { markdownForTableSave } from '../../../features/markdown/editor/codemirror/table-engine/tableSavePolicy';
 
 /** Thin `writeFile` call-counter, wrapping `InMemoryVaultFileSystem` — the same purpose `GatedVaultFileSystem` serves in `PageOperations.requestSave.test.ts`, minus the hold/release machinery this file doesn't need. */
 class CountingVaultFileSystem implements VaultFileSystem {
@@ -293,5 +294,40 @@ describe('verified durable body mutations', () => {
     const { vault, pageOperations } = setup(page, { normalizeMarkdownForSave: normalizeAllTablesInMarkdown });
     await pageOperations.mutateBodyAndSave(page.id, (body) => body + '\n- [ ] Transferred task');
     expect(vault.getPage(page.id)!.source.markdown).toBe(COMPACT_TABLE + '\n- [ ] Transferred task');
+  });
+});
+
+
+describe('staged table engine exact-source save policy', () => {
+  it('uses the real bootstrap policy and preserves table source through multiple durable saves', async () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '1');
+    try {
+      const page = buildPage('Before');
+      const { fileSystem, vault, documentRegistry, pageOperations } = setup(page, {
+        normalizeMarkdownForSave: markdownForTableSave,
+      });
+      await pageOperations.open(page.id);
+      const sources = [
+        '| Name | Age | Size |\n| ---- | --- | ---- |\n| Vi   | 21  | md   |\n| Sow     |     |      |',
+        '| Name | Age | Size |\n| ---- | --- | ---- |\n| Vi   | 21  | md   |\n| Sow     | 28    | sm     |',
+        COMPACT_TABLE,
+      ];
+      for (const source of sources) {
+        pageOperations.commitEdit(page.id, source);
+        await pageOperations.requestSave(page.id);
+        expect(vault.getPage(page.id)!.source.markdown).toBe(source);
+        expect(await fileSystem.readFile(page.path)).toContain(source);
+        expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(source);
+        expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
+      }
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it('retains the historical normalization policy when the flag is off', () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '0');
+    try { expect(markdownForTableSave(COMPACT_TABLE)).toBe(NORMALIZED_TABLE); }
+    finally { vi.unstubAllEnvs(); }
   });
 });
