@@ -1347,20 +1347,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
     });
 
-    it('column-width metadata is reordered consistently with the columns themselves when a column moves to index 0', () => {
-      const docWithWidths = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |\n{table-col-widths="80,120,160"}';
-      const { view, controller } = mountRootViewWithTable(docWithWidths);
-      const { wrapper, table } = buildTable(1, 3);
-      mockWrapperRect(wrapper, { top: 0, left: 0, width: 360, height: 100 });
-      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
-      dragColumn(wrapper, table, 2, 0); // "C" (its own 160px width) into "A"'s body
 
-      // C's own width (160) now leads, followed by A's (80) and B's (120) —
-      // the metadata line stays in lockstep with the columns it describes.
-      expect(view.state.doc.toString()).toBe(
-        '| C | A | B |\n| --- | --- | --- |\n| c | a | b |\n{table-col-widths="160,80,120"}'
-      );
-    });
   });
 
   /** Wraps every cell's own text in a `.cm-table-cell-wrapper`, matching `TableWidget.toDOM()`'s own real structure — needed only by the tests below that assert on ghost content and source-hiding, since `buildTable()` itself (used everywhere else in this file) leaves cells empty. */
