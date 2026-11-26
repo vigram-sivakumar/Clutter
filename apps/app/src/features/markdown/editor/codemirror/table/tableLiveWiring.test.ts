@@ -336,6 +336,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
 
   it('quick-add at EOF does not select the whole table or focus hidden Markdown', async () => {
     const view = mount(TABLE, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     for (const label of ['Add row', 'Add column']) {
       view.dom.querySelector<HTMLButtonElement>('[aria-label="' + label + '"]')!.click();
       await Promise.resolve();
@@ -345,6 +346,9 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     }
     expect(view.dom.querySelectorAll('tr')).toHaveLength(3);
     expect(view.dom.querySelectorAll('th')).toHaveLength(3);
+    const widget = view.dom.querySelector<HTMLElement>('.cm-table-widget')!;
+    expect(key(widget, 'z', false, true)).toBe(false);
+    expect(view.dom.querySelectorAll('th')).toHaveLength(2);
   });
 
   it('Tab at EOF leaves through a real text line, not a hidden caret', () => {
