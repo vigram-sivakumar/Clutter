@@ -8,6 +8,7 @@ import { markdownLanguageExtension } from './markdownLanguage';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { findAllTables } from './table/tableGeometry';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
+import { tableCellEditor } from './table-engine/tableCellEditor';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -44,7 +45,8 @@ function mount(doc: string, pos: number): EditorView {
       selection: EditorSelection.cursor(pos),
       extensions: [
         markdownLanguageExtension(),
-        tableWidgetDecoration(),
+        tableCellEditor,
+        tableWidgetDecoration(true),
         tableDeletionSelectionField,
         tableRootSelectionSnap(),
         emptyLeadingLineDeletion(),
