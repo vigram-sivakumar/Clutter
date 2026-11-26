@@ -1,4 +1,5 @@
 import '../table/tableWidget.css';
+import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import { tableCellEditor } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
@@ -32,7 +33,9 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
     b.className = 'cm-table-quick-add cm-table-quick-add-' + axis;
     b.setAttribute('aria-label', label);
     b.title = label;
-    b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" /></svg>';
+    b.innerHTML = plusIcon;
+    b.querySelector('svg')?.setAttribute('aria-hidden', 'true');
+    b.querySelector('svg')?.setAttribute('focusable', 'false');
     b.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
     b.onclick = event => { event.preventDefault(); event.stopPropagation(); run(); };
     return b;
@@ -51,7 +54,6 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
   layout.append(addColumn);
   const size = () => {
     const rect = table.getBoundingClientRect();
-    if (rect.width) addRow.style.width = rect.width + 'px';
     if (rect.height) addColumn.style.height = rect.height + 'px';
   };
   const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(size);
@@ -195,6 +197,7 @@ export class TableProjection extends WidgetType {
     root.dataset.tableRootSelected = String(this.selected);
     wrapper.classList.toggle('cm-table-wrapper-selected', this.selected);
     wrapper.classList.add('cm-table-wrapper--auto-widths');
+    wrapper.style.setProperty('--cm-table-column-count', String(model.header.length));
     const table = wrapper.querySelector('table')!;
     const columns = table.querySelector('colgroup')!;
     while (columns.children.length > model.header.length) columns.lastElementChild!.remove();
