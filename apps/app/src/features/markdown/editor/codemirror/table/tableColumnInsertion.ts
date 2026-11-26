@@ -5,14 +5,6 @@ import type { EditorView } from '@codemirror/view';
 import { splitPipeRowCells } from './tableAlignment';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type RowColumnSegment, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, type TableSelection } from './tableSelection';
-import {
-  buildTableColumnWidthsAttributeChange,
-  computeTableColumnWidthsCommitChange,
-  DEFAULT_TABLE_COLUMN_WIDTH,
-  nextWidthsAfterColumnDuplication,
-  nextWidthsAfterColumnInsertion,
-  resolveTableColumnWidths,
-} from './tableColumnWidthMetadata';
 
 import type { SyntaxNode } from '@lezer/common';
 
@@ -83,11 +75,6 @@ function alignmentInsertionChange(row: SyntaxNode, rawText: string, targetIndex:
   return { from: row.from, to: row.to, insert: '| ' + next.join(' | ') + ' |' };
 }
 
-/** CodeMirror's ChangeSpec also accepts a pre-built ChangeSet. These table operations construct range-based specs, so narrow before reading or combining range fields. */
-function isRangeChangeSpec(change: ChangeSpec): change is Extract<ChangeSpec, { from: number }> {
-  return 'from' in change;
-}
-
 function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection?: TableSelection): void {
   const changeSet = view.state.changes(changes);
   view.dispatch({
@@ -112,8 +99,7 @@ function insertColumn(
   table: TableInfo,
   columnIndex: number,
   side: 'left' | 'right',
-  selectInserted = true,
-  preserveExistingWidths = false
+  selectInserted = true
 ): boolean {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
@@ -148,59 +134,6 @@ function insertColumn(
     }
   }
 
-  // Width metadata, same transaction — see `tableColumnWidthMetadata.ts`'s
-  // own "Structural-operation synchronization" section. A table with no
-  // existing metadata stays that way (`nextWidthsAfterColumnInsertion`'s
-  // own "never fabricate metadata a table didn't already have" rule); one
-  // that does gets `DEFAULT_TABLE_COLUMN_WIDTH` inserted at `targetIndex`.
-  const attribute = resolveTableColumnWidths(view.state, table);
-  const nextWidths = nextWidthsAfterColumnInsertion(attribute?.widths ?? null, targetIndex);
-  const widthsChange = preserveExistingWidths
-    ? computeTableColumnWidthsCommitChange(view.state, table, [
-        ...Array.from({ length: headerColumnCount }, (_, index) => {
-          if (attribute?.widths[index] !== undefined) {
-            return attribute.widths[index]!;
-          }
-          const widget = view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${table.from}"]`);
-          const headerCell = widget?.querySelector<HTMLTableRowElement>('thead tr')?.children[index] as HTMLElement | undefined;
-          const measured = headerCell ? Math.round(headerCell.getBoundingClientRect().width) : 0;
-          return measured > 0 ? measured : DEFAULT_TABLE_COLUMN_WIDTH;
-        }),
-        DEFAULT_TABLE_COLUMN_WIDTH,
-      ])
-    : buildTableColumnWidthsAttributeChange(attribute, nextWidths);
-  if (widthsChange) {
-    // A no-metadata table's new width attribute is inserted at table.to.
-    // Appending a column to the final row can also insert at that exact
-    // position, so combine those insertions rather than dispatching
-    // overlapping ChangeSpecs.
-    const samePositionInsertion = isRangeChangeSpec(widthsChange)
-      ? changes.findIndex(
-          (change) =>
-            isRangeChangeSpec(change) &&
-            change.from === widthsChange.from &&
-            change.to === widthsChange.to
-        )
-      : -1;
-    if (
-      samePositionInsertion >= 0 &&
-      isRangeChangeSpec(widthsChange) &&
-      widthsChange.from === widthsChange.to
-    ) {
-      const existingChange = changes[samePositionInsertion]!;
-      if (isRangeChangeSpec(existingChange)) {
-        changes[samePositionInsertion] = {
-          ...existingChange,
-          insert: String(existingChange.insert ?? '') + String(widthsChange.insert ?? ''),
-        };
-      } else {
-        changes.push(widthsChange);
-      }
-    } else {
-      changes.push(widthsChange);
-    }
-  }
-
   dispatchInsertion(view, changes, selectInserted ? { kind: 'column', tableFrom: table.from, columnIndex: targetIndex } : undefined);
   return true;
 }
@@ -221,8 +154,7 @@ export function insertColumnLeftSelection(view: EditorView, selection: TableSele
 export function insertColumnRightSelection(
   view: EditorView,
   selection: TableSelection,
-  selectInserted = true,
-  preserveExistingWidths = false
+  selectInserted = true
 ): boolean {
   if (selection.kind !== 'column') {
     return false;
@@ -231,7 +163,7 @@ export function insertColumnRightSelection(
   if (!table) {
     return false;
   }
-  return insertColumn(view, table, selection.columnIndex, 'right', selectInserted, preserveExistingWidths);
+  return insertColumn(view, table, selection.columnIndex, 'right', selectInserted);
 }
 
 /**
@@ -314,16 +246,6 @@ function duplicateColumn(view: EditorView, table: TableInfo, columnIndex: number
     if (change) {
       changes.push(change);
     }
-  }
-
-  // Width metadata, same transaction — the duplicate's own width copies
-  // `columnIndex`'s own existing value verbatim, mirroring the cell-content
-  // copy above (`nextWidthsAfterColumnDuplication`).
-  const attribute = resolveTableColumnWidths(view.state, table);
-  const nextWidths = nextWidthsAfterColumnDuplication(attribute?.widths ?? null, columnIndex);
-  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
-  if (widthsChange) {
-    changes.push(widthsChange);
   }
 
   // The selection stays on `columnIndex` — the original column, never the
