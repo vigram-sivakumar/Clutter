@@ -597,8 +597,8 @@ describe('engine staged structural commands (M8 candidate)', () => {
     press(true); expect(view.state.doc.toString()).toBe(col);
     expect(redoDepth(view.state)).toBe(0);
   });
-  it('routes native history events from a Tab-selected cell through one root history with width metadata intact', async () => {
-    const source = 'Before\n\n| Name | Sex | Age |\n| --- | --- | --- |\n| Sow |  | 28 |\n| Vigram | Male | 32 |\n| Ram | Male | 31 |\n{table-col-widths="85,88,342"}\n\nAfter';
+  it('routes native history events from a Tab-selected cell through one root history', async () => {
+    const source = 'Before\n\n| Name | Sex | Age |\n| --- | --- | --- |\n| Sow |  | 28 |\n| Vigram | Male | 32 |\n| Ram | Male | 31 |\n\nAfter';
     const view = mountHistory(source);
     const controller = view.plugin(tableCellEditor)!;
     expect(controller.selectAxis(8, { row: 0, col: 1 }, 'column')).toBe(true);
@@ -627,13 +627,9 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(view.dom.querySelectorAll('tr')).toHaveLength(4);
   });
 
-  it('protects the width attribute from root caret placement and keeps a Tab selection through an unrelated prefix edit', async () => {
-    const source = 'Before\n\n' + TABLE + '\n{table-col-widths="85,342"}\n\nAfter';
+  it('keeps a Tab selection through an unrelated prefix edit', async () => {
+    const source = 'Before\n\n' + TABLE + '\n\nAfter';
     const view = mountHistory(source);
-    const metadata = source.indexOf('{table-col-widths');
-    view.dispatch({ selection: { anchor: metadata + 5 } });
-    expect(view.state.selection.main.head).toBe(source.indexOf('\n\nAfter') + 1);
-    expect(view.dom.querySelector('.cm-table-col-widths-hidden-line')).toBeNull();
     clickCell(findCell(view, 'Vik'));
     view.plugin(tableCellEditor)!.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
     expect(select(view)).toEqual(['1,1']);
@@ -695,8 +691,8 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
   });
-  it('duplicates and deletes a column with its alignment and retires old widths', () => {
-    const source = doc.replace('| --- | --- |', '| --- | :---: |').replace('\n\nAfter', '\n{table-col-widths="120,300"}\n\nAfter');
+  it('duplicates and deletes a column with its alignment', () => {
+    const source = doc.replace('| --- | --- |', '| --- | :---: |');
     const view = mountHistory(source);
     action(view, 1, 1, 'Duplicate column');
     const duplicated = view.state.doc.toString();
@@ -705,7 +701,7 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(duplicated).not.toContain('table-col-widths');
     expect(select(view)).toEqual(['0,2','1,2']);
     action(view, 0, 2, 'Delete column');
-    expect(view.state.doc.toString()).toBe(source.replace('\n{table-col-widths="120,300"}', ''));
+    expect(view.state.doc.toString()).toBe(source);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(duplicated);
   });
@@ -748,8 +744,8 @@ describe('engine automatic column sizing (M11 simplification)', () => {
     expect(view.state.doc.toString()).toBe(TABLE);
     expect(undoDepth(view.state)).toBe(0);
   });
-  it('ignores legacy widths until the first real cell edit, then removes them atomically and reversibly', () => {
-    const source = TABLE + '\n{table-col-widths="120,260"}';
+  it('edits automatically sized columns with exact reversible source', () => {
+    const source = TABLE;
     const view = mountHistory(source);
     expect(view.dom.querySelector('.cm-table-wrapper--explicit-widths')).toBeNull();
     expect(view.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
@@ -839,8 +835,8 @@ describe('engine original table handles (M9b candidate)', () => {
       expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(0);
     } finally { portal.remove(); }
   });
-  it('reorders columns by their original handle and carries alignment without legacy widths', () => {
-    const source = TABLE.replace('| --- | --- |', '| --- | :---: |') + '\n{table-col-widths="120,260"}';
+  it('reorders columns by their original handle and carries alignment', () => {
+    const source = TABLE.replace('| --- | --- |', '| --- | :---: |');
     const view = mountHistory(source);
     const hits = view.dom.querySelectorAll<HTMLElement>('.cm-table-column-handle-hit');
     pointer('pointerdown', hits[0]!, 10, 10);
@@ -1106,8 +1102,8 @@ describe('engine editable cell projection', () => {
 });
 
 describe('table live wiring — read-only (note embed) table', () => {
-  it('refreshes a read-only projection in place and preserves the exact width attribute and ragged source', () => {
-    const doc = 'Intro\n\n| Name | Role |\n| --- | ---: |\n| **Vik** |\n{table-col-widths=" 130, 280 "}';
+  it('refreshes a read-only projection in place and preserves the exact ragged source', () => {
+    const doc = 'Intro\n\n| Name | Role |\n| --- | ---: |\n| **Vik** |';
     const view = mount(doc, true);
     const scroll = view.dom.querySelector<HTMLElement>('.cm-table-scroll')!;
     const table = scroll.querySelector('table')!;
