@@ -83,16 +83,16 @@
   display: flex;
   align-items: flex-start;
   gap: 0;
-  width: calc(100% + 30px);
-  min-width: calc(100% + 30px);
+  width: 100%;
+  min-width: 0;
 }
 .cm-editor .cm-table-inner {
   display: flex;
-  flex: 0 0 calc(100% - 30px);
+  flex: 0 0 calc(100% - var(--cm-table-add-column-space, 0px));
   flex-direction: column;
   gap: 0;
   min-width: 0;
-  width: calc(100% - 30px);
+  width: calc(100% - var(--cm-table-add-column-space, 0px));
 }
 .cm-editor .cm-table-quick-add {
   position: relative;
@@ -127,7 +127,9 @@
 }
 .cm-editor .cm-table-quick-add-track-column {
   align-self: flex-start;
-  flex: 0 0 calc(var(--height-sm) + 6px);
+  flex: 0 0 var(--cm-table-add-column-space);
+  width: var(--cm-table-add-column-space);
+  min-width: var(--cm-table-add-column-space);
   padding-inline-start: 6px;
 }
 /* Reveal only the corresponding control, including its own gap. */
@@ -144,8 +146,8 @@
 }
 .cm-editor .cm-table-quick-add-column {
   align-self: flex-start;
-  flex: 0 0 var(--height-sm);
-  width: var(--height-sm);
+  flex: 0 0 var(--cm-table-add-column-width);
+  width: var(--cm-table-add-column-width);
   min-height: 0;
   box-sizing: border-box;
 }
@@ -348,10 +350,11 @@
 .cm-editor .cm-table-wrapper--auto-widths {
   --cm-table-column-min: 110px;
   --cm-table-column-max: 420px;
+  --cm-table-add-column-width: var(--height-xs);
   --cm-table-add-column-space: 0px;
 }
 .cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths {
-  --cm-table-add-column-space: calc(var(--height-sm) + 6px);
+  --cm-table-add-column-space: calc(var(--cm-table-add-column-width) + 6px);
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
   --cm-table-handle-gutter: 8px;
@@ -367,7 +370,7 @@
 /* The wrapper stays at prose width. Compensate for both handle gutters
  * and the additional column track in the scrollport itself, not the
  * table. The negative start margin aligns the table with ordinary text.
- * With the current page inset (40px), the 30px track + 8px end gutter
+ * With the current page inset (40px), the 26px track + 8px end gutter
  * fit without changing the page's horizontal overflow policy. */
 .cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths > .cm-table-scroll {
   --cm-table-scroll-width: calc(100% + 2 * var(--cm-table-handle-gutter) + var(--cm-table-add-column-space));
@@ -386,7 +389,8 @@
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-inner {
   width: calc(100% - var(--cm-table-add-column-space));
   min-width: 0;
-  flex: 0 0 auto;
+  max-width: calc(100% - var(--cm-table-add-column-space));
+  flex: 0 0 calc(100% - var(--cm-table-add-column-space));
 }
 .cm-editor .cm-table-wrapper--auto-widths table {
   table-layout: fixed;
