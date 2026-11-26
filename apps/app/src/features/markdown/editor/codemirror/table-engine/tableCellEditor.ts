@@ -1,6 +1,4 @@
 import { EditorState, Facet, Transaction } from '@codemirror/state';
-import { tableActiveCellChanged } from '../table/tableActiveCellController';
-import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
@@ -136,10 +134,9 @@ export class TableCellEditor {
   };
 
   private clearRootTableInteraction(): void {
-    const selection = this.root.state.field(tableSelectionField, false);
     const armed = this.root.state.field(tableDeletionSelectionField, false) ?? null;
-    if (!selection && armed === null) return;
-    this.root.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null), tableDeletionSelectionChanged.of(null)] });
+    if (armed === null) return;
+    this.root.dispatch({ effects: [tableDeletionSelectionChanged.of(null)] });
   }
 
   private hostAt(tableFrom: number, cell: CellAddress): HTMLElement | null {
