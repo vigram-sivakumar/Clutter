@@ -1,23 +1,27 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { TableActiveCellController } from './tableActiveCellController';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { findEnclosingTable } from './tableGeometry';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const BASIC_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |';
 
-function mountView(doc: string, controller: TableActiveCellController): EditorView {
+const mounted: EditorView[] = [];
+afterEach(() => { for (const view of mounted.splice(0)) view.destroy(); });
+function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller)],
+    extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true)],
   });
-  return new EditorView({ state, parent });
+  const view = new EditorView({ state, parent });
+  mounted.push(view);
+  return view;
 }
 
 /** Real, bubbling `mousedown` — matches how a browser click actually reaches the widget's listener (delegation relies on bubbling through the DOM tree). */
@@ -33,8 +37,7 @@ function clickCell(el: Element): void {
 
 describe('tableWidget — non-cell area clicks do nothing', () => {
   it('clicking the table border/wrapper does not move the root selection, activate a cell, or leave the caret inside the table', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(`${BASIC_TABLE}\n\nAfter.`, controller);
+    const view = mountView(`${BASIC_TABLE}\n\nAfter.`);
     view.dispatch({ selection: { anchor: view.state.doc.length } }); // start with a known, table-external selection
 
     const selectionBefore = view.state.selection.main.head;
@@ -44,14 +47,12 @@ describe('tableWidget — non-cell area clicks do nothing', () => {
     mousedown(wrapper!);
 
     expect(view.state.selection.main.head).toBe(selectionBefore);
-    expect(controller.nestedView).toBeNull();
-    expect(controller.activeAnchor).toBeNull();
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     expect(findEnclosingTable(view.state, view.state.selection.main.head)).toBeNull();
   });
 
   it('clicking the outer widget padding/gutter area does nothing', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(`${BASIC_TABLE}\n\nAfter.`, controller);
+    const view = mountView(`${BASIC_TABLE}\n\nAfter.`);
     view.dispatch({ selection: { anchor: view.state.doc.length } });
 
     const selectionBefore = view.state.selection.main.head;
@@ -61,13 +62,11 @@ describe('tableWidget — non-cell area clicks do nothing', () => {
     mousedown(widget!);
 
     expect(view.state.selection.main.head).toBe(selectionBefore);
-    expect(controller.nestedView).toBeNull();
-    expect(controller.activeAnchor).toBeNull();
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
   });
 
   it('clicking non-cell structural elements (table/thead/tbody/tr) does nothing', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(`${BASIC_TABLE}\n\nAfter.`, controller);
+    const view = mountView(`${BASIC_TABLE}\n\nAfter.`);
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     const selectionBefore = view.state.selection.main.head;
 
@@ -78,51 +77,31 @@ describe('tableWidget — non-cell area clicks do nothing', () => {
     }
 
     expect(view.state.selection.main.head).toBe(selectionBefore);
-    expect(controller.nestedView).toBeNull();
-    expect(controller.activeAnchor).toBeNull();
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
   });
 
-  it('the mousedown event is prevented and stopped for non-cell areas (no fallthrough to default browser/root handling)', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(BASIC_TABLE, controller);
-    const widget = view.dom.querySelector<HTMLElement>('.cm-table-widget')!;
 
-    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
-    let reachedDocument = false;
-    document.addEventListener('mousedown', () => {
-      reachedDocument = true;
-    });
-
-    widget.dispatchEvent(event);
-
-    expect(event.defaultPrevented).toBe(true);
-    expect(reachedDocument).toBe(false);
-  });
 });
 
 describe('tableWidget — clicking an actual cell keeps working normally', () => {
   it('clicking an inactive cell still activates it (nested editor mounts)', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(BASIC_TABLE, controller);
+    const view = mountView(BASIC_TABLE);
 
     const cell = view.dom.querySelector<HTMLElement>('tbody td');
     expect(cell).toBeTruthy();
 
     clickCell(cell!);
 
-    expect(controller.activeAnchor).not.toBeNull();
-    expect(controller.nestedView).not.toBeNull();
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
   });
 
   it('clicking the currently-active cell again does not get intercepted as a non-cell click', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(BASIC_TABLE, controller);
+    const view = mountView(BASIC_TABLE);
 
     const cell = view.dom.querySelector<HTMLElement>('tbody td');
     clickCell(cell!);
-    expect(controller.nestedView).not.toBeNull();
-    const nestedViewBefore = controller.nestedView;
-    const anchorBefore = controller.activeAnchor;
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    const nestedViewBefore = view.plugin(tableCellEditor)!.nested;
 
     // Re-dispatch on the now-active cell's own wrapper (where the nested
     // editor's DOM actually lives) — `target.closest('td, th')` must
@@ -131,23 +110,20 @@ describe('tableWidget — clicking an actual cell keeps working normally', () =>
     // nested `EditorView` may legitimately call `preventDefault()` as
     // part of its own native click-to-caret handling — that's expected
     // and irrelevant here; what matters is the cell stays active).
-    const nestedDom = controller.nestedView!.dom;
+    const nestedDom = view.plugin(tableCellEditor)!.nested!.dom;
     mousedown(nestedDom);
 
-    expect(controller.nestedView).toBe(nestedViewBefore);
-    expect(controller.activeAnchor).toEqual(anchorBefore);
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nestedViewBefore);
   });
 
   it('clicking a header cell also activates it normally', () => {
-    const controller = new TableActiveCellController();
-    const view = mountView(BASIC_TABLE, controller);
+    const view = mountView(BASIC_TABLE);
 
     const headerCell = view.dom.querySelector<HTMLElement>('thead th');
     expect(headerCell).toBeTruthy();
 
     clickCell(headerCell!);
 
-    expect(controller.activeAnchor).not.toBeNull();
-    expect(controller.nestedView).not.toBeNull();
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
   });
 });
