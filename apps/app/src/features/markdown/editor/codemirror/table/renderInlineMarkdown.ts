@@ -1,6 +1,11 @@
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { tokenizeInline, type InlineSpan } from '../../../render/inlineSpan';
 import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
+import type { EditorView, WidgetType } from '@codemirror/view';
+import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
+import { renderWikiLink } from '../wikilink/wikiLinkDecorations';
+import { renderTag } from '../tag/tagDecorations';
+import { renderDate } from '../date/dateDecorations';
 
 /**
  * Renders one inactive table cell's raw Markdown text to sanitized inline
@@ -13,9 +18,9 @@ import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
  * constraint every other widget's own hand-copied-icon HTML strings already
  * follow (see `NoteEmbedWidget.ts`'s own doc comment).
  *
- * No resolver is injected — WikiLinks render via `fallbackWikiLinkResolution`
- * (the raw path as text, unresolved). Real resolution/click-to-activate
- * belongs to cell activation, not yet wired in this milestone.
+ * String output is also the clipboard contract; it intentionally has no
+ * resolver or live token DOM. The static on-screen cell uses the same
+ * span walk via paintInlineMarkdown, with the existing editor widgets.
  *
  * `renderSpan`'s styled-container cases (`bold`/`italic`/`strikethrough`/
  * `highlight`) recurse into `span.children` via `renderSpans` — a forced
@@ -38,8 +43,42 @@ export function renderInlineMarkdown(text: string, options: { readonly styled?: 
   return renderSpans(spans, options.styled === true);
 }
 
-function renderSpans(spans: readonly InlineSpan[], styled: boolean): string {
-  return spans.map((span) => renderSpan(span, styled)).join('');
+type RenderLeaf = (span: InlineSpan) => string | undefined;
+
+function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?: RenderLeaf): string {
+  return spans.map((span) => renderSpan(span, styled, renderLeaf)).join('');
+}
+
+/** On-screen projection only. Actual token DOM comes from the same widget
+ * factories as Live Preview. No extra EditorView and no HTML serialization
+ * of widgets (which would discard their DOM lifecycle). Clipboard stays on
+ * renderInlineMarkdown and never receives live widgets or resolver output. */
+export function paintInlineMarkdown(
+  host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
+): void {
+  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true });
+  const nodes: HTMLElement[] = [];
+  const renderLeaf: RenderLeaf = span => {
+    let widget: WidgetType | null = null;
+    if (span.kind === 'wikilink' && span.source !== undefined) {
+      widget = renderWikiLink(span.source, resolvers.resolveWikiLink ?? (() => undefined));
+    } else if (span.kind === 'tag' && span.source !== undefined) {
+      widget = renderTag(span.source, resolvers.resolveTag ?? (() => undefined));
+    } else if (span.kind === 'date' && span.source !== undefined) {
+      widget = renderDate(span.source, resolvers.resolveDate ?? (() => undefined));
+    } else if (span.kind === 'link') {
+      return `<span class="tok-link"><span class="tok-link-title">${escapeHtml(span.label)}</span></span>`;
+    } else {
+      return undefined;
+    }
+    if (!widget) return span.source === undefined ? undefined : escapeHtml(span.source);
+    const index = nodes.push(widget.toDOM(view)) - 1;
+    return `<span data-inline-widget="${index}"></span>`;
+  };
+  host.innerHTML = renderSpans(spans, true, renderLeaf);
+  for (const placeholder of host.querySelectorAll<HTMLElement>('[data-inline-widget]')) {
+    placeholder.replaceWith(nodes[Number(placeholder.dataset.inlineWidget)]!);
+  }
 }
 
 function escapeHtml(value: string): string {
@@ -51,20 +90,22 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderSpan(span: InlineSpan, styled: boolean): string {
+function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf): string {
+  const leaf = renderLeaf?.(span);
+  if (leaf !== undefined) return leaf;
   const tok = (name: string): string => (styled ? ` class="${name}"` : '');
   const tokWith = (name: string, own: string): string => `class="${styled ? `${name} ` : ''}${own}"`;
   switch (span.kind) {
     case 'text':
       return escapeHtml(span.value);
     case 'bold':
-      return `<strong${tok('tok-strong')}>${renderSpans(span.children, styled)}</strong>`;
+      return `<strong${tok('tok-strong')}>${renderSpans(span.children, styled, renderLeaf)}</strong>`;
     case 'italic':
-      return `<em${tok('tok-emphasis')}>${renderSpans(span.children, styled)}</em>`;
+      return `<em${tok('tok-emphasis')}>${renderSpans(span.children, styled, renderLeaf)}</em>`;
     case 'strikethrough':
-      return `<s${tok('tok-strike')}>${renderSpans(span.children, styled)}</s>`;
+      return `<s${tok('tok-strike')}>${renderSpans(span.children, styled, renderLeaf)}</s>`;
     case 'highlight':
-      return `<mark ${tokWith('tok-highlight', 'cm-table-cell-highlight')}>${renderSpans(span.children, styled)}</mark>`;
+      return `<mark ${tokWith('tok-highlight', 'cm-table-cell-highlight')}>${renderSpans(span.children, styled, renderLeaf)}</mark>`;
     case 'code':
       return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {
