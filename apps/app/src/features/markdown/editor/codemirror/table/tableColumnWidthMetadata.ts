@@ -38,7 +38,7 @@ import { arrayMove, findAllTables, getNavigableRows, getRowColumnSegments, type 
  * Independent of any resize UI: this module only parses, serializes,
  * validates, and associates a table's already-persisted width array with
  * its own preceding table, plus computes how that array must change when a
- * column is inserted/duplicated/moved/deleted, or (`materializeWidthsForResize`)
+ * column is inserted/duplicated/moved/deleted, or (historical manual resizing)
  * first resized. It has no opinion on drag gestures or rendering — no
  * pointer/keyboard interaction lives here, this milestone or otherwise.
  *
@@ -59,7 +59,7 @@ import { arrayMove, findAllTables, getNavigableRows, getRowColumnSegments, type 
  * already establishes for images ("returns `''`... when every field is
  * already default"). The *first* resize of any column is what converts a
  * table from implicit to *explicit*: at that moment every column, not just
- * the one resized, needs a real persisted value — `materializeWidthsForResize`
+ * the one resized, needs a real persisted value — historical manual resizing
  * is the one place that conversion happens, producing a complete array in a
  * single step. Once explicit, a table stays explicit; every subsequent
  * structural operation and resize operates on that real array, never
@@ -346,60 +346,6 @@ export function tableRemovalRangeIncludingWidths(table: TableInfo, attribute: Ta
   }
   return { from: table.from, to: attribute.to };
 }
-
-/**
- * The complete width array to persist when column `resizedIndex` (of
- * `columnCount` total columns) has just been resized to `resizedWidth` —
- * the implicit→explicit conversion this module's own top doc comment
- * describes. Every column *except* `resizedIndex` is read from `existing`
- * when present (a table already explicit — this is the "subsequent resize"
- * case: only the touched column's own value actually changes) and falls
- * back to `DEFAULT_TABLE_COLUMN_WIDTH` when `existing` is `null` or doesn't
- * cover that index (a table still implicit — "first resize" — or a
- * genuinely new column somehow missing from a stale `existing` array).
- * Never partial: the result always has exactly `columnCount` entries,
- * `resizedIndex`'s own real value included, so
- * `buildTableColumnWidthsAttributeChange`'s caller can always write a fully
- * valid attribute from this result directly.
- *
- * Pure model-layer computation only — no pointer/drag/keyboard code calls
- * this yet; it exists so the resize milestone has a single, already-tested
- * place to convert "the user just dragged column N to W pixels" into the
- * array this module's own invariant requires, rather than inventing that
- * conversion inline in UI code later.
- */
-export function materializeWidthsForResize(
-  existing: readonly number[] | null,
-  columnCount: number,
-  resizedIndex: number,
-  resizedWidth: number
-): readonly number[] {
-  const next: number[] = [];
-  for (let i = 0; i < columnCount; i++) {
-    next.push(i === resizedIndex ? resizedWidth : (existing?.[i] ?? DEFAULT_TABLE_COLUMN_WIDTH));
-  }
-  return next;
-}
-
-/**
- * The minimum pixel width a dragged column may be resized to — a usability
- * floor, not a validation rule (`isValidWidth` above still only requires
- * "positive integer"; this is enforced by the resize gesture itself,
- * `tableColumnResizeHandle.ts`, clamping the live drag value before it's
- * ever committed).
- *
- * No existing literal-pixel width precedent was found anywhere in this
- * codebase to reuse: `tableWidget.css`'s `.cm-table-cell-wrapper` has only
- * a cosmetic `min-width: 2ch` (an empty-cell fallback, not a resize
- * constraint), and `mediaPresentationModel.ts`'s own image-resize minimum
- * (`clampMediaWidth`) is a proportion of the available width, not a literal
- * pixel floor. Chosen fresh: each cell has 12px of horizontal padding on
- * both sides (`--space-12`, `tableWidget.css`) — 24px alone, before any
- * content — so 60px leaves roughly 36px (a handful of real characters) for
- * visible text, comfortably above the point where a column reads as
- * "collapsed."
- */
-export const MIN_TABLE_COLUMN_WIDTH = 60;
 
 /**
  * The single `ChangeSpec` that commits `nextWidths` for `table` — the
