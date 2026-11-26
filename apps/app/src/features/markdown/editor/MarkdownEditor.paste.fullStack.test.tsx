@@ -1706,6 +1706,31 @@ describe('M10b — flagged table engine integration in MarkdownEditor', () => {
     expect(engineWidgets(root).length).toBeGreaterThan(0);
   };
 
+  it('enables staged editable tables using the native development environment opt-in without a URL flag', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tableEngineCells');
+    window.history.replaceState(null, '', url.href);
+    try {
+      vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '0');
+      const legacy = render(<MarkdownEditor pageId="native-flag-off" markdown={DOC_TABLE} />);
+      expect(engineWidgets(rootOf(legacy.container))).toHaveLength(0);
+      expect(rootOf(legacy.container).plugin(tableCellEditor)).toBeNull();
+      legacy.unmount();
+      vi.stubEnv('VITE_CLUTTER_TABLE_ENGINE_CELLS', '1');
+      const enabled = render(<MarkdownEditor pageId="native-flag-on" markdown={DOC_TABLE} />);
+      assertEngine(rootOf(enabled.container));
+      activateCell(rootOf(enabled.container), 'a1');
+      expect(nestedOf(enabled.container)!.state.doc.toString()).toBe('a1');
+      enabled.unmount();
+      const readonly = render(<MarkdownEditor pageId="native-flag-readonly" markdown={DOC_TABLE} readOnly />);
+      expect(engineWidgets(rootOf(readonly.container))).toHaveLength(0);
+      expect(rootOf(readonly.container).plugin(tableCellEditor)).toBeNull();
+      readonly.unmount();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('enters the engine cell from adjacent root Markdown using the original boundary keymap', () => {
     const { container } = render(<MarkdownEditor pageId="engine-boundary" markdown={DOC_TABLE} />);
     const root = rootOf(container);

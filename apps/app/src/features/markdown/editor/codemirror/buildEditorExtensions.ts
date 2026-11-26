@@ -344,8 +344,12 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     urlMouseHandlers(),
   ];
 
+  // Native Tauri development windows do not need a browser query string.
+  // Keep the environment opt-in development-only; release builds retain
+  // the existing default until the rollout milestone explicitly changes it.
   const engineCells = !readOnly && (options.tableEngineCells ??
-    (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')));
+    (import.meta.env.DEV && (import.meta.env.VITE_CLUTTER_TABLE_ENGINE_CELLS === '1' ||
+      (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')))));
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),

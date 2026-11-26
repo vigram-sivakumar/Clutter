@@ -4,10 +4,11 @@ Last updated 26 November 2026 (Asia/Kolkata).
 
 ## Current status and resume point
 
-**10 of 12 milestones accepted (83% by milestone count, not effort).** M1–M10 accepted; M11 native macOS validation next.
+**10 of 12 milestones accepted (83% by milestone count, not effort).** M1–M10 accepted; M11 native macOS validation in progress.
 
 - Accepted development branch: `feature/production-table-engine` (M10 acceptance commit, containing verified implementation 9b1cd588). Main has not been merged.
-- M10b candidate: `candidate/table-engine-m10b`, latest acceptance documentation only after 52bb2e5b. New editable engine still requires the development query flag `?tableEngineCells`; default editable renderer is legacy. Supported read-only tables use the new projection; unsupported source shapes use compatibility rendering.
+- Active validation branch: `candidate/table-engine-m11` (development-only native opt-in; local validation pending). Accepted M10 at `1eb38b41`.
+- M10b candidate: `candidate/table-engine-m10b`, latest acceptance documentation only after 52bb2e5b. New editable engine can be enabled in development via `?tableEngineCells` or `VITE_CLUTTER_TABLE_ENGINE_CELLS=1`; default editable renderer remains legacy. Supported read-only tables use the new projection; unsupported source shapes use compatibility rendering.
 - M10 verification: TypeScript clean; 85/85 focused, 1,907/1,907 broad across 63 files (42.72s, zero reported errors); owner confirmed arrow navigation and no unwanted padding. Latest full app run at 2a5a8ce1: 18,537 passed, 40 failed, 984/988 files passed, 10 unhandled errors, 213.40s. Original detached baseline HEAD e6bf7760 reproduced the four-file failure pattern. Sorted failure lists both contain exactly 40 entries; diff produced no output (exact named match). These failures are pre-existing, not newly introduced by the rewrite. Unhandled rejection count and visible AppShell.tsx:743 signature match baseline; the final run's complete error-stack list was not supplied. Full app suite remains non-green; track separately rather than suppressing failures.
 - Earlier intermittent note-embed teardown and whole-table deletion failures remain unroot-caused; latest broad suite passed cleanly. M10 manual checks were owner-reported (all passed with arrow/padding correction); final native persistence and keyboard/IME verification remains M11.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5183. Verify renderer identity before native/manual tests.
@@ -70,12 +71,29 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 | Milestone | Status | Next actions / acceptance gate |
 | --- | --- | --- |
 | M1–M10 | Accepted | Verified table engine development branch; M10 accepts exact baseline failure match, not a green full-app run. Main remains unchanged. |
-| M11 — native macOS | Next | Explicitly enable staged editable engine in native development WKWebView; validate caret, IME composition/commit/cancel, non-Latin input, native clipboard, keyboard navigation, history, resize/reorder, scroll, multiple tables, save/reopen and quit/relaunch. Use disposable test Space, not live data. Verify sandboxed or packaged test configuration before rollout; keep release defaults unchanged. Record build, environment and owner results. |
+| M11 — native macOS | In progress | Explicitly enable staged editable engine in native development WKWebView; validate caret, IME composition/commit/cancel, non-Latin input, native clipboard, keyboard navigation, history, resize/reorder, scroll, multiple tables, save/reopen and quit/relaunch. Use disposable test Space, not live data. Verify sandboxed or packaged test configuration before rollout; keep release defaults unchanged. Record build, environment and owner results. |
 | M12 — retirement and rollout | Blocked on M11 | Remove superseded editable legacy paths only after coverage and compatibility strategy are established. Retain shared renderer/grammar/width/CSS as needed. Establish default engine, run final regression and release checks; main merge requires explicit owner approval. |
 
-### Immediate verification
+### Immediate verification — M11 native development
 
-M10 automated comparison complete: baseline HEAD e6bf7760, 40 named failures on each branch, empty diff. Do not repeat unchanged M10 tests unnecessarily. M11 candidate will introduce a development-only native flag so the real Tauri WKWebView can exercise the staged engine without relying on a browser query string. Do not publish a staged build; test in a disposable Space. Baseline failures and intermittent lifecycle issues remain separately tracked.
+From production:
+
+```sh
+git fetch origin
+git switch --track origin/candidate/table-engine-m11
+node_modules/.bin/tsc --noEmit -p apps/app
+npm run test:run -- MarkdownEditor.paste.fullStack
+```
+
+Expected 183/183 assertions, no unhandled errors. This adds a test of native opt-in without URL flag, default-off and read-only safety. The flag is a development-only Vite environment variable; production default is unchanged.
+
+Stop any prior native development instance (port 1421). Launch the actual Tauri app:
+
+```sh
+VITE_CLUTTER_TABLE_ENGINE_CELLS=1 npm run desktop --workspace=apps/app
+```
+
+Create or open a disposable test Space in the native window. Verify that a supported table has the engine marker (Web Inspector console if available: `document.querySelectorAll('[data-table-engine-cells="true"]').length` > 0). Do not confuse a normal browser with the native window, and do not test against important live notes. Dev app uses its own bundle identifier. Confirm active caret, text and arrows, Tab, Escape, Shift-range, native clipboard, IME composition (including commit/cancel and mixed non-Latin input), structural operations, drag/resize/scroll, mixed root history, multiple tables, and real save/quit/relaunch. For persisted widths/alignment/source use a disposable note and inspect the Markdown on disk after reopening. Then exercise the existing sandboxed native dev path or an explicitly isolated packaged configuration; the ordinary release build is not enabled by this flag. Do not publish any test build. M11 remains unaccepted.
 
 ### Historical architecture notes (M4 snapshot)
 
@@ -180,3 +198,5 @@ Audit found root boundary navigation still invoked legacy activation on supporte
 **M10b latest full application regression (2026-11-26):** Raw terminal output confirms HEAD 2a5a8ce1; 18,537/18,577 tests passed, 40 failed, 984/988 files passed, 10 unhandled errors, 213.40s. All three added arrow/padding tests account for the increased pass count. Visible final rejection still points to AppShell.tsx:743. The original grep produced no case names, so the exact named baseline comparison is not yet verified. Capture names without ANSI from existing candidate log and a fresh targeted baseline run. No code change or promotion.
 
 **M10 acceptance (2026-11-26):** Raw owner terminal output confirms pre-rewrite HEAD e6bf7760, 40 entries each in /tmp/clutter-candidate-failures.txt and /tmp/clutter-baseline-failures.txt, no output from diff -u. Combined with the clean 1,907/1,907 broad suite, 85/85 focused suite, clean TypeScript and owner-reported manual pass, this closes M10 on a no-new-named-failures basis. Full-app suite remains non-green from baseline failures; identical error counts and visible AppShell signature recorded, exhaustive stack comparison not supplied. Promote only the development branch, not main. M11 next.
+
+**M11 candidate (unverified):** Add an explicit DEV-only environment opt-in for the staged editable table engine. Preserve query flag, explicit buildEditorExtensions option, read-only guard, and production default. New full-stack test checks no-query default off, environment on, read-only unaffected. Native execution and sandboxed/packaged validation remain local owner gates. No release configuration or main changes.
