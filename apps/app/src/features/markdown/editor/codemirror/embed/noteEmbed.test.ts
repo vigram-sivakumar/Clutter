@@ -9,6 +9,7 @@ import { foldable, foldEffect, foldState, forceParsing } from '@codemirror/langu
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedLivePreview } from './embedLivePreview';
+import { blockRangeSelection } from '../blockRangeSelection';
 import { embedObjectSelectionField } from './embedObjectSelection';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
@@ -107,6 +108,25 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('highlights a note embed during a host document range selection without rebuilding its nested editor', () => {
+    const doc = 'Before.\n\n![[Other Note]]\n\nAfter.';
+    const view = mountView(doc, resolverFor({
+      'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+    }), { extensions: [blockRangeSelection()] });
+    const card = view.dom.querySelector<HTMLElement>('.cm-note-embed')!;
+    const nested = card.querySelector('.cm-editor');
+    expect(nested).not.toBeNull();
+    expect(card.classList.contains('cm-block-range-selected')).toBe(false);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    expect(card.classList.contains('cm-block-range-selected')).toBe(true);
+    expect(card.classList.contains('cm-embed-object-selected')).toBe(false);
+    expect(card.querySelector('.cm-editor')).toBe(nested);
+    view.dispatch({ selection: { anchor: doc.length } });
+    expect(card.classList.contains('cm-block-range-selected')).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
   });
 
   it('renders a resolved page target as a note embed card with the source note title and its content', () => {
