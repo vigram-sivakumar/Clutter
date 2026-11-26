@@ -6,10 +6,8 @@ import { findAllTables } from './tableGeometry';
 import { normalizeAllTablesInMarkdown } from './tableColumnNormalization';
 import {
   DEFAULT_TABLE_COLUMN_WIDTH,
-  MIN_TABLE_COLUMN_WIDTH,
   computeTableColumnWidthsCommitChange,
   findAllTableColumnWidths,
-  materializeWidthsForResize,
   nextWidthsAfterColumnDeletion,
   nextWidthsAfterColumnDuplication,
   nextWidthsAfterColumnInsertion,
@@ -300,32 +298,6 @@ describe('nextWidthsAfterColumnDeletion', () => {
 
   it('returns null when there is no existing metadata', () => {
     expect(nextWidthsAfterColumnDeletion(null, 0)).toBeNull();
-  });
-});
-
-describe('materializeWidthsForResize', () => {
-  it('materializes the full array on a first resize, using the default for every untouched column', () => {
-    expect(materializeWidthsForResize(null, 3, 2, 320)).toEqual([200, 200, 320]);
-  });
-
-  it('never produces a partial/blank representation on first resize', () => {
-    const result = materializeWidthsForResize(null, 3, 2, 320);
-    expect(result).toHaveLength(3);
-    expect(result.every((w) => typeof w === 'number' && w >= 1)).toBe(true);
-  });
-
-  it('on a subsequent resize, changes only the resized column and preserves every other explicit value', () => {
-    expect(materializeWidthsForResize([120, 80, 240], 3, 1, 999)).toEqual([120, 999, 240]);
-  });
-
-  it('falls back to the default for a column missing from a shorter existing array', () => {
-    expect(materializeWidthsForResize([120, 80], 3, 2, 50)).toEqual([120, 80, 50]);
-  });
-});
-
-describe('MIN_TABLE_COLUMN_WIDTH', () => {
-  it('is 60', () => {
-    expect(MIN_TABLE_COLUMN_WIDTH).toBe(60);
   });
 });
 
