@@ -9,7 +9,7 @@ Last updated 26 November 2026 (Asia/Kolkata).
 - Accepted development branch: `feature/production-table-engine` at `ca315b6b` (M9). Main has not been merged.
 - Active validation branch: `candidate/table-engine-m10b`, based on verified M10a implementation `9f8bd3bc` and ledger `550dc4ce`. Resume on M10b; not promoted.
 - The new editable engine is enabled in the development browser with `?tableEngineCells`; default editable mode is still legacy. Supported read-only tables already use the new projection. Unsupported source shapes use compatibility rendering.
-- Latest observed M10b result on `6ffc3dd8`: TypeScript clean, 280/280 across 3 files (179 full-stack, 76 live wiring, 25 boundary); six flagged application tests passed. Follow-up correction at `9b1cd588`: TypeScript clean; 85/85 across 2 files (78 live wiring, 7 cell transactions), 7.30s, no reported errors; owner confirmed arrow navigation and absence of unwanted cell spaces. Latest broad regression on ad351a6b: 1,907/1,907, 63/63 files, 42.72s, no reported errors. The full application gate remains open: 40 failures and 10 unhandled errors on a68594be reproduced in the isolated original baseline across the same four files; visible failure names/stacks match. Latest complete candidate run is still needed.
+- Latest observed M10b result on `6ffc3dd8`: TypeScript clean, 280/280 across 3 files (179 full-stack, 76 live wiring, 25 boundary); six flagged application tests passed. Follow-up correction at `9b1cd588`: TypeScript clean; 85/85 across 2 files (78 live wiring, 7 cell transactions), 7.30s, no reported errors; owner confirmed arrow navigation and absence of unwanted cell spaces. Latest broad regression on ad351a6b: 1,907/1,907, 63/63 files, 42.72s, no reported errors. The full application gate remains open: 40 failures and 10 unhandled errors on a68594be reproduced in the isolated original baseline across the same four files; visible failure names/stacks match. Latest complete candidate run at 2a5a8ce1 reproduced the same counts: 18,537 passed, 40 failed, 10 unhandled errors. Exact case comparison pending.
 - Prior observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Owner subsequently confirmed both requested reruns passed; raw rerun output was not supplied. Intermittent embed exception remains a known lifecycle risk, not a diagnosed defect in the new engine.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5183. Before manual validation confirm the flagged URL and `document.querySelectorAll('[data-table-engine-cells="true"]').length > 0` for the note under test.
 
@@ -78,20 +78,22 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 
 ### Immediate verification
 
-Latest broad milestone regression is verified: 1,907/1,907 across 63 files, 42.72s, no reported errors, on ad351a6b. The isolated pre-rewrite baseline run in table-engine-baseline reproduced the earlier candidate failure pattern: 40 failed, 266 passed, 10 unhandled errors in the four selected files. The visible case names, assertions, source lines and AppShell rejection stacks match; both transcripts are truncated at the start of the failures, so an exhaustive one-to-one comparison of all 40 names is not established. Baseline failure evidence does not establish that the latest candidate is regression-free.
+Latest broad milestone regression: 1,907/1,907 across 63 files, 42.72s, no reported errors on ad351a6b. Latest full application run at 2a5a8ce1: 18,537 passed, 40 failed, 984/988 files passed, 10 unhandled errors, 213.40s. Three additional regression tests passed compared to a68594be; failure and error counts are unchanged. Isolated pre-rewrite baseline reproduced the same four-file failure pattern (266 passed, 40 failed, 10 errors). The exact case list remains incomplete because earlier logs were truncated, and grep on the latest full log returned no names (likely ANSI terminal formatting).
 
-Return to production (candidate/table-engine-m10b) and capture the latest complete application regression:
+Do not rerun the unchanged complete candidate suite solely to recover names; extract them from the existing log, rerun only the four baseline files with output captured, and compare. From production:
 
 ```sh
-cd ../production
-git pull --ff-only
+perl -pe 's/\e\[[0-?]*[ -\/]*[@-~]//g' /tmp/clutter-m10b-full.log | sed -nE 's/^[[:space:]]*FAIL[[:space:]]+//p' | sort > /tmp/clutter-candidate-failures.txt
+cd ../table-engine-baseline
 git rev-parse --short HEAD
-npm run test:run > /tmp/clutter-m10b-full.log 2>&1
-tail -n 30 /tmp/clutter-m10b-full.log
-grep -E '^[[:space:]]*FAIL[[:space:]]' /tmp/clutter-m10b-full.log
+npm run test:run -- AppShell.spaces.test.tsx PageHost.archivedControls.test.tsx PageHost.assetsCard.test.tsx embedCompletionSource.test.ts > /tmp/clutter-baseline.log 2>&1
+perl -pe 's/\e\[[0-?]*[ -\/]*[@-~]//g' /tmp/clutter-baseline.log | sed -nE 's/^[[:space:]]*FAIL[[:space:]]+//p' | sort > /tmp/clutter-baseline-failures.txt
+wc -l /tmp/clutter-{candidate,baseline}-failures.txt
+diff -u /tmp/clutter-baseline-failures.txt /tmp/clutter-candidate-failures.txt
+cd ../production
 ```
 
-Compare the latest candidate failure names and errors with baseline; no new candidate-only failures or unhandled errors may be accepted. Track confirmed pre-existing failures separately, without changing unrelated functionality as part of the table rewrite. Confirm remaining owner manual checks (clipboard feedback, resized-table entry, multiple tables, saved content/widths/alignment) if not already covered. Do not merge to main. Previously intermittent note-embed and deletion errors remain unroot-caused.
+Require nonempty matching case lists (expected 40 each), baseline HEAD e6bf7760, no candidate-only errors. If extraction differs from the expected count, inspect logs or use structured Vitest reporting before treating the comparison as complete. Confirm remaining owner manual checks (clipboard feedback, resized-table entry, multiple tables, saved content/widths/alignment) if not already covered. Keep known baseline failures tracked separately. Previously intermittent note-embed and deletion errors remain unroot-caused. Do not merge to main.
 
 ### Historical architecture notes (M4 snapshot)
 
@@ -192,3 +194,5 @@ Audit found root boundary navigation still invoked legacy activation on supporte
 **M10b broad verification (2026-11-26):** Raw local transcript on ad351a6b confirms 1,907/1,907 tests across 63/63 files, 42.72s, no reported unhandled errors. Full-stack 182/182, live wiring 78/78, note embed 96/96, cell transactions 7/7. Earlier full-app failures in the same transcript are from the prior 11:46 run, not a fresh full-app run. Table-focused regression gate closed. Next: isolated pre-rewrite baseline comparison for the four application-wide failing files, latest full-app verification, and any remaining manual persistence checks. M10 remains unpromoted.
 
 **M10b baseline comparison (2026-11-26):** Owner supplied output from the isolated table-engine-baseline worktree (requested pre-rewrite commit e6bf7760). Four targeted files: 266/306 passed, 40 failed, 10 unhandled errors, exit 1, 29.07s. Visible failures in AppShell.spaces, PageHost.archivedControls, PageHost.assetsCard and embedCompletionSource match earlier candidate failures, including the same undefined invoke(...).catch rejection at AppShell.tsx:743. Logs omit the beginning of the failures, and the supplied baseline excerpt does not show git rev-parse; counts and visible evidence support a pre-existing failure pattern, not a complete named-case comparison. Latest full candidate regression and remaining manual persistence confirmation are still open. No implementation changes or promotion.
+
+**M10b latest full application regression (2026-11-26):** Raw terminal output confirms HEAD 2a5a8ce1; 18,537/18,577 tests passed, 40 failed, 984/988 files passed, 10 unhandled errors, 213.40s. All three added arrow/padding tests account for the increased pass count. Visible final rejection still points to AppShell.tsx:743. The original grep produced no case names, so the exact named baseline comparison is not yet verified. Capture names without ANSI from existing candidate log and a fresh targeted baseline run. No code change or promotion.
