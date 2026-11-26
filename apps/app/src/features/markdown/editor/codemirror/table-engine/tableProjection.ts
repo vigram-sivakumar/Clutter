@@ -23,7 +23,7 @@ function container(parent: HTMLElement, className: string): HTMLDivElement {
 }
 
 /** Quick-add bars use the validated structural command pipeline. */
-function attachStructuralControls(root: HTMLElement, view: EditorView, table: HTMLTableElement, inner: HTMLElement, layout: HTMLElement): () => void {
+function attachStructuralControls(root: HTMLElement, view: EditorView, table: HTMLTableElement, inner: HTMLElement): () => void {
   const doc = root.ownerDocument;
   const controller = () => view.plugin(tableCellEditor);
   const from = () => Number(root.dataset.tableFrom);
@@ -52,17 +52,16 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
   });
   // The track includes the visual gap but only the button inserts a row
   // or column. This keeps hover continuous without expanding the click target.
-  container(inner, 'cm-table-quick-add-track cm-table-quick-add-track-row').append(addRow);
-  container(layout, 'cm-table-quick-add-track cm-table-quick-add-track-column').append(addColumn);
-  const size = () => {
-    const rect = table.getBoundingClientRect();
-    if (rect.height) addColumn.style.height = rect.height + 'px';
+  const rowTrack = container(inner, 'cm-table-quick-add-track cm-table-quick-add-track-row');
+  const columnTrack = container(inner, 'cm-table-quick-add-track cm-table-quick-add-track-column');
+  rowTrack.append(addRow);
+  columnTrack.append(addColumn);
+  // Both tracks are anchored to the table-sized inner box. The column
+  // track stretches with its height, so no size observer is required.
+  return () => {
+    rowTrack.remove();
+    columnTrack.remove();
   };
-  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(size);
-  observer?.observe(table);
-  size();
-
-  return () => observer?.disconnect();
 }
 
 /** Reuse the existing scroll-content-coordinate selection outline. The
@@ -149,7 +148,7 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) {
       selectionDisposers.set(root, attachSelectionOutline(wrapper, scroll, table));
       view.plugin(tableCellEditor)?.paintWidget(root);
-      structuralDisposers.set(root, attachStructuralControls(root, view, table, inner, layout));
+      structuralDisposers.set(root, attachStructuralControls(root, view, table, inner));
       this.attachHandles(root, view);
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
