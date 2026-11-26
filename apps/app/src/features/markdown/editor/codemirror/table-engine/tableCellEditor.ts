@@ -1,4 +1,7 @@
-import { EditorState, Transaction } from '@codemirror/state';
+import { EditorState, Facet, Transaction } from '@codemirror/state';
+import { tableActiveCellChanged, type TableActiveCellController } from '../table/tableActiveCellController';
+import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
+import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
@@ -17,6 +20,13 @@ import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
+
+/** Temporary migration bridge: only the compatibility renderer uses the
+ * legacy controller. The supported projection still owns all its edits. */
+export const tableEngineIntegration = Facet.define<{
+  readonly compatibilityController?: TableActiveCellController;
+  readonly getPasteAssets?: () => PasteAssets | undefined;
+}>();
 
 /** One nested view per root, with root transactions accepted before nested state. */
 export class TableCellEditor {
@@ -100,6 +110,16 @@ export class TableCellEditor {
     this.close();
   };
 
+  private releaseCompatibility(): void {
+    const legacy = this.root.state.facet(tableEngineIntegration)[0]?.compatibilityController;
+    const selection = this.root.state.field(tableSelectionField, false);
+    if (!legacy?.activeAnchor && !selection) return;
+    legacy?.deactivate();
+    // Clear legacy selection/active decoration before the new host takes focus.
+    // This is a source-neutral transition, not a second history entry.
+    this.root.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
+  }
+
   private hostAt(tableFrom: number, cell: CellAddress): HTMLElement | null {
     return this.root.dom.querySelector<HTMLElement>(
       `[data-table-engine-cells="true"][data-table-from="${tableFrom}"] [data-cell="${cell.row},${cell.col}"]`);
@@ -154,6 +174,7 @@ export class TableCellEditor {
   private select(tableFrom: number, interaction: TableInteraction, preventScroll = false): boolean {
     const cell = focusCell(interaction);
     if (!cell || !isValidCell(cell, this.shape(tableFrom))) return false;
+    this.releaseCompatibility();
     const host = this.hostAt(tableFrom, cell);
     if (!host) return false;
     this.close();
@@ -205,6 +226,7 @@ export class TableCellEditor {
   structural(tableFrom: number, command: Extract<TableCommand, { kind: 'insertRow' | 'deleteRow' | 'duplicateRow' | 'insertColumn' | 'deleteColumn' | 'duplicateColumn' }>, quick = false): boolean {
     if (this.root.state.readOnly) return false;
     try {
+      this.releaseCompatibility();
       const shape = this.shape(tableFrom);
       const row = command.kind === 'insertRow' || command.kind === 'deleteRow' || command.kind === 'duplicateRow';
       const count = row ? shape.rows : shape.cols;
@@ -238,6 +260,7 @@ export class TableCellEditor {
   resizeColumn(tableFrom: number, col: number, width: number, initialWidths: readonly number[]): boolean {
     if (this.root.state.readOnly) return false;
     try {
+      this.releaseCompatibility();
       const mark = this.interactionTable === tableFrom ? bookmark(tableFrom, this.interaction) : null;
       const tr = createTableTransaction(this.root.state, tableFrom, { kind: 'resizeColumn', col, width, initialWidths }, parse,
         tableSelectionTransition.of({ before: mark, after: mark }));
@@ -377,6 +400,9 @@ export class TableCellEditor {
       // is empty or unsupported; never fall back to root source insertion.
       consume();
       this.cancelDrag();
+      const files = Array.from(data.files ?? []);
+      if (files.length) this.root.state.facet(tableEngineIntegration)[0]?.getPasteAssets?.()?.onSkipped?.(
+        files.map(file => file.name || 'file'), 'target');
       const grid = readGrid(data, !editing);
       // A one-cell clipboard payload is text when a caret is active,
       // even when the source supplied Clutter MIME or a one-cell HTML
@@ -535,6 +561,8 @@ export class TableCellEditor {
 
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
+    this.releaseCompatibility();
+    host = this.hostAt(tableFrom, cell) ?? host;
     this.close();
     let snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
     if (!snapshot.cells[cell.row]?.[cell.col]) {

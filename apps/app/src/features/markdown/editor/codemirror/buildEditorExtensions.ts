@@ -84,7 +84,7 @@ import { tableSelectionField } from './table/tableSelection';
 import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
 import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
-import { tableCellEditor } from './table-engine/tableCellEditor';
+import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
@@ -347,7 +347,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   const engineCells = !readOnly && (options.tableEngineCells ??
     (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')));
   const table: Extension[] = [
-    ...(engineCells ? [tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
+    ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,

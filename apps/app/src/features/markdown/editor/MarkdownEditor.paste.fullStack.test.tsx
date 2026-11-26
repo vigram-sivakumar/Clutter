@@ -1812,6 +1812,7 @@ describe('M10b — flagged table engine integration in MarkdownEditor', () => {
     await sleep();
     expect(file.defaultPrevented).toBe(true);
     expect(fake.stored).toEqual([]);
+    expect(fake.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
     expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
     const grid = pasteEvent({ text: TSV });
     act(() => nested.contentDOM.dispatchEvent(grid));
@@ -1820,6 +1821,77 @@ describe('M10b — flagged table engine integration in MarkdownEditor', () => {
     expect(nestedOf(container)).toBeNull();
     act(() => undo(root));
     expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
+  });
+
+  it('enters from below an explicitly sized table without treating width metadata as a visible line', () => {
+    const markdown = TABLE + '\n{table-col-widths="120,260"}\n\nAfter';
+    const { container } = render(<MarkdownEditor pageId="engine-width-entry" markdown={markdown} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    const enter = (key: string) => act(() => {
+      root.dispatch({ selection: { anchor: markdown.indexOf('\n\nAfter') + 1 } });
+      root.focus();
+      root.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+    enter('ArrowUp');
+    const controller = root.plugin(tableCellEditor)!;
+    expect(nestedOf(container)).toBe(controller.nested);
+    expect(controller.nested!.state.doc.toString()).toBe('a2');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
+    act(() => controller.close());
+    enter('ArrowLeft');
+    expect(controller.nested!.state.doc.toString()).toBe('b2');
+    expect(controller.nested!.state.selection.main.head).toBe(2);
+    expect(root.state.doc.toString()).toBe(markdown);
+  });
+
+  it('hands active editing from compatibility to supported tables and back without two mounted editors', () => {
+    const overflow = '| C | D |\n| --- | --- |\n| compat-a | compat-b | extra |';
+    const markdown = TABLE + '\n\n' + overflow;
+    const { container } = render(<MarkdownEditor pageId="engine-mixed" markdown={markdown} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    expect(engineWidgets(root)).toHaveLength(1);
+    expect(root.dom.querySelectorAll('.cm-table-widget')).toHaveLength(2);
+    activateCell(root, 'compat-a');
+    const legacy = nestedOf(container)!;
+    expect(legacy.state.doc.toString()).toBe('compat-a');
+    activateCell(root, 'a1');
+    const engine = nestedOf(container)!;
+    expect(engine).toBe(root.plugin(tableCellEditor)!.nested);
+    expect(engine).not.toBe(legacy);
+    expect(legacy.dom.isConnected).toBe(false);
+    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    activateCell(root, 'compat-b');
+    expect(engine.dom.isConnected).toBe(false);
+    expect(nestedOf(container)).toBe(legacy);
+    expect(legacy.state.doc.toString()).toBe('compat-b');
+    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    expect(root.state.doc.toString()).toBe(markdown);
+  });
+
+  it('reports files skipped once for a selected engine axis and still pastes a companion grid', () => {
+    const fake = fakeAssets();
+    const { container } = render(<MarkdownEditor pageId="engine-file-feedback" markdown={TABLE} pasteAssets={fake.assets} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    const controller = root.plugin(tableCellEditor)!;
+    act(() => { expect(controller.selectAxis(0, { row: 1, col: 0 }, 'row')).toBe(true); });
+    const host = engineWidgets(root)[0]!.querySelector('[data-cell="1,0"]')!;
+    const fileOnly = pasteEvent({ files: [pdf(), docx()] });
+    act(() => host.dispatchEvent(fileOnly));
+    expect(fileOnly.defaultPrevented).toBe(true);
+    expect(root.state.doc.toString()).toBe(TABLE);
+    expect(fake.skipped).toEqual([{ names: ['doc.pdf', 'notes.docx'], reason: 'target' }]);
+    const combined = pasteEvent({ files: [png()], text: TSV });
+    act(() => host.dispatchEvent(combined));
+    expect(combined.defaultPrevented).toBe(true);
+    expect(root.state.doc.toString()).toBe(FILLED.slice('Intro\n\n'.length, -'\n\nOutro'.length));
+    expect(fake.stored).toEqual([]);
+    expect(fake.skipped).toEqual([
+      { names: ['doc.pdf', 'notes.docx'], reason: 'target' },
+      { names: ['shot.png'], reason: 'target' },
+    ]);
   });
 
   it('unmounts the active nested editor on note switch and restores the saved source on reopening', () => {

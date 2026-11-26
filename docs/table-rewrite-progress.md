@@ -9,7 +9,8 @@ Last updated 26 November 2026 (Asia/Kolkata).
 - Accepted development branch: `feature/production-table-engine` at `ca315b6b` (M9). Main has not been merged.
 - Active validation branch: `candidate/table-engine-m10b`, based on verified M10a implementation `9f8bd3bc` and ledger `550dc4ce`. Resume on M10b; not promoted.
 - The new editable engine is enabled in the development browser with `?tableEngineCells`; default editable mode is still legacy. Supported read-only tables already use the new projection. Unsupported source shapes use compatibility rendering.
-- Latest observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Owner subsequently confirmed both requested reruns passed; raw rerun output was not supplied. Intermittent embed exception remains a known lifecycle risk, not a diagnosed defect in the new engine.
+- Latest observed M10b result on `6ffc3dd8`: TypeScript clean, 280/280 across 3 files (179 full-stack, 76 live wiring, 25 boundary); six flagged application tests passed. Follow-up compatibility/clipboard/width changes are unverified.
+- Prior observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Owner subsequently confirmed both requested reruns passed; raw rerun output was not supplied. Intermittent embed exception remains a known lifecycle risk, not a diagnosed defect in the new engine.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5181. Before manual validation confirm the flagged URL and `document.querySelectorAll('[data-table-engine-cells="true"]').length > 0` for the note under test.
 
 This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Every verified milestone updates this file in its implementation commit and is pushed to the development branch. Merging into `main` requires owner approval.
@@ -77,16 +78,15 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 
 ### Immediate verification
 
-Switch to candidate/table-engine-m10b and run from the repository root:
+Stay on candidate/table-engine-m10b and run from the repository root:
 
 ```sh
-git fetch origin
-git switch --track origin/candidate/table-engine-m10b
+git pull --ff-only
 node_modules/.bin/tsc --noEmit -p apps/app
 npm run test:run -- MarkdownEditor.paste.fullStack tableLiveWiring.test.ts tableBoundaryNavigation.test.ts
 ```
 
-Expected 280 assertions (179 full-stack, 76 live wiring, 25 boundary), zero errors, exit 0. Six new integration cases exercise the actual flagged editor. After they pass, audit mixed compatibility ownership, native clipboard notifications, explicit-width boundary navigation, and other remaining gaps; run full application tests before M10 promotion. Previously intermittent note-embed and deletion errors remain unroot-caused.
+Expected 283 assertions (182 full-stack, 76 live wiring, 25 boundary), zero errors, exit 0. Then run the complete application suite (`npm run test:run`) and the broad milestone regression as needed. Verify compatibility transitions, skipped-file feedback, explicit-width keyboard entry, and save/reopen in the flagged app. Previously intermittent note-embed and deletion errors remain unroot-caused. No promotion until M10 gates pass.
 
 ### Historical architecture notes (M4 snapshot)
 
@@ -173,3 +173,7 @@ Source review found the staged Format table command only compacted Markdown, unl
 ## M10b candidate — flagged application integration (unverified)
 
 Audit found root boundary navigation still invoked legacy activation on supported engine widgets. Route this entry to the engine's own activation and caret-placement method; retain legacy entry for compatibility widgets. Validate the active mapped source span against its logical cell after external revisions, closing rather than keeping stale addressing if row/column changes invalidate it. Add six real MarkdownEditor tests with URL flag, restoring the URL after each case: root arrow entry; multi-table editor reuse and source callbacks; prefix refresh and row-removal/external replacement; editable/read-only reconfiguration; active-cell scalar/grid/file-only paste routing; note unmount and reopening from reported source. Existing 173 unflagged characterization tests retained. Tests not run remotely; actual persistence layer, mixed supported/compatibility ownership and file-skip feedback still need audit, along with wider application regression and native gate. No promotion yet.
+
+**M10b first gate (2026-11-26):** Raw local output at 6ffc3dd8 confirms TypeScript clean and 280/280 tests across 3 files, no errors, 33.07s. All six new flagged tests passed.
+
+**M10b follow-up (unverified):** Add a temporary integration facet to release legacy active/selected state when supported engine interactions acquire ownership; compatibility mouse entry already passes through the engine's outside-click capture. Keep the legacy renderer for unsupported sources; no permanent dual-state design intended. Report clipboard files skipped using the existing PasteAssets callback once per owned paste (including companion grids), with no file imports into cells. Treat valid width metadata as part of the table when navigating from below, using existing metadata resolution. Three new flagged full-stack cases and a stronger existing clipboard assertion. Actual local verification, full app regression and manual persistence are still pending. Main and accepted development head unchanged.

@@ -15,6 +15,7 @@ import {
   type TableInfo,
 } from './tableGeometry';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
+import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
 
 /**
  * Root-editor counterpart to `tableCellNavigation.ts`'s own nested-editor
@@ -239,6 +240,9 @@ function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } |
  * means that broken default path is never reached for it any more.
  */
 export function tableBoundaryNavigation(controller: TableActiveCellController): Extension {
+  // Valid width metadata is concealed and belongs to the visual table.
+  const lastVisibleLine = (state: EditorState, table: TableInfo): number =>
+    state.doc.lineAt(resolveTableColumnWidths(state, table)?.to ?? table.to).number;
   const arrowDown: Command = (view) => {
     const sel = view.state.selection.main;
     if (!sel.empty) {
@@ -260,7 +264,7 @@ export function tableBoundaryNavigation(controller: TableActiveCellController): 
     }
     const line = view.state.doc.lineAt(sel.head);
     for (const table of findAllTables(view.state)) {
-      if (view.state.doc.lineAt(table.to).number === line.number - 1) {
+      if (lastVisibleLine(view.state, table) === line.number - 1) {
         const navigableRows = getNavigableRows(table.node);
         return enterCellOf(view, controller, table, navigableRows.length - 1, 0, 'start');
       }
@@ -295,7 +299,7 @@ export function tableBoundaryNavigation(controller: TableActiveCellController): 
       return false;
     }
     for (const table of findAllTables(view.state)) {
-      if (view.state.doc.lineAt(table.to).number === line.number - 1) {
+      if (lastVisibleLine(view.state, table) === line.number - 1) {
         const target = lastCell(table);
         if (!target) {
           return false;
