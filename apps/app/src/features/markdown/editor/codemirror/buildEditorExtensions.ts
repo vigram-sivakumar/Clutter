@@ -302,7 +302,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
 
   const table: Extension[] = [
     // Static cells in both modes use the same live resolver getters as prose.
-    tableEngineIntegration.of({ getPasteAssets, resolvers: { resolveWikiLink, resolveTag, resolveDate } }),
+    tableEngineIntegration.of({ getPasteAssets, getTagSuggestions, resolvers: { resolveWikiLink, resolveTag, resolveDate } }),
     ...(!readOnly ? [
       tableCellEditor,
       tableSelectionHistory,
