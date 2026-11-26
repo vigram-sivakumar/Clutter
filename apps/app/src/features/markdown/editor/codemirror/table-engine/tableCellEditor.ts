@@ -226,6 +226,22 @@ export class TableCellEditor {
     return true;
   }
 
+  /** Enter navigates vertically like Tab's caret-free selection, but never
+   * wraps, leaves the table, or changes Markdown at either boundary. */
+  private navigateEnter(backwards: boolean): boolean {
+    if (this.interactionTable === null || this.nested?.composing) return false;
+    const from = this.interactionTable;
+    const cell = focusCell(this.interaction);
+    if (!cell) return false;
+    const next = { row: cell.row + (backwards ? -1 : 1), col: cell.col };
+    if (isValidCell(next, this.shape(from))) {
+      this.cancelDrag();
+      this.select(from, { kind: 'cell', cell: next });
+    }
+    // Consume the boundary key too: preserve the current selection/editor.
+    return true;
+  }
+
   /** Restore legacy active-cell arrow semantics without changing the
    * accepted caret-free selection and Tab behaviour. */
   private navigateEditingArrow(direction: Direction): boolean {
@@ -576,7 +592,10 @@ export class TableCellEditor {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
         consume(); this.select(tableFrom, { kind: 'table', cell }); return;
       }
-      if (event.key === 'Enter' || event.key === 'F2') {
+      if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        consume(); this.navigateEnter(event.shiftKey); return;
+      }
+      if (event.key === 'F2') {
         consume(); this.activate(tableFrom, cell, host); return;
       }
       const directions: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
@@ -663,6 +682,8 @@ export class TableCellEditor {
           { key: 'Mod-y', run: () => this.stepHistory(false) },
           { key: 'Tab', run: () => this.navigateTab(false) },
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
+          { key: 'Enter', run: () => this.navigateEnter(false) },
+          { key: 'Shift-Enter', run: () => this.navigateEnter(true) },
           { key: 'Escape', run: () => this.exitEdit() },
           { key: 'ArrowLeft', run: () => this.navigateEditingArrow('left') },
           { key: 'ArrowRight', run: () => this.navigateEditingArrow('right') },
