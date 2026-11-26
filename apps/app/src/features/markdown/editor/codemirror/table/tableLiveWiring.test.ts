@@ -762,6 +762,23 @@ describe('engine automatic column sizing (M11 simplification)', () => {
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', 'Vik!'));
   });
+  it('preserves the scrollport and horizontal scroll position during engine cell activation and typing', () => {
+    const view = mountHistory('| A | B | C | D |\n| --- | --- | --- | --- |\n| one | two | three | four |');
+    const scroll = view.dom.querySelector<HTMLElement>('.cm-table-scroll')!;
+    scroll.scrollLeft = 250;
+    clickCell(findCell(view, 'three'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(view.dom.querySelector('.cm-table-scroll')).toBe(scroll);
+    expect(scroll.scrollLeft).toBe(250);
+    nested.dispatch({ changes: { from: nested.state.doc.length, insert: '!' }, userEvent: 'input.type' });
+    expect(view.dom.querySelector('.cm-table-scroll')).toBe(scroll);
+    expect(scroll.scrollLeft).toBe(250);
+    expect(view.state.doc.toString()).toContain('| one | two | three! | four |');
+    expect(undo(view)).toBe(true);
+    expect(view.dom.querySelector('.cm-table-scroll')).toBe(scroll);
+    expect(scroll.scrollLeft).toBe(250);
+    expect(view.state.doc.toString()).toContain('| one | two | three | four |');
+  });
   it('keeps resizing absent after adding and undoing columns and in read-only projection', () => {
     const view = mountHistory(TABLE);
     view.dom.querySelector<HTMLButtonElement>('[aria-label="Add column"]')!.click();
