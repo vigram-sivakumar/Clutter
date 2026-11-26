@@ -647,7 +647,7 @@ export const MarkdownEditor = forwardRef<
   // way every other menu's own trigger works. See that module's own doc
   // comment for why closing needs a different mechanism than opening here
   // (no DOM anchor is ever available from CM6 state alone).
-  const [tableHandleMenu, setTableHandleMenu] = useState<{ selection: TableHandleMenuSelection; engine?: true } | null>(null);
+  const [tableHandleMenu, setTableHandleMenu] = useState<{ selection: TableHandleMenuSelection } | null>(null);
 
   // Stable ref identity with a live getter: CodeMirror may replace the table
   // widget after selection changes, so the overlay resolves the current
