@@ -29,8 +29,6 @@ import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 import type { TableCommand } from './codemirror/table-engine/tableCommands';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
-import { resolveColumnMoveAvailability, resolveRowMoveAvailability } from './codemirror/table/tableRowColumnMove';
-import { resolveColumnAlignment } from './codemirror/table/tableSetColumnAlignment';
 import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange, type TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
@@ -654,6 +652,10 @@ export const MarkdownEditor = forwardRef<
   // Stable ref identity with a live getter: CodeMirror may replace the table
   // widget after selection changes, so the overlay resolves the current
   // handle rather than measuring a DOM node captured by the pointer gesture.
+  const tableAxisMenuState = tableHandleMenu
+    ? viewRef.current?.plugin(tableCellEditor)?.axisMenuState(tableHandleMenu.selection)
+    : null;
+
   const tableHandleMenuAnchorRef = useMemo<TableHandleMenuAnchor>(() => ({
     get current() {
       return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null, tableHandleMenu?.engine);
@@ -1819,14 +1821,14 @@ export const MarkdownEditor = forwardRef<
         onMoveRowDown={handleMoveRowDownFromMenu}
         onMoveColumnLeft={handleMoveColumnLeftFromMenu}
         onMoveColumnRight={handleMoveColumnRightFromMenu}
-        rowMoveAvailability={tableHandleMenu && viewRef.current ? resolveRowMoveAvailability(viewRef.current, tableHandleMenu.selection) : null}
-        columnMoveAvailability={tableHandleMenu && viewRef.current ? resolveColumnMoveAvailability(viewRef.current, tableHandleMenu.selection) : null}
+        rowMoveAvailability={tableAxisMenuState?.rowMoveAvailability ?? null}
+        columnMoveAvailability={tableAxisMenuState?.columnMoveAvailability ?? null}
         onInsertRowAbove={handleInsertRowAboveFromMenu}
         onInsertRowBelow={handleInsertRowBelowFromMenu}
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}
         onInsertColumnRight={handleInsertColumnRightFromMenu}
         onSetColumnAlignment={handleSetColumnAlignmentFromMenu}
-        columnAlignment={tableHandleMenu && viewRef.current ? resolveColumnAlignment(viewRef.current, tableHandleMenu.selection) : null}
+        columnAlignment={tableAxisMenuState?.columnAlignment ?? null}
         onDeleteRow={handleDeleteRowFromMenu}
         onDeleteColumn={handleDeleteColumnFromMenu}
         onFormatTable={handleFormatTableFromMenu}
