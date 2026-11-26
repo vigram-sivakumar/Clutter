@@ -245,6 +245,72 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(selected(external)).toEqual([]);
   });
 
+  it('uses the filled selection for Select All, and restores the outline for partial selection', () => {
+    const view = mount(doc, false);
+    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
+    const overlay = wrapper.querySelector('.cm-table-selection-overlay')!;
+    clickCell(findCell(view, 'Vik'));
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    key(host(view, 1, 0), 'a', false, true);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(true);
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    expect(document.activeElement).toBe(host(view, 1, 0));
+    key(host(view, 1, 0), 'ArrowUp');
+    expect(selected(view)).toEqual(['0,0']);
+    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('uses the filled selection for a full cell range without changing the range semantics', () => {
+    const view = mount(doc, false);
+    clickCell(findCell(view, 'Designer'));
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    key(host(view, 1, 1), 'ArrowLeft', true);
+    key(host(view, 1, 0), 'ArrowUp', true);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('clicking blank widget space at EOF transfers focus to a whole-table selection', () => {
+    const view = mount(TABLE, false);
+    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
+    const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true });
+    wrapper.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
+    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(true);
+    expect(document.activeElement).toBe(host(view, 0, 0));
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
+    expect(view.state.doc.toString()).toBe(TABLE);
+    clickCell(findCell(view, 'Role'));
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(false);
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('transfers an actual root focus at a hidden table boundary to the block', async () => {
+    const view = mount(TABLE, false);
+    view.dispatch({ selection: { anchor: TABLE.length } });
+    view.focus();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(host(view, 0, 0));
+    expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('Tab at EOF leaves through a real text line, not a hidden caret', () => {
+    const view = mount(TABLE, false);
+    clickCell(findCell(view, 'Designer'));
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Tab');
+    expect(view.state.doc.toString()).toBe(TABLE + '\n');
+    expect(view.state.selection.main.head).toBe(TABLE.length + 1);
+    expect(view.hasFocus).toBe(true);
+    expect(selected(view)).toEqual([]);
+  });
+
   it('Escape selects the active cell, Shift+arrows extend a reverse range, arrows collapse from head', () => {
     const view = mount(doc, false);
     clickCell(findCell(view, 'Designer'));
