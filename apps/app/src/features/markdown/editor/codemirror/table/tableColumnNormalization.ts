@@ -1,10 +1,9 @@
 import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorState, type ChangeSpec } from '@codemirror/state';
-import type { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { buildDelimiterCellText, cellGapWidth, minimumDelimiterGapWidth, parseTableAlignment, splitPipeRowCells, type TableColumnAlignment } from './tableAlignment';
-import { findAllTables, findEnclosingTable, getNavigableRows, padCellContent, type TableInfo } from './tableGeometry';
+import { findAllTables, getNavigableRows, padCellContent, type TableInfo } from './tableGeometry';
 
 /**
  * Full source-column-width alignment — "Format table" (`TableHandleMenu.tsx`),
@@ -141,49 +140,8 @@ export function computeTableNormalizationChange(state: EditorState, table: Table
   return { from: table.from, to: table.to, insert: normalizedText };
 }
 
-/** "Format table" (`TableHandleMenu.tsx`) — normalizes the table containing `pos`. `false` (a no-op, matching every other menu-facing entry point in this feature's own return-`boolean` contract) when `pos` isn't inside a table, or the table is already normalized. */
-export function normalizeTableAt(view: EditorView, pos: number): boolean {
-  const node = findEnclosingTable(view.state, pos);
-  if (!node) {
-    return false;
-  }
-  const table: TableInfo = { node, from: node.from, to: node.to };
-  const change = computeTableNormalizationChange(view.state, table);
-  if (!change) {
-    return false;
-  }
-  view.dispatch({ changes: [change], scrollIntoView: true });
-  return true;
-}
-
-/**
- * The headless, string-in/string-out entry point for the durable-save
- * boundary (`PageOperations.save()`, injected via `Application.bootstrap()`
- * — see `AppShell.tsx`'s own wiring). Normalizes every table found in
- * `markdown`, reusing exactly the same `computeTableNormalizationChange`
- * "Format table" itself dispatches through — this is not a second
- * normalization algorithm, just a different entry point into the one that
- * already exists: a throwaway, non-DOM `EditorState` (the same "parse a
- * bare string with just the Markdown grammar" technique
- * `tableActivationNormalization.ts`'s own `planTableActivationNormalization`
- * already establishes for exactly this "no live EditorView available yet"
- * situation) stands in for the live document only long enough to locate
- * every `Table` node and compute its own change; no `EditorView`, no
- * dispatch, no caret/selection/undo-history involvement of any kind — this
- * never touches the user's actual editing session.
- *
- * Every table's own change is computed against the *same* original `state`
- * and the changes never overlap (each is scoped to one table's own
- * `[from, to)` range), so they're safe to collect and apply as a single
- * batch (`state.changes(...)`) rather than needing to re-parse between
- * tables.
- *
- * Returns `markdown` itself, unchanged (same string reference), when there
- * are no tables or every table is already normalized — the save path's own
- * "don't do unnecessary work, don't manufacture a diff that isn't there"
- * requirement (mirrors `computeTableNormalizationChange`'s own per-table
- * `null`-when-already-normalized contract, just rolled up to the
- * whole-document level).
+/** Headless Markdown source formatting used at the application boundary.
+ * Calculate every change against the same document; never dispatch to an editor.
  */
 export function normalizeAllTablesInMarkdown(markdown: string): string {
   const state = EditorState.create({
