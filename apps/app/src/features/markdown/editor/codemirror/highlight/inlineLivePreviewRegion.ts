@@ -169,7 +169,8 @@ export const refreshInlinePresentation = StateEffect.define<null>();
  */
 function buildDecorations(
   view: EditorView,
-  participants: ReadonlyMap<string, ParticipantRenderer>
+  participants: ReadonlyMap<string, ParticipantRenderer>,
+  includeHeadings: boolean
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
@@ -179,7 +180,7 @@ function buildDecorations(
       from,
       to,
       enter: (node) => {
-        const headingClass = HEADING_CLASS_BY_NODE_NAME.get(node.name);
+        const headingClass = includeHeadings ? HEADING_CLASS_BY_NODE_NAME.get(node.name) : undefined;
         if (headingClass) {
           if (node.from < node.to) {
             ranges.push(
@@ -237,15 +238,17 @@ interface InlineLivePreviewRegionPlugin extends PluginValue {
 }
 
 export function inlineLivePreviewRegion(
-  participants: ReadonlyMap<string, ParticipantRenderer>
+  participants: ReadonlyMap<string, ParticipantRenderer>,
+  options: { readonly includeHeadings?: boolean } = {}
 ): Extension {
+  const includeHeadings = options.includeHeadings !== false;
   const plugin = ViewPlugin.fromClass<InlineLivePreviewRegionPlugin>(
     class implements InlineLivePreviewRegionPlugin {
       decorations: DecorationSet;
       atomic: DecorationSet;
 
       constructor(view: EditorView) {
-        ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(view, participants));
+        ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(view, participants, includeHeadings));
       }
 
       update(update: ViewUpdate) {
@@ -255,7 +258,7 @@ export function inlineLivePreviewRegion(
           update.selectionSet ||
           update.transactions.some((tr) => tr.effects.some((effect) => effect.is(refreshInlinePresentation)))
         ) {
-          ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, participants));
+          ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, participants, includeHeadings));
         }
       }
     },
