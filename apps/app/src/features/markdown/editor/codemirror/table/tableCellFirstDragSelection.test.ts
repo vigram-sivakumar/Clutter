@@ -4,7 +4,7 @@ import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
-import { attachTableOutsideClickHandling } from './tableSelection';
+import { attachTableOutsideClickHandling } from './tableOutsideClick';
 import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
 
 /**
