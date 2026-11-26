@@ -1,4 +1,3 @@
-import { parseTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { buildDelimiterCellText, cellGapWidth, minimumDelimiterGapWidth } from '../table/tableAlignment';
 import { padCellContent } from '../table/tableGeometry';
@@ -18,10 +17,7 @@ export interface CellSource {
 }
 export interface TableSnapshot {
   readonly from: number;
-  /** Includes an adjacent recognised legacy width line, if any. */
   readonly to: number;
-  /** Start of the legacy suffix (including its leading newline). Not model state. */
-  readonly legacyWidthFrom: number | null;
   readonly source: string;
   readonly model: TableModel;
   /** Header first; null denotes an absent cell in an imported ragged row. */
@@ -145,23 +141,19 @@ export function snapshotFromTableNode(source: string, node: SyntaxNode): TableSn
   // Include trailing whitespace on the table's own final source line, if any.
   const end = lineEnd(source, node.to);
   if (source.slice(node.to, end).trim() !== '') fail('Table has unexpected trailing content');
-  let to = end;
-  let legacyWidthFrom: number | null = null;
-  if (end < source.length) {
-    const attributeEnd = lineEnd(source, end + 1);
-    const line = source.slice(end + 1, attributeEnd);
-    if (line.trim().startsWith('{table-col-widths')) {
-      // Recognise the old format only, never infer or use pixel widths.
-      // A stale column count is immaterial; malformed text stays in the
-      // compatibility renderer rather than being silently discarded.
-      if (!parseTableColumnWidthsAttribute(line)) fail('Malformed legacy width metadata');
-      legacyWidthFrom = end;
-      to = attributeEnd;
-    }
-  }
+  const to = end;
   const model: TableModel = { header: textRows[0]!, rows: textRows.slice(1), alignments };
   validateModel(model);
-  return { from: node.from, to, legacyWidthFrom, source: source.slice(node.from, to), model, cells };
+  return { from: node.from, to, source: source.slice(node.from, to), model, cells };
+}
+
+/** The single eligibility check for rendering and root interaction guards. */
+export function projectableTableSnapshot(source: string, node: SyntaxNode): TableSnapshot | null {
+  try { return snapshotFromTableNode(source, node); }
+  catch (error) {
+    if (!(error instanceof TableEngineError)) throw error;
+    return null;
+  }
 }
 
 export function validateModel(model: TableModel): void {
