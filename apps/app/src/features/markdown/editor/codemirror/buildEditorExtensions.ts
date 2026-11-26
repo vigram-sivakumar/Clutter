@@ -24,8 +24,7 @@ import type { OnOpenFencedCodeMenu } from './fencedCode/FencedCodeActionsButtonW
 import { fencedCodeLanguageLabelDecoration } from './highlight/fencedCodeLanguageLabelDecoration';
 import { fencedCodeMarkerDecoration } from './highlight/fencedCodeMarkerDecoration';
 import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
-import { createInlineLivePreviewParticipants } from './highlight/inlineLivePreviewParticipants';
-import { inlineLivePreviewRegion } from './highlight/inlineLivePreviewRegion';
+import { inlinePreviewExtensions } from './highlight/inlineLivePreviewRegion';
 import { leadingIndentDecoration } from './highlight/leadingIndentDecoration';
 import { editorRevealHighlight } from './highlight/editorRevealHighlight';
 import { linkMouseHandlers } from './link/linkMouseHandlers';
@@ -57,7 +56,6 @@ import type { ResolveWikiLink } from './wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
 import { wikiLinkAutocomplete } from './wikilink/wikiLinkAutocomplete';
 import { embedAutocomplete } from './embed/embedAutocomplete';
-import { wikiLinkLivePreview } from './wikilink/wikiLinkLivePreview';
 import { wikiLinkMouseHandlers } from './wikilink/wikiLinkMouseHandlers';
 import type { ResolveEmbedImage } from './embed/embedImageResolution';
 import type { ResolveEmbedPdf } from './pdf/embedPdfResolution';
@@ -255,13 +253,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     markdownLanguageExtension(),
     blockRangeSelection(),
     ...fencedCodeHighlighting(),
-    inlineLivePreviewRegion(
-      createInlineLivePreviewParticipants({
-        resolveTag,
-        resolveDate,
-      })
-    ),
-    wikiLinkLivePreview(resolveWikiLink),
+    inlinePreviewExtensions({ resolveWikiLink, resolveTag, resolveDate }),
     imageLivePreview(onImageClick, onOpenImageMenu, resolveImageSrc),
     embedLivePreview({
       resolveEmbedImage,
@@ -309,8 +301,9 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   ];
 
   const table: Extension[] = [
+    // Static cells in both modes use the same live resolver getters as prose.
+    tableEngineIntegration.of({ getPasteAssets, resolvers: { resolveWikiLink, resolveTag, resolveDate } }),
     ...(!readOnly ? [
-      tableEngineIntegration.of({ getPasteAssets }),
       tableCellEditor,
       tableSelectionHistory,
       selectNewMarkdownTable,
