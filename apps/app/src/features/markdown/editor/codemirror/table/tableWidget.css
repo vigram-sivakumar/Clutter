@@ -406,27 +406,31 @@
 /* Outside the page pane (e.g. an isolated editor), keep the original
  * prose-width scrollport fallback. Within the centred page, extend the
  * visible table equally in both directions. The scrollport has asymmetric
- * padding (an extra add-column track on the right), so centre its content
- * box, not the scrollport border box. Reserve that extra right-side space
- * on both sides of the centred table when calculating the page cap. */
+ * padding (an extra add-column track on the right). Centre the visible
+ * table span rather than the content box when cells extend into that
+ * trailing padding. Keep the existing page cap and control clearance. */
 @container clutter-page (min-width: 0px) {
   .cm-editor .cm-table-wrapper--auto-widths .cm-table-scroll {
     --cm-table-page-cap: max(
       var(--cm-table-scroll-width),
       calc(100cqw - 2 * var(--cm-table-handle-gutter) - var(--cm-table-add-column-space))
     );
+    --cm-table-target-width: max(
+      100%, var(--cm-table-column-count) * var(--cm-table-column-min)
+    );
     --cm-table-visible-scroll-width: min(
-      calc(
-        max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) +
-          var(--cm-table-inline-clearance)
-      ),
+      calc(var(--cm-table-target-width) + var(--cm-table-inline-clearance)),
       var(--cm-table-page-cap)
     );
     width: var(--cm-table-visible-scroll-width);
     max-width: var(--cm-table-page-cap);
+    /* Centre only the visible table span. Overflowing cells can paint
+     * into the trailing padding, up to the scrollport's clipping edge. */
     margin-inline-start: calc(
-      (var(--cm-table-scroll-width) - var(--cm-table-visible-scroll-width)) / 2 -
-        var(--cm-table-handle-gutter)
+      (100% - min(
+        var(--cm-table-target-width),
+        calc(var(--cm-table-visible-scroll-width) - var(--cm-table-handle-gutter))
+      )) / 2 - var(--cm-table-handle-gutter)
     );
   }
 }
