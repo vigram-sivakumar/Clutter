@@ -159,6 +159,8 @@ interface Setup {
   readonly range?: readonly [readonly [number, number], readonly [number, number]];
   /** Activate the cell with this text; the nested editor's caret is collapsed to the end of the cell. */
   readonly cell?: string;
+  /** Explicitly select the cell's text instead of inserting at its end. */
+  readonly selectCellText?: boolean;
   readonly assets?: Parameters<typeof fakeAssets>[0];
 }
 
@@ -194,7 +196,7 @@ async function paste(setup: Setup, payload: Payload, on: 'root' | 'cell' = 'root
   if (setup.cell) {
     activateCell(root, setup.cell);
     const nested = nestedOf(container)!;
-    act(() => nested.dispatch({ selection: { anchor: nested.state.doc.length } }));
+    act(() => nested.dispatch({ selection: { anchor: setup.selectCellText ? 0 : nested.state.doc.length, head: nested.state.doc.length } }));
     if (on === 'cell') {
       target = nested;
     }
@@ -442,11 +444,20 @@ describe('B. clipboard format combinations — which representation wins', () =>
 // ═══ C. the root editor versus an active table cell ════════════════════════════════════════════════════
 
 describe('C. the root editor versus the active nested cell editor', () => {
-  const CELL: Setup = { markdown: DOC_TABLE, cell: 'a1' };
+  const CELL: Setup = { markdown: DOC_TABLE, cell: 'a1', selectCellText: true };
   const cellRow = (doc: string) => doc.split('\n')[4];
 
-  it('[behaviour] plain text replaces the entire active cell value', async () => {
+  it('[intentional] plain text replaces explicitly selected cell text', async () => {
     expect(cellRow((await paste(CELL, { text: 'plain' }, 'cell')).doc)).toBe('| plain | b1 |');
+  });
+
+  it('[intentional] a collapsed text caret inserts without replacing existing cell contents', async () => {
+    const o = await paste({ markdown: DOC_TABLE, cell: 'a1' }, { text: 'plain' }, 'cell');
+    expect(cellRow(o.doc)).toBe('| a1plain | b1 |');
+    expect(o.userEvents).toEqual(['input.paste']);
+    expect(o.undoSteps).toBe(1);
+    expect(o.undoRestores).toBe(true);
+    expect(o.redoRestores).toBe(true);
   });
 
   it('[intentional] multi-line text is flattened to one line in a cell (the root keeps the newline)', async () => {
@@ -527,10 +538,10 @@ describe('D. undo, redo, selection and input.paste metadata, per strategy', () =
     ['plain text (CodeMirror default paste)', PLAIN, { text: 'one\ntwo' }, 'root', 'input.paste'],
     ['rich HTML (pasteAssets)', PLAIN, { html: RICH, text: 'x' }, 'root', 'input.paste'],
     ['a file (pasteAssets, asynchronous)', PLAIN, { files: [png()], text: 'cap' }, 'root', 'input.paste'],
-    ['a new table (tableCreatePaste)', PLAIN, { text: 'a\tb\nc\td' }, 'root', null],
+    ['a new table (tableCreatePaste)', PLAIN, { text: 'a\tb\nc\td' }, 'root', 'input.paste.table'],
     ['a grid into a selected range (tablePaste)', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', null],
-    ['a grid from an active cell (tableCellPaste)', { markdown: DOC_TABLE, cell: 'a1' }, { text: TSV }, 'cell', null],
-    ['plain text into an active cell (default paste in the nested editor)', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'zz' }, 'cell', null],
+    ['a grid from an active cell (tableCellPaste)', { markdown: DOC_TABLE, cell: 'a1' }, { text: TSV }, 'cell', 'input.table'],
+    ['plain text into an active cell (default paste in the nested editor)', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'zz' }, 'cell', 'input.paste'],
   ];
 
   it.each(STRATEGIES)('one paste is one undo step that restores the exact document, and redo restores the paste: %s', async (_name, setup, payload, target) => {
@@ -543,8 +554,8 @@ describe('D. undo, redo, selection and input.paste metadata, per strategy', () =
     expect(o.redoRestores).toBe(true);
   });
 
-  // The table strategies (tableCreatePaste, tablePaste, tableCellPaste) dispatch without `input.paste`; the others carry it.
-  // Only the URL "Paste as" menu reads the tag today.
+  // Engine mutations identify their root history transaction. Compatibility
+  // range routing still uses its existing untagged transaction.
   it.each(STRATEGIES)('the transaction metadata: %s', async (_name, setup, payload, target, userEvent) => {
     const o = await paste(setup, payload, target);
 
@@ -1158,7 +1169,7 @@ function nodeNames(doc: string): string[] {
 
 describe('I. insertion context — own block, list items, quotes, code', () => {
   const GRID = 'a\tb\nc\td';
-  const TABLE_MD = '| a | b |\n| - | - |\n| c | d |';
+  const TABLE_MD = '| a | b |\n| --- | --- |\n| c | d |';
 
   it('[intentional] mid-paragraph: the text before and after is kept in its own blocks, the table has exactly its own rows', async () => {
     const o = await paste({ markdown: 'Start middle end', caret: 6 }, { text: GRID });
@@ -1180,7 +1191,7 @@ describe('I. insertion context — own block, list items, quotes, code', () => {
   it('[intentional] at the end of a paragraph: the table follows after a blank line, nothing after it', async () => {
     const o = await paste({ markdown: 'Start middle end', caret: 16 }, { text: GRID });
 
-    expect(o.doc).toBe(`Start middle end\n\n${TABLE_MD}\n`);
+    expect(o.doc).toBe(`Start middle end\n\n${TABLE_MD}`);
   });
 
   it('[intentional] at the end of a line directly followed by another line: that line does not become a row', async () => {
@@ -1202,7 +1213,7 @@ describe('I. insertion context — own block, list items, quotes, code', () => {
   });
 
   it('[intentional] normal creation outside protected contexts is unchanged: on an empty line, between blocks', async () => {
-    expect((await paste({ markdown: '', caret: 0 }, { text: GRID })).doc).toBe(`${TABLE_MD}\n`);
+    expect((await paste({ markdown: '', caret: 0 }, { text: GRID })).doc).toBe(TABLE_MD);
     expect((await paste({ markdown: 'Start\n\n\nEnd', caret: 7 }, { text: GRID })).doc).toBe(`Start\n\n${TABLE_MD}\n\nEnd`);
   });
 
@@ -1301,7 +1312,7 @@ function cellCounts(doc: string): number[] {
 }
 
 describe('J. pipes pasted into cells', () => {
-  const CELL: Setup = { markdown: DOC_TABLE, cell: 'a1' };
+  const CELL: Setup = { markdown: DOC_TABLE, cell: 'a1', selectCellText: true };
   const row = (doc: string) => doc.split('\n')[4];
 
   it('[intentional] plain text with a pipe is escaped; the row keeps its two cells', async () => {
@@ -1394,9 +1405,6 @@ describe('K. the paste router', () => {
 
   it.each<[string, Setup, Payload, 'root' | 'cell', PasteStrategy]>([
     ['a selected range and a grid', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', 'tableRange'],
-    ['an active cell and a grid', { markdown: DOC_TABLE, cell: 'a1' }, { text: TSV }, 'cell', 'tableCell'],
-    ['an active cell and plain text', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'x' }, 'cell', 'tableCell'],
-    ['an active cell and an image', { markdown: DOC_TABLE, cell: 'a1' }, { files: [png()], text: '' }, 'cell', 'empty'],
     ['a grid at a caret', PLAIN, { text: TSV }, 'root', 'tableCreate'],
     ['two bare HTML tables', PLAIN, { html: htmlTable([['a']]) + htmlTable([['b']]), text: 'a\nb' }, 'root', 'richHtml'],
     ['an image', PLAIN, { files: [png()], text: '' }, 'root', 'files'],
@@ -1412,6 +1420,22 @@ describe('K. the paste router', () => {
     ['an HTML table in a bullet item', { markdown: '- item', caret: 4 }, { html: TABLE_HTML, text: TSV }, 'root', 'default'],
   ])('%s: one decision, strategy %s', async (_name, setup, payload, on, expected) => {
     expect(await decisions(() => paste(setup, payload, on))).toEqual([expected]);
+  });
+
+  it.each([
+    ['grid', { text: TSV }, FILLED, ['input.table'], []],
+    ['scalar', { text: 'x' }, DOC_TABLE.replace('| a1 | b1 |', '| a1x | b1 |'), ['input.paste'], []],
+    ['image', { files: [png()], text: '' }, DOC_TABLE, [], [{ names: ['shot.png'], reason: 'target' }]],
+  ] as const)('the engine owns an active-cell %s paste once, without root classification', async (_kind, payload, expected, events, skipped) => {
+    classify.mockClear();
+    const o = await paste({ markdown: DOC_TABLE, cell: 'a1' }, payload, 'cell');
+    expect(classify).not.toHaveBeenCalled();
+    expect(o.prevented).toBe(true);
+    expect(o.doc).toBe(expected);
+    expect(o.userEvents).toEqual(events);
+    expect(o.skipped).toEqual(skipped);
+    expect(o.stored).toEqual([]);
+    expect(o.undoSteps).toBe(events.length);
   });
 
   it('a table and files are one transaction: the table is created once, no file is stored, the files are reported once', async () => {
@@ -1489,7 +1513,7 @@ describe('L. rich HTML keeps its blocks apart and lands in a block of its own', 
   it('[intentional] two separate HTML tables stay two tables', async () => {
     const o = await paste(EMPTY, { html: T('a') + T('b'), text: 'a\nb' });
 
-    expect(o.doc.trimEnd()).toBe('| a |\n| - |\n|   |\n\n| b |\n| - |\n|   |');
+    expect(o.doc.trimEnd()).toBe('| a |\n| --- |\n\n| b |\n| --- |');
     expect(count(o.doc, 'Table')).toBe(2);
   });
 
@@ -1580,7 +1604,7 @@ describe('M. two tables on a real browser-style clipboard', () => {
     classify.mockClear();
     const o = await paste({ markdown: '', caret: 0 }, { html: TWO, text: TWO_TEXT });
 
-    expect(o.doc.trimEnd()).toBe('| A | B |\n| - | - |\n| 1 | 2 |\n\n| C | D |\n| - | - |\n| 3 | 4 |');
+    expect(o.doc.trimEnd()).toBe('| A | B |\n| --- | --- |\n| 1 | 2 |\n\n| C | D |\n| --- | --- |\n| 3 | 4 |');
     expect(count(o.doc, 'Table')).toBe(2);
     expect(classify).toHaveBeenCalledTimes(1);
     expect((classify.mock.results[0]!.value as { strategy: string }).strategy).toBe('richHtml');
@@ -1589,7 +1613,7 @@ describe('M. two tables on a real browser-style clipboard', () => {
   it('[intentional] one table with its tab-separated text is still created as one table', async () => {
     const o = await paste({ markdown: '', caret: 0 }, { html: chrome([['A', 'B'], ['1', '2']]), text: 'A\tB\n1\t2' });
 
-    expect(o.doc.trimEnd()).toBe('| A | B |\n| - | - |\n| 1 | 2 |');
+    expect(o.doc.trimEnd()).toBe('| A | B |\n| --- | --- |\n| 1 | 2 |');
     expect(count(o.doc, 'Table')).toBe(1);
   });
 
@@ -1597,7 +1621,7 @@ describe('M. two tables on a real browser-style clipboard', () => {
     const o = await paste({ markdown: '', caret: 0 }, { text: TWO_TEXT });
 
     expect(count(o.doc, 'Table')).toBe(1);
-    expect(o.doc.trimEnd()).toBe('| A | B |\n| - | - |\n| 1 | 2 |\n| C | D |\n| 3 | 4 |');
+    expect(o.doc.trimEnd()).toBe('| A | B |\n| --- | --- |\n| 1 | 2 |\n| C | D |\n| 3 | 4 |');
   });
 
   it('[intentional] pasted between two paragraphs the tables get their own blocks', async () => {
