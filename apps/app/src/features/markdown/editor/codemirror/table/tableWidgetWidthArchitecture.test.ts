@@ -42,10 +42,15 @@ describe('automatic table sizing stylesheet', () => {
 
   it('keeps quick-add controls in layout and uses edge-specific hover', () => {
     expect(rule('.cm-editor .cm-table-quick-add')).toContain('opacity: 0');
-    expect(css).toContain('.cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-row');
+    expect(css).toContain('.cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row');
     expect(css).toContain('.cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-row');
-    expect(css).toContain('.cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-column');
+    expect(css).toContain('.cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-track-column > .cm-table-quick-add-column');
     expect(css).toContain('.cm-table-quick-add:focus-visible');
+    expect(css).toContain('.cm-table-quick-add-track:hover > .cm-table-quick-add');
+    expect(rule('.cm-editor .cm-table-quick-add-track-row')).toContain('padding-block-start: 6px');
+    expect(rule('.cm-editor .cm-table-quick-add-track-column')).toContain('padding-inline-start: 6px');
+    expect(rule('.cm-editor .cm-table-layout')).toContain('gap: 0');
+    expect(rule('.cm-editor .cm-table-inner')).toContain('gap: 0');
     const svg = rule('.cm-editor .cm-table-quick-add svg');
     expect(svg).toContain('width: 16px');
     expect(svg).toContain('height: 16px');

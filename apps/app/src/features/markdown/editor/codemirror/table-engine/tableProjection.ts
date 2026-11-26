@@ -50,8 +50,10 @@ function attachStructuralControls(root: HTMLElement, view: EditorView, table: HT
       doc.defaultView?.requestAnimationFrame(() => { if (scroll.isConnected) scroll.scrollLeft = scroll.scrollWidth; });
     }
   });
-  inner.append(addRow);
-  layout.append(addColumn);
+  // The track includes the visual gap but only the button inserts a row
+  // or column. This keeps hover continuous without expanding the click target.
+  container(inner, 'cm-table-quick-add-track cm-table-quick-add-track-row').append(addRow);
+  container(layout, 'cm-table-quick-add-track cm-table-quick-add-track-column').append(addColumn);
   const size = () => {
     const rect = table.getBoundingClientRect();
     if (rect.height) addColumn.style.height = rect.height + 'px';
