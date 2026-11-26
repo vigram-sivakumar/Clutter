@@ -104,6 +104,21 @@ describe('table engine minimal cell changes', () => {
     }
   });
 
+  it('edits an overflow cell minimally without rewriting the imported table', () => {
+    const source = prefix + '| A | B |\n| --- | --- |\n| one | two | extra |' + suffix;
+    const extra = { row: 1, col: 2 };
+    const state = EditorState.create({ doc: source });
+    const snap = readTable(source, start, parse);
+    const active = editableCell(source, snap, extra);
+    expect(active.text).toBe('extra');
+    const transaction = createCellTransaction(state, start, extra, active.text,
+      diffCellText(active.text, 'edited'), parse)!;
+    expect(transaction.newDoc.toString()).toBe(source.replace('extra', 'edited'));
+    expect(readTable(transaction.newDoc.toString(), start, parse).model.rows[0]).toEqual(['one', 'two', 'edited']);
+    expect(() => createCellTransaction(state, start, extra, active.text,
+      diffCellText(active.text, 'extra|split'), parse)).toThrow(TableEngineError);
+  });
+
   it('refuses changes that root filters reject', () => {
     const state = EditorState.create({ doc, extensions: [EditorState.transactionFilter.of(() => [])] });
     expect(() => createCellTransaction(state, start, address, 'one', diffCellText('one', 'two'), parse)).toThrow(TableEngineError);
