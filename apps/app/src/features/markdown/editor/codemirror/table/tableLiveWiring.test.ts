@@ -140,7 +140,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
   const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
     .map(cell => (cell as HTMLElement).dataset.cell);
 
-  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, Enter mounts a fresh editor', () => {
+  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, F2 mounts a fresh editor', () => {
     const view = mount(doc, false);
     clickCell(findCell(view, 'Role'));
     const nested = view.plugin(tableCellEditor)!.nested!;
@@ -150,11 +150,62 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(document.activeElement).toBe(host(view, 1, 0));
     key(host(view, 1, 0), 'Tab', true);
     expect(selected(view)).toEqual(['0,1']);
-    key(host(view, 0, 1), 'Enter');
+    key(host(view, 0, 1), 'F2');
     expect(view.plugin(tableCellEditor)!.nested).not.toBe(nested);
     expect(view.plugin(tableCellEditor)!.nested!.state.doc.toString()).toBe('Role');
     expect(selected(view)).toEqual([]);
     expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('Enter and Shift-Enter select vertically within the same column without changing source or history', () => {
+    const source = doc.replace('| Vik | Designer |', '| Vik | Designer |\n| Sam | Writer |');
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    const depth = undoDepth(view.state);
+    const redo = redoDepth(view.state);
+    clickCell(findCell(view, 'Role'));
+    const nested = controller.nested!;
+    key(nested.contentDOM, 'Enter');
+    expect(nested.dom.isConnected).toBe(false);
+    expect(controller.nested).toBeNull();
+    expect(selected(view)).toEqual(['1,1']);
+    expect(document.activeElement).toBe(host(view, 1, 1));
+    key(host(view, 1, 1), 'Enter');
+    expect(selected(view)).toEqual(['2,1']);
+    expect(document.activeElement).toBe(host(view, 2, 1));
+    expect(key(host(view, 2, 1), 'Enter')).toBe(false);
+    expect(selected(view)).toEqual(['2,1']);
+    expect(document.activeElement).toBe(host(view, 2, 1));
+    key(host(view, 2, 1), 'Enter', true);
+    expect(selected(view)).toEqual(['1,1']);
+    key(host(view, 1, 1), 'Enter', true);
+    expect(selected(view)).toEqual(['0,1']);
+    expect(key(host(view, 0, 1), 'Enter', true)).toBe(false);
+    expect(selected(view)).toEqual(['0,1']);
+    expect(document.activeElement).toBe(host(view, 0, 1));
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
+    expect(redoDepth(view.state)).toBe(redo);
+  });
+
+  it.each([false, true])('preserves an editing cell, caret and source at a vertical boundary (backwards=%s)', backwards => {
+    const view = mount(TABLE, false);
+    clickCell(findCell(view, backwards ? 'Name' : 'Vik'));
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: 1 } });
+    const depth = undoDepth(view.state);
+    expect(key(nested.contentDOM, 'Enter', backwards)).toBe(false);
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.selection.main.head).toBe(1);
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(undoDepth(view.state)).toBe(depth);
+    key(nested.contentDOM, 'Enter', !backwards);
+    expect(controller.nested).toBeNull();
+    expect(selected(view)).toEqual([backwards ? '1,0' : '0,0']);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(undoDepth(view.state)).toBe(depth);
   });
 
   it('Escape selects the active cell, Shift+arrows extend a reverse range, arrows collapse from head', () => {
