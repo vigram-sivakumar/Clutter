@@ -1804,7 +1804,7 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
   });
 
   it('switches the real editor to read-only and back without retaining editable controls or changing source', () => {
-    const markdown = TABLE + '\n{table-col-widths="120,260"}';
+    const markdown = TABLE;
     const { container, rerender } = render(<MarkdownEditor pageId="engine-mode" markdown={markdown} />);
     const root = rootOf(container);
     assertEngine(root);
@@ -1854,8 +1854,8 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
   });
 
-  it('enters from below an explicitly sized table without treating width metadata as a visible line', () => {
-    const markdown = TABLE + '\n{table-col-widths="120,260"}\n\nAfter';
+  it('enters from below a table without changing its source', () => {
+    const markdown = TABLE + '\n\nAfter';
     const { container } = render(<MarkdownEditor pageId="engine-width-entry" markdown={markdown} />);
     const root = rootOf(container);
     assertEngine(root);
@@ -1900,30 +1900,18 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(markdown.replace('extra', 'edited'));
   });
 
-  it('hands active editing from compatibility to supported tables and back without two mounted editors', () => {
-    const malformed = '| C | D |\n| --- | --- |\n| compat-a | compat-b |\n{table-col-widths="bad"}';
-    const markdown = TABLE + '\n\n' + malformed;
-    const { container } = render(<MarkdownEditor pageId="engine-mixed" markdown={markdown} />);
+  it('leaves an unsupported nested table in the root source rather than mounting a legacy editor', () => {
+    const quoted = '> | C | D |\n> | --- | --- |\n> | nested-a | nested-b |';
+    const markdown = TABLE + '\n\n' + quoted;
+    const { container } = render(<MarkdownEditor pageId="engine-no-fallback" markdown={markdown} />);
     const root = rootOf(container);
     assertEngine(root);
     expect(engineWidgets(root)).toHaveLength(1);
-    expect(root.dom.querySelectorAll('.cm-table-widget')).toHaveLength(2);
-    // Manual column resizing has been retired in both projections.
-    expect(root.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
-    activateCell(root, 'compat-a');
-    const legacy = nestedOf(container)!;
-    expect(legacy.state.doc.toString()).toBe('compat-a');
-    activateCell(root, 'a1');
-    const engine = nestedOf(container)!;
-    expect(engine).toBe(root.plugin(tableCellEditor)!.nested);
-    expect(engine).not.toBe(legacy);
-    expect(legacy.dom.isConnected).toBe(false);
-    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
-    activateCell(root, 'compat-b');
-    expect(engine.dom.isConnected).toBe(false);
-    expect(nestedOf(container)).toBe(legacy);
-    expect(legacy.state.doc.toString()).toBe('compat-b');
-    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    expect(root.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
+    const pos = markdown.indexOf('nested-a') + 2;
+    act(() => root.dispatch({ selection: { anchor: pos } }));
+    expect(root.state.selection.main.head).toBe(pos);
+    expect(nestedOf(container)).toBeNull();
     expect(root.state.doc.toString()).toBe(markdown);
   });
 
