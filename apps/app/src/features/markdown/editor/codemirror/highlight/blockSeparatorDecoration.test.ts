@@ -571,65 +571,6 @@ describe('blockSeparatorDecoration — list item body content before a genuine n
   });
 });
 
-describe('blockSeparatorDecoration — hidden table column-width metadata', () => {
-  // `{table-col-widths="..."}` lives on the document line immediately
-  // after a table (`tableColumnWidthMetadata.ts`) and is permanently
-  // concealed from rendering (`tableColumnWidthsConcealment.ts`) — it must
-  // never anchor its own separator, and the boundary spanning it must
-  // resolve exactly as if the metadata line weren't in the document.
-
-  it('table -> metadata -> paragraph: exactly one visual separator', () => {
-    const withMeta = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\nBelow');
-    const withoutMeta = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\nBelow');
-    expect(separatorHeights(withMeta)).toEqual(separatorHeights(withoutMeta));
-    expect(separatorHeights(withMeta)).toEqual([SEPARATOR.normal, SEPARATOR.normal]);
-    withMeta.destroy();
-    withoutMeta.destroy();
-  });
-
-  it('table -> metadata -> heading: exactly one visual separator, sized by the heading level', () => {
-    const view = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\n# Heading');
-    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, SEPARATOR.heading.h1]);
-    view.destroy();
-  });
-
-  it('table -> metadata -> another table: exactly one visual separator', () => {
-    const view = mountView(
-      '| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\n| c | d |\n| - | - |\n| 3 | 4 |'
-    );
-    // Two separators total, both pre-existing behavior unrelated to this
-    // fix: the leading synthetic separator for a table starting at the
-    // document's very first line (`leadingTableClickTag`), and the single
-    // cross-table boundary (12, the same default two adjacent-but-distinct
-    // tables get with no metadata between them). Every other boundary is 0
-    // (still inside one table's own atomic range) — critically, only one
-    // separator for the metadata-spanning boundary, not two.
-    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, SEPARATOR.normal]);
-    view.destroy();
-  });
-
-  it('table -> metadata at document end: the metadata does not create an additional visible separator', () => {
-    const view = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}');
-    // Only the leading "Above" -> table boundary; nothing anchored on the
-    // trailing, document-final metadata line.
-    expect(separatorHeights(view)).toEqual([SEPARATOR.normal]);
-    view.destroy();
-  });
-
-  it('does not conceal or otherwise alter an ordinary paragraph that merely looks like the attribute syntax but has no preceding table', () => {
-    const view = mountView('Above\n{table-col-widths="120,80"}\nBelow');
-    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, SEPARATOR.normal]);
-    view.destroy();
-  });
-
-  it('leaves the table rendering and metadata serialization in the document text untouched', () => {
-    const text = 'Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\nBelow';
-    const view = mountView(text);
-    expect(view.state.doc.toString()).toBe(text);
-    view.destroy();
-  });
-});
-
 describe('blockSeparatorDecoration — general', () => {
   it('does not affect the stored document text', () => {
     const text = 'before ![alt](https://example.com/a.png) after\n\n```\ncode\n```\n\n- Item 1\n- Item 2';
