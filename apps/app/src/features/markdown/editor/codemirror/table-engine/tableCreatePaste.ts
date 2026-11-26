@@ -37,7 +37,7 @@ export function createPastedTable(state: EditorState, grid: Grid, parse: ParseMa
   const expected = before + insert + after;
   const snapshot = readTable(expected, at, parse);
   if (!modelsEqual(model, snapshot.model) || snapshot.to !== at + table.length) throw new TableEngineError('Pasted table failed full-document validation');
-  const effect = tableSelectionTransition.of({ before: null, after: bookmark(at, { kind: 'cell', cell: { row: 0, col: 0 } }) });
+  const effect = tableSelectionTransition.of({ before: null, after: bookmark(at, { kind: 'table', cell: { row: 0, col: 0 } }) });
   // If the existing suffix already supplies the blank separator, park the
   // root caret on its first visible line, not at the hidden table boundary.
   // This also avoids a selection-snap filter having to remap the bookmark.
