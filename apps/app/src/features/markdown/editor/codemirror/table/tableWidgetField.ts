@@ -16,17 +16,6 @@ import { resolveTableColumnWidths } from './tableColumnWidthMetadata';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
 
-function tableDiagnosticsEnabled(): boolean {
-  return import.meta.env.DEV && typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('debugTables');
-}
-
-function logTableDiagnostic(event: string, details: Record<string, unknown>): void {
-  if (tableDiagnosticsEnabled()) {
-    console.info('[Clutter table diagnostics]', event, details);
-  }
-}
-
 /**
  * Every cell's raw text + trimmed source range in `row`, left to right —
  * deliberately **not** `getRowCellBounds` (which only pairs up
@@ -256,8 +245,7 @@ function buildTableDecorations(
   controller: TableActiveCellController | undefined,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined,
   readOnlyProjection: boolean,
-  editableProjection: boolean,
-  reason: 'create' | 'transaction'
+  editableProjection: boolean
 ): DecorationSet {
   // This field owns block replacements for every table in the document, not just
   // the currently visible viewport. `syntaxTree(state)` may otherwise expose
@@ -270,7 +258,6 @@ function buildTableDecorations(
   // fallback. Both parsers use the same grammar; the fallback is deliberately
   // rare and ensures the replacement set is never built from a partial tree.
   const incrementalTree = ensureSyntaxTree(state, state.doc.length, 5000);
-  const usedFallbackParser = incrementalTree === null;
   const tree = incrementalTree ?? sharedMarkdownParser.parse(state.doc.toString());
   const tables = findAllTables(state, tree);
 
@@ -299,15 +286,6 @@ function buildTableDecorations(
       ranges.push(range);
     }
   }
-  logTableDiagnostic('projection-build', {
-    reason,
-    docLength: state.doc.length,
-    treeLength: tree.length,
-    usedFallbackParser,
-    tableCount: tables.length,
-    tableRanges: tables.map(({ from, to }) => ({ from, to })),
-    decorationCount: ranges.length,
-  });
   return Decoration.set(ranges, true);
 }
 
@@ -360,7 +338,7 @@ export function tableWidgetDecoration(
 ): Extension {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection, 'create');
+      return buildTableDecorations(state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection);
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
@@ -368,20 +346,8 @@ export function tableWidgetDecoration(
         e.is(tableActiveCellChanged) || e.is(tableDeletionSelectionChanged) || e.is(tableSelectionChanged)
       );
       const shouldRebuild = tr.docChanged || !!tr.selection || hasRelevantEffect;
-      logTableDiagnostic('state-field-update', {
-        docChanged: tr.docChanged,
-        selectionChanged: !!tr.selection,
-        relevantEffect: hasRelevantEffect,
-        effectCount: tr.effects.length,
-        shouldRebuild,
-        docLength: tr.state.doc.length,
-        selection: {
-          anchor: tr.state.selection.main.anchor,
-          head: tr.state.selection.main.head,
-        },
-      });
       if (shouldRebuild) {
-        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection, 'transaction');
+        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange, readOnlyProjection, editableProjection);
       }
       return value;
     },
