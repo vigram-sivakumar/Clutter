@@ -1,5 +1,6 @@
 import { EditorState, Facet, Transaction } from '@codemirror/state';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
+import { tableAtCaret } from '../table/tableRootSelectionSnap';
 import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
@@ -67,7 +68,24 @@ export class TableCellEditor {
     root.dom.ownerDocument.addEventListener('mousedown', this.outsideClick, true);
     root.dom.ownerDocument.addEventListener('keydown', this.historyKey, true);
     root.dom.ownerDocument.addEventListener('beforeinput', this.nativeHistory, true);
+    root.contentDOM.addEventListener('focus', this.repairRootFocus);
   }
+
+  /** A root selection must always exist in CM6, even while a widget owns
+   * focus. If the root actually regains focus on a parked, hidden position,
+   * hand ownership to the block instead of allowing input into its source.
+   * Defer until after CM6's focus/selection update and widget reconciliation. */
+  repairRootFocus = (): void => {
+    if (this.root.dom.ownerDocument.activeElement !== this.root.contentDOM) return;
+    queueMicrotask(() => {
+      if (!this.root.dom.isConnected || this.root.state.readOnly ||
+          this.root.dom.ownerDocument.activeElement !== this.root.contentDOM) return;
+      const range = this.root.state.selection.main;
+      if (!range.empty) return;
+      const table = tableAtCaret(this.root.state, range.head);
+      if (table) this.selectBlock(table.from);
+    });
+  };
 
   /** Native WebKit can deliver Undo/Redo as beforeinput rather than a
    * keydown. Both routes must target the one root history, never browser
@@ -848,6 +866,7 @@ export class TableCellEditor {
     this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
     this.root.dom.ownerDocument.removeEventListener('keydown', this.historyKey, true);
     this.root.dom.ownerDocument.removeEventListener('beforeinput', this.nativeHistory, true);
+    this.root.contentDOM.removeEventListener('focus', this.repairRootFocus);
     this.historyFocus = null;
     this.nested?.destroy(); this.nested = null; this.active = null;
     this.interaction = noInteraction; this.interactionTable = null; this.pendingHistory = undefined;
