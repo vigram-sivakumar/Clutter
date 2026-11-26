@@ -153,7 +153,7 @@ import { projectableTableSnapshot } from '../table-engine/tableModel';
  * mapping for an arbitrary position inside a single-DOM-node block-replace
  * widget is not something this change has verified is safe to rely on.
  */
-export function tableRootSelectionSnap(editableProjection = false): Extension {
+export function tableRootSelectionSnap(): Extension {
   return EditorState.transactionFilter.of((tr) => {
     if (!tr.selection) {
       return tr;
@@ -161,8 +161,8 @@ export function tableRootSelectionSnap(editableProjection = false): Extension {
 
     const range = tr.selection.main;
     const collapsed = range.anchor === range.head;
-    const anchor = snapPosition(tr.state, range.anchor, collapsed, editableProjection);
-    const head = snapPosition(tr.state, range.head, collapsed, editableProjection);
+    const anchor = snapPosition(tr.state, range.anchor, collapsed);
+    const head = snapPosition(tr.state, range.head, collapsed);
 
     if (anchor === range.anchor && head === range.head) {
       return tr;
@@ -199,11 +199,9 @@ function findViolatedTable(state: EditorState, pos: number): SyntaxNode | null {
   return null;
 }
 
-function snapPosition(state: EditorState, pos: number, collapsed: boolean, editableProjection: boolean): number {
+function snapPosition(state: EditorState, pos: number, collapsed: boolean): number {
   const node = findViolatedTable(state, pos);
-  const table = node && editableProjection
-    ? projectableTableSnapshot(state.doc.toString(), node)
-    : node;
+  const table = node ? projectableTableSnapshot(state.doc.toString(), node) : null;
   if (!table) {
     return pos;
   }
