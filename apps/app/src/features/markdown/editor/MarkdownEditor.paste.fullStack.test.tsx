@@ -1900,16 +1900,45 @@ describe('M12 — default table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(markdown.replace('extra', 'edited'));
   });
 
-  it('hands active editing from compatibility to supported tables and back without two mounted editors', () => {
+  it('edits a table with invalid legacy width values using the new engine and restores its exact source on undo', () => {
     const malformed = '| C | D |\n| --- | --- |\n| compat-a | compat-b |\n{table-col-widths="bad"}';
     const markdown = TABLE + '\n\n' + malformed;
+    const { container } = render(<MarkdownEditor pageId="engine-metadata" markdown={markdown} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    expect(engineWidgets(root)).toHaveLength(2);
+    expect(root.dom.textContent).not.toContain('table-col-widths');
+    expect(root.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
+    activateCell(root, 'compat-a');
+    const first = root.plugin(tableCellEditor)!.nested!;
+    expect(nestedOf(container)).toBe(first);
+    expect(first.state.doc.toString()).toBe('compat-a');
+    expect(root.state.doc.toString()).toBe(markdown);
+    activateCell(root, 'a1');
+    expect(first.dom.isConnected).toBe(false);
+    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    activateCell(root, 'compat-b');
+    const nested = root.plugin(tableCellEditor)!.nested!;
+    expect(nested.state.doc.toString()).toBe('compat-b');
+    expect(root.state.doc.toString()).toBe(markdown);
+    act(() => nested.dispatch({ changes: { from: 0, to: 8, insert: 'edited' } }));
+    const edited = markdown.replace('compat-b', 'edited').replace('\n{table-col-widths="bad"}', '');
+    expect(root.state.doc.toString()).toBe(edited);
+    act(() => undo(root));
+    expect(root.state.doc.toString()).toBe(markdown);
+    expect(root.dom.textContent).not.toContain('table-col-widths');
+    act(() => redo(root));
+    expect(root.state.doc.toString()).toBe(edited);
+  });
+
+  it('hands active editing from a nested imported table to a top-level table and back without two mounted editors', () => {
+    const quoted = '> | C | D |\n> | --- | --- |\n> | compat-a | compat-b |';
+    const markdown = TABLE + '\n\n' + quoted;
     const { container } = render(<MarkdownEditor pageId="engine-mixed" markdown={markdown} />);
     const root = rootOf(container);
     assertEngine(root);
     expect(engineWidgets(root)).toHaveLength(1);
     expect(root.dom.querySelectorAll('.cm-table-widget')).toHaveLength(2);
-    // Manual column resizing has been retired in both projections.
-    expect(root.dom.querySelector('.cm-table-column-resize-hit')).toBeNull();
     activateCell(root, 'compat-a');
     const legacy = nestedOf(container)!;
     expect(legacy.state.doc.toString()).toBe('compat-a');
