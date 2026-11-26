@@ -171,10 +171,26 @@ describe('table fill sizing and quick-add icons', () => {
 });
 
 describe('quick-add gap hit area', () => {
+  it('keeps both positioned tracks anchored to the table across row insertion', () => {
+    const { view } = mount();
+    const inner = view.dom.querySelector<HTMLElement>('.cm-table-inner')!;
+    const row = inner.querySelector<HTMLButtonElement>('.cm-table-quick-add-row')!;
+    const column = inner.querySelector<HTMLButtonElement>('.cm-table-quick-add-column')!;
+    expect(inner.querySelectorAll(':scope > .cm-table-quick-add-track')).toHaveLength(2);
+    expect(column.style.height).toBe('');
+    row.click();
+    expect(view.dom.querySelector('.cm-table-inner')).toBe(inner);
+    expect(inner.querySelector('tbody')!.rows).toHaveLength(2);
+    expect(inner.querySelector('.cm-table-quick-add-column')).toBe(column);
+    expect(column.style.height).toBe('');
+  });
+
+
   it.each(['row', 'column'])('keeps the %s gap separate from its actionable button', axis => {
     const { view } = mount();
     const track = view.dom.querySelector<HTMLElement>('.cm-table-quick-add-track-' + axis)!;
     expect(track).not.toBeNull();
+    expect(track.parentElement).toBe(view.dom.querySelector('.cm-table-inner'));
     expect(track.querySelector('button.cm-table-quick-add-' + axis)).not.toBeNull();
     expect(track.tagName).not.toBe('BUTTON');
     down(track);
