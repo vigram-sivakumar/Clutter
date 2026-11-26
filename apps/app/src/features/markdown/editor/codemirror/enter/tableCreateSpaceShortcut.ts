@@ -1,3 +1,5 @@
+import { isolateHistory } from '@codemirror/commands';
+import { bookmark, tableSelectionTransition } from '../table-engine/tableSelectionHistory';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, type EditorState, type StateCommand } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
@@ -112,7 +114,12 @@ export const insertTableOnShortcutSpace: StateCommand = ({ state, dispatch }) =>
       changes: { from: line.from, to: line.to, insert: tableMarkdown },
       selection: EditorSelection.cursor(cursorPos),
       scrollIntoView: true,
-      userEvent: 'input.type',
+      userEvent: 'input.table.create',
+      annotations: isolateHistory.of('full'),
+      effects: tableSelectionTransition.of({
+        before: null,
+        after: bookmark(tableFrom, { kind: 'table', cell: { row: 0, col: 0 } }),
+      }),
     })
   );
   return true;
