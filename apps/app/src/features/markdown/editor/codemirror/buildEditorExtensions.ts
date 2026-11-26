@@ -1,5 +1,5 @@
 import { Compartment, type Extension } from '@codemirror/state';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 
 import { readOnlyModeEffect } from './createEditorView';
 

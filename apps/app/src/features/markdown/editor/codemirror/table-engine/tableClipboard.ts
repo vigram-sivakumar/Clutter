@@ -140,10 +140,10 @@ export function readGrid(data: ClipboardReader, allowScalar: boolean): string[][
   const html = data.getData('text/html');
   if (html) {
     const grid = readHtmlGrid(html);
-    if (grid) return grid.map(row => row.map(externalCell));
+    if (grid) return grid.map(row => row.map(cell => externalCell(cell)));
   }
   const text = data.getData('text/plain');
-  if (text.includes('\t')) return parseTsv(text).map(row => row.map(externalCell));
+  if (text.includes('\t')) return parseTsv(text).map(row => row.map(cell => externalCell(cell)));
   if (allowScalar && text !== '') return [[externalCell(text)]];
   return null;
 }
