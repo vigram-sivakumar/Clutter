@@ -9,7 +9,7 @@ Last updated 26 November 2026 (Asia/Kolkata).
 - Accepted development branch: `feature/production-table-engine` at `ca315b6b` (M9). Main has not been merged.
 - Active validation branch: `candidate/table-engine-m10b`, based on verified M10a implementation `9f8bd3bc` and ledger `550dc4ce`. Resume on M10b; not promoted.
 - The new editable engine is enabled in the development browser with `?tableEngineCells`; default editable mode is still legacy. Supported read-only tables already use the new projection. Unsupported source shapes use compatibility rendering.
-- Latest observed M10b result on `6ffc3dd8`: TypeScript clean, 280/280 across 3 files (179 full-stack, 76 live wiring, 25 boundary); six flagged application tests passed. Follow-up correction at `9b1cd588`: TypeScript clean; 85/85 across 2 files (78 live wiring, 7 cell transactions), 7.30s, no reported errors; owner confirmed arrow navigation and absence of unwanted cell spaces. The full application gate remains open (40 failures and 10 unhandled errors on a68594be).
+- Latest observed M10b result on `6ffc3dd8`: TypeScript clean, 280/280 across 3 files (179 full-stack, 76 live wiring, 25 boundary); six flagged application tests passed. Follow-up correction at `9b1cd588`: TypeScript clean; 85/85 across 2 files (78 live wiring, 7 cell transactions), 7.30s, no reported errors; owner confirmed arrow navigation and absence of unwanted cell spaces. Latest broad regression on ad351a6b: 1,907/1,907, 63/63 files, 42.72s, no reported errors. The full application gate remains open (40 failures and 10 unhandled errors on a68594be).
 - Prior observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Owner subsequently confirmed both requested reruns passed; raw rerun output was not supplied. Intermittent embed exception remains a known lifecycle risk, not a diagnosed defect in the new engine.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5183. Before manual validation confirm the flagged URL and `document.querySelectorAll('[data-table-engine-cells="true"]').length > 0` for the note under test.
 
@@ -78,23 +78,19 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 
 ### Immediate verification
 
-Stay on candidate/table-engine-m10b and run the final table-focused regression from the repository root:
+Latest broad milestone regression is verified: 1,907/1,907 across 63 files, 42.72s, no reported errors, on ad351a6b. Do not repeat this unchanged gate unnecessarily.
+
+The prior full application run on a68594be reported 40 failures and 10 unhandled errors across 4 files. Establish whether they already occur on the exact pre-rewrite base `e6bf7760f31aa1175fae66c7a67e9f0447383c34` using a separate detached worktree and its own locked dependencies:
 
 ```sh
 git pull --ff-only
-npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault/ingest/grammar markdownLanguage.regression noteEmbed.test MarkdownEditor.paste.fullStack
-```
-
-Expected 1,907 tests (1,895 at M10a + 9 full-stack + 3 arrow/padding). Require zero failures and zero unhandled errors. The prior full application run on a68594be reported 40 failures and 10 unhandled errors across 4 files. Establish whether they already occur on the exact pre-rewrite base `e6bf7760f31aa1175fae66c7a67e9f0447383c34` using a separate detached worktree and its own locked dependencies:
-
-```sh
 git worktree add --detach ../table-engine-baseline e6bf7760f31aa1175fae66c7a67e9f0447383c34
 cd ../table-engine-baseline
 npm ci
 npm run test:run -- AppShell.spaces.test.tsx PageHost.archivedControls.test.tsx PageHost.assetsCard.test.tsx embedCompletionSource.test.ts
 ```
 
-Compare named failing cases and error stacks, not just counts. Then run the same four files on the current candidate and the full application suite with the latest changes. Document any baseline failures separately; investigate any candidate-only failure before M10 acceptance. Confirm remaining owner manual checks (clipboard feedback, resized-table entry, multiple tables, saved content/widths/alignment) if not already covered. Do not merge to main. Previously intermittent note-embed and deletion errors remain unroot-caused.
+Compare named failing cases and error stacks, not just counts. Then run the same four files on the current candidate and the full application suite with the latest changes. Document baseline failures separately; investigate candidate-only failures before M10 acceptance. Confirm remaining owner manual checks (clipboard feedback, resized-table entry, multiple tables, saved content/widths/alignment) if not already covered. Do not merge to main. Previously intermittent note-embed and deletion errors remain unroot-caused.
 
 ### Historical architecture notes (M4 snapshot)
 
@@ -191,3 +187,5 @@ Audit found root boundary navigation still invoked legacy activation on supporte
 **Full application regression at a68594be:** 18,534 passed, 40 failed, 984/988 test files passed, 10 unhandled errors, exit 1. Supplied partial log shows failures in AppShell.spaces (including undefined invoke(...).catch at AppShell.tsx:743), PageHost.archivedControls and PageHost.assetsCard (missing assets), and embedCompletionSource (expected line breaks/caret). Earlier portion of failure log is missing. Do not assert these are pre-existing without comparing against the pre-rewrite production base e6bf7760. Keep full application gate open, isolate baseline failures separately; do not change unrelated functionality to force green. Next: focused table suite, manual arrows/padding, then base comparison before M10 acceptance. Main and accepted development branch unchanged.
 
 **M10b arrow/padding correction verification (2026-11-26):** Raw owner output after fast-forward to 9b1cd588 shows TypeScript no diagnostics, 7/7 tableCellTransaction and 78/78 tableLiveWiring, 85/85 across 2 files, 7.30s, zero reported unhandled errors. Browser port 5183 with engine flag: owner confirms arrow keys work and cells no longer expose source padding. No further arrow/padding implementation changes planned unless new evidence appears. The latest attached transcript repeats the earlier 40-failure application run before the fix; it is not a new full-suite result. Baseline comparison, latest broad and full-suite regression remain open; M10 unpromoted.
+
+**M10b broad verification (2026-11-26):** Raw local transcript on ad351a6b confirms 1,907/1,907 tests across 63/63 files, 42.72s, no reported unhandled errors. Full-stack 182/182, live wiring 78/78, note embed 96/96, cell transactions 7/7. Earlier full-app failures in the same transcript are from the prior 11:46 run, not a fresh full-app run. Table-focused regression gate closed. Next: isolated pre-rewrite baseline comparison for the four application-wide failing files, latest full-app verification, and any remaining manual persistence checks. M10 remains unpromoted.
