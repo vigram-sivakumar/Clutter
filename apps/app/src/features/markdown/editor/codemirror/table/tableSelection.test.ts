@@ -7,13 +7,14 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableWidgetDecoration } from './tableWidgetField';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { attachTableOutsideClickHandling } from './tableOutsideClick';
+import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
 import { TABLE_HANDLE_MENU_CLASS } from './tableHandleMenuSync';
 
 const source = '| A | B |\n| --- | --- |\n| a | b |\n\nAfter';
 const cleanups: (() => void)[] = [];
 afterEach(() => { for (const dispose of cleanups.splice(0)) dispose(); vi.restoreAllMocks(); document.body.innerHTML = ''; });
-function mount() {
-  const view = new EditorView({ state: EditorState.create({ doc: source, extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true), history()] }), parent: document.body.appendChild(document.createElement('div')) });
+function mount(doc = source) {
+  const view = new EditorView({ state: EditorState.create({ doc, extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true), tableDeletionSelectionField, history()] }), parent: document.body.appendChild(document.createElement('div')) });
   const detach = attachTableOutsideClickHandling(view);
   cleanups.push(() => { detach(); view.destroy(); });
   return { view, engine: view.plugin(tableCellEditor)!, detach };
@@ -90,5 +91,55 @@ describe('engine outside-click and portaled menu ownership', () => {
     menu.className = TABLE_HANDLE_MENU_CLASS;
     down(menu);
     expect(engine.currentAxisSelection()).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+  });
+});
+
+describe('table surrounding whitespace', () => {
+  it.each(['.cm-table-widget', '.cm-table-wrapper', '.cm-table-scroll', '.cm-table-layout', '.cm-table-inner'])(
+    'collapses root selection without selecting the table on %s', selector => {
+      const { view } = mount();
+      selectAll(view);
+      down(view.dom.querySelector(selector)!);
+      expect(view.state.selection.main.empty).toBe(true);
+      expect(view.state.selection.main.head).toBe(source.indexOf('\n\nAfter') + 1);
+      expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeNull();
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undoDepth(view.state)).toBe(0);
+    });
+  it('closes cell editing on wrapper whitespace', () => {
+    const { view, engine } = mount();
+    expect(engine.enterCell(0, { row: 1, col: 0 }, 'start')).toBe(true);
+    down(view.dom.querySelector('.cm-table-scroll')!);
+    expect(engine.nested).toBeNull();
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it('clears axis selection and any deletion arm on whitespace', () => {
+    const { view, engine } = mount();
+    expect(engine.selectAxis(0, { row: 0, col: 1 }, 'column')).toBe(true);
+    down(view.dom.querySelector('.cm-table-wrapper')!);
+    expect(engine.currentAxisSelection()).toBeNull();
+    view.dispatch({ effects: tableDeletionSelectionChanged.of(0) });
+    expect(view.state.field(tableDeletionSelectionField)).toBe(0);
+    down(view.dom.querySelector('.cm-table-scroll')!);
+    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it('does not intercept an actual cell or quick-add control', () => {
+    const { view, engine } = mount();
+    down(view.dom.querySelector('[data-cell="1,0"]')!);
+    expect(engine.nested).not.toBeNull();
+    down(view.dom.querySelector('.cm-table-quick-add-row')!);
+    expect(engine.nested).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it('does not insert a newline when clicking beside a terminal table', () => {
+    const doc = source.split('\n\nAfter')[0]!;
+    const { view } = mount(doc);
+    down(view.dom.querySelector('.cm-table-wrapper')!);
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(view.state.selection.main.head).toBe(doc.length);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
   });
 });
