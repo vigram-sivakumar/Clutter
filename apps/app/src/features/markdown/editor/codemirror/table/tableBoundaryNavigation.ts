@@ -128,7 +128,7 @@ export function findCellWrapper(
  */
 export function enterCellOf(
   rootView: EditorView,
-  controller: TableActiveCellController,
+  controller: TableActiveCellController | undefined,
   table: TableInfo,
   rowIndex: number,
   columnIndex: number,
@@ -139,14 +139,14 @@ export function enterCellOf(
   const engineWidget = rootView.dom.querySelector<HTMLElement>(
     `[data-table-engine-cells="true"][data-table-from="${table.from}"]`);
   if (engineWidget) {
-    if (controller.activeAnchor || rootView.state.field(tableSelectionField, false)) {
-      controller.deactivate();
+    if (controller?.activeAnchor || rootView.state.field(tableSelectionField, false)) {
+      controller?.deactivate();
       rootView.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
     }
     return rootView.plugin(tableCellEditor)?.enterCell(table.from, { row: rowIndex, col: columnIndex }, cursorAt) ?? false;
   }
   // In the production editor unsupported tables are ordinary source text.
-  if (rootView.plugin(tableCellEditor)) return false;
+  if (rootView.plugin(tableCellEditor) || !controller) return false;
   const navigableRows = getNavigableRows(table.node);
   const row = navigableRows[rowIndex];
   if (!row) {
@@ -242,7 +242,7 @@ function lastCell(table: TableInfo, view: EditorView): { rowIndex: number; colum
  * exact case at `Prec.highest` (below) and entering the table correctly
  * means that broken default path is never reached for it any more.
  */
-export function tableBoundaryNavigation(controller: TableActiveCellController): Extension {
+export function tableBoundaryNavigation(controller?: TableActiveCellController): Extension {
   // Valid width metadata is concealed and belongs to the visual table.
   const lastVisibleLine = (view: EditorView, table: TableInfo): number =>
     view.state.doc.lineAt(view.plugin(tableCellEditor) ? table.to : resolveExistingAttributeLineRange(view.state, table)?.to ?? table.to).number;
