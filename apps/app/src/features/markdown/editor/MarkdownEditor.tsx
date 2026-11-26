@@ -28,7 +28,7 @@ import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 import type { TableCommand } from './codemirror/table-engine/tableCommands';
-import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
+import { attachTableOutsideClickHandling } from './codemirror/table/tableOutsideClick';
 import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange, type TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
@@ -658,9 +658,9 @@ export const MarkdownEditor = forwardRef<
 
   const tableHandleMenuAnchorRef = useMemo<TableHandleMenuAnchor>(() => ({
     get current() {
-      return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null, tableHandleMenu?.engine);
+      return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null);
     },
-  }), [tableHandleMenu?.selection, tableHandleMenu?.engine]);
+  }), [tableHandleMenu?.selection]);
 
   // Lifted out of `TableHandleMenu.tsx` itself (unlike every other menu
   // here, which each own a local `useRef(false)`) specifically so this
