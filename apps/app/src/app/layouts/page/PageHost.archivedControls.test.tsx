@@ -772,10 +772,11 @@ describe('Asset drop composition and immediate collection updates', () => {
     Object.defineProperty(file, 'arrayBuffer', { value: async () => new Uint8Array([1, 2, 3]).buffer });
     return file;
   }
-  it.each(['list', 'table', 'card'] as const)('imports mixed files, resolves collisions, and immediately updates the %s collection', async (layout) => {
+  it.each(['list', 'table', 'card'] as const)('imports mixed files, resolves collisions with managed attachments, and immediately updates the %s collection', async (layout) => {
     const application = makeApplication();
     Reflect.set(application, 'rootPath', ROOT);
-    await application.importPastedAsset('photo.png', 'image/png', new Uint8Array([1]));
+    const attachment = await application.importPastedAsset('photo.png', 'image/png', new Uint8Array([1]));
+    expect(attachment).toBe('Attachments/photo.png');
     application.collectionViewConfigStore.update('view:assets', { layout });
     application.navigation.openAssets();
     const { container } = render(<AppLayout application={application} />);
@@ -794,7 +795,7 @@ describe('Asset drop composition and immediate collection updates', () => {
   it.each(['header', 'asset', 'page'] as const)('imports into the current collection when dropped on the %s', async (location) => {
     const application = makeApplication();
     Reflect.set(application, 'rootPath', ROOT);
-    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]), `${ROOT}/Assets`);
     application.navigation.openAssets();
     const { container } = render(<AppLayout application={application} />);
     await flush();
@@ -818,7 +819,7 @@ describe('Asset drop composition and immediate collection updates', () => {
   it('imports into the folder under the pointer without opening it', async () => {
     const application = makeApplication();
     Reflect.set(application, 'rootPath', ROOT);
-    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]), `${ROOT}/Assets`);
     const root = application.membershipSelector.getAssetsStorageFolder()!;
     const folderId = await application.folderOperations.create('Trips', root.id);
     application.navigation.openAssets();
@@ -838,7 +839,7 @@ describe('Asset drop composition and immediate collection updates', () => {
   it('imports into the currently open Assets subfolder when dropped on its header', async () => {
     const application = makeApplication();
     Reflect.set(application, 'rootPath', ROOT);
-    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]), `${ROOT}/Assets`);
     const root = application.membershipSelector.getAssetsStorageFolder()!;
     const folderId = await application.folderOperations.create('Trips', root.id);
     await application.folderOperations.open(folderId);

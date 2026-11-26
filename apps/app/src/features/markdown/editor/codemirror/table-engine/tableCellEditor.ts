@@ -20,6 +20,7 @@ import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
+const tableControls = 'button, .cm-table-row-handle, .cm-table-column-handle, .cm-table-row-handle-hit, .cm-table-column-handle-hit';
 
 /** Dependencies of the table editor. */
 export const tableEngineIntegration = Facet.define<{
@@ -55,7 +56,7 @@ export class TableCellEditor {
 
   beginDrag(event: PointerEvent, widget: HTMLElement): void {
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest('button, .cm-table-row-handle, .cm-table-column-handle, .cm-table-row-handle-hit, .cm-table-column-handle-hit')) return;
+    if (target?.closest(tableControls)) return;
     const host = target?.closest<HTMLElement>('[data-cell]') ??
       target?.closest('th, td')?.querySelector<HTMLElement>(':scope > [data-cell]') ?? null;
     if (!host || host.closest('[data-table-engine-cells="true"]') !== widget) return;
@@ -142,14 +143,11 @@ export class TableCellEditor {
 
   private outsideClick = (event: MouseEvent): void => {
     const target = event.target;
-    // The scrollport and layout occupy more space than the intrinsic table.
-    // Treat their blank area as root editor space, not as a cell or a
-    // whole-table selection. Keep actual cells, handles and quick-add controls
-    // on their existing interaction paths.
+    // Table whitespace and borders share the controller's dismissal path.
     const widget = target instanceof Element
       ? target.closest<HTMLElement>('[data-table-engine-cells="true"]') : null;
-    if (event.button === 0 && widget && widget.closest('.cm-editor') === this.root.dom &&
-        target instanceof Element && !target.closest('table, .cm-table-quick-add')) {
+    if (event.button === 0 && !event.shiftKey && widget && widget.closest('.cm-editor') === this.root.dom &&
+        target instanceof Element && !target.closest(`th, td, ${tableControls}`)) {
       // Leave native scrollbar gestures alone; the scrollport's padding
       // above a scrollbar is still ordinary surrounding whitespace.
       if (target instanceof HTMLElement && target.classList.contains('cm-table-scroll')) {
@@ -157,18 +155,10 @@ export class TableCellEditor {
         if (target.offsetHeight > target.clientHeight + target.clientTop &&
             event.clientY >= rect.top + target.clientTop + target.clientHeight) return;
       }
-      try {
-        const snapshot = this.snapshot(Number(widget.dataset.tableFrom));
-        const anchor = Math.min(snapshot.to + 1, this.root.state.doc.length);
+      if (this.dismissTableSpace(Number(widget.dataset.tableFrom))) {
         event.preventDefault();
         event.stopPropagation();
-        this.cancelDrag();
-        if (this.interactionTable !== null) this.close();
-        this.root.dispatch({ selection: { anchor }, effects: tableDeletionSelectionChanged.of(null) });
-        this.root.focus();
         return;
-      } catch (error) {
-        if (!(error instanceof TableEngineError)) throw error;
       }
     }
     if (this.interactionTable === null) return;
@@ -283,28 +273,30 @@ export class TableCellEditor {
     return true;
   }
 
-  /** A non-cell click or quick-add is not a selection gesture.
-   * Keep source intact. Prefer a real neighbouring text position; if none
-   * exists, park focus on the non-editable widget without a selection. */
-  dismissTableSpace(tableFrom: number, preferAfter = true): boolean {
+  /** Preserve a safe idle caret, or move focus to nearby text or the widget itself. */
+  private dismissTableSpace(tableFrom: number, preferAfter = true): boolean {
     if (this.root.state.readOnly) return false;
     try {
       const table = this.snapshot(tableFrom);
       const before = table.from > 0 ? table.from - 1 : null;
       const after = table.to < this.root.state.doc.length ? table.to + 1 : null;
       const candidates = preferAfter ? [after, before] : [before, after];
-      const anchor = candidates.find(pos => pos !== null && !tableAtCaret(this.root.state, pos));
+      const range = this.root.state.selection.main;
+      const idleTextCaret = this.interactionTable === null && range.empty && !tableAtCaret(this.root.state, range.head);
+      const anchor = idleTextCaret
+        ? range.head
+        : candidates.find(pos => pos !== null && !tableAtCaret(this.root.state, pos));
       this.cancelDrag();
       this.close();
       this.clearRootTableInteraction();
       if (anchor !== undefined && anchor !== null) {
-        this.root.dispatch({ selection: { anchor } });
+        if (!range.empty || range.head !== anchor) this.root.dispatch({ selection: { anchor } });
         this.root.focus();
       } else {
         // No actual text line exists. Do not invent one on a mouse click.
         const widget = this.hostAt(tableFrom, { row: 0, col: 0 })?.closest<HTMLElement>('.cm-table-widget');
         if (!widget) return false;
-        if (!this.root.state.selection.main.empty) {
+        if (!range.empty || range.head !== table.to) {
           this.root.dispatch({ selection: { anchor: table.to } });
         }
         widget.focus({ preventScroll: true });

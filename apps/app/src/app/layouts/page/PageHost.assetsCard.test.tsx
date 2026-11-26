@@ -14,6 +14,7 @@ import { SelfWriteRegistry } from '@core/vault/providers/SelfWriteRegistry';
 import { PageCreator } from '@core/application/page/PageCreator';
 import { PageFactory } from '@core/application/page/PageFactory';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
+import { FolderBuilder } from '@core/vault/ingest/FolderBuilder';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -125,6 +126,8 @@ afterEach(() => {
 });
 
 const ROOT = '/vault';
+const ASSETS = `${ROOT}/Assets`;
+const ATTACHMENTS = `${ROOT}/Attachments`;
 
 function buildNotePage(markdown: string, pathSegment = 'Note.md'): Page {
   const builder = new PageBuilder(ROOT);
@@ -149,21 +152,26 @@ function buildNotePage(markdown: string, pathSegment = 'Note.md'): Page {
 }
 
 function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
+  const name = overrides.name ?? 'document.pdf';
   return {
     id: 'resource-pdf-1',
     kind: 'pdf',
-    name: 'document.pdf',
-    path: `${ROOT}/document.pdf`,
-    parentId: null,
+    name,
+    path: `${ASSETS}/${name}`,
+    parentId: ASSETS,
     ...overrides,
   };
 }
 
 function makeApplication(page: Page, resources: VaultResource[]): Application {
+  const folderBuilder = new FolderBuilder();
+  const folders = [ASSETS, ATTACHMENTS].map((path) =>
+    folderBuilder.build({ parentId: null, directory: { path, parentPath: ROOT, frontmatter: null } })
+  );
   const vault = new Vault(
     ROOT,
     [page],
-    [],
+    folders,
     [],
     [],
     [],
@@ -197,8 +205,8 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     return application;
   }
   const image = () =>
-    makeResource({ id: 'img-1', kind: 'image', name: 'hero.png', path: `${ROOT}/hero.png` });
-  const pdf = () => makeResource({ id: 'pdf-1', kind: 'pdf', name: 'doc.pdf', path: `${ROOT}/doc.pdf` });
+    makeResource({ id: 'img-1', kind: 'image', name: 'hero.png' });
+  const pdf = () => makeResource({ id: 'pdf-1', kind: 'pdf', name: 'doc.pdf' });
 
   // Scoped to the header actions (beside Upload): the sidebar's create chevron is a menu button too, and so is the
   // Add caret inside the Upload button group — the Settings button is the first menu button in the header actions.
@@ -228,6 +236,23 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
       'add',
     ]);
     expect(addGroup.querySelector('button')).toHaveAttribute('aria-label', 'Upload');
+  });
+
+  it('shows only library assets while keeping managed attachments indexed for references', async () => {
+    const attachment = makeResource({
+      id: 'attachment',
+      kind: 'image',
+      name: 'pasted.png',
+      path: `${ATTACHMENTS}/pasted.png`,
+      parentId: ATTACHMENTS,
+    });
+    const application = setup([image(), attachment], 'list');
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+
+    expect(application.vault.getResourceByPath(attachment.path)).toBe(attachment);
+    expect(container.querySelector('[data-resource-id="img-1"]')).not.toBeNull();
+    expect(container.querySelector('[data-resource-id="attachment"]')).toBeNull();
   });
 
   const pick = async (label: string) => {
@@ -303,7 +328,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await pick('Card');
 
     const img = document.querySelector<HTMLImageElement>('.collection-card__media img')!;
-    expect(img.getAttribute('src')).toBe(application.resolveResourceImageUrl(`${ROOT}/hero.png`));
+    expect(img.getAttribute('src')).toBe(application.resolveResourceImageUrl(`${ASSETS}/hero.png`));
   });
 
   it("a PDF asset uses the existing PDF viewer pieces (pdf.js document + page canvas), not an image or Markdown", async () => {
@@ -365,8 +390,8 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
   it('Sort by works through the standard menu: File size reorders the items and the choice is persisted under the Assets key', async () => {
     const application = setup(
       [
-        makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', path: `${ROOT}/alpha.pdf`, metadata: { size: 10, createdAt: null, modifiedAt: null } }),
-        makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', path: `${ROOT}/beta.png`, metadata: { size: 900, createdAt: null, modifiedAt: null } }),
+        makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', metadata: { size: 10, createdAt: null, modifiedAt: null } }),
+        makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', metadata: { size: 900, createdAt: null, modifiedAt: null } }),
       ],
       'list'
     );
@@ -388,8 +413,8 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
   it('a persisted sort Assets do not offer (a description) falls back to Name', async () => {
     const application = setup(
       [
-        makeResource({ id: 'img-z', kind: 'image', name: 'zeta.png', path: `${ROOT}/zeta.png` }),
-        makeResource({ id: 'img-a', kind: 'image', name: 'alpha.png', path: `${ROOT}/alpha.png` }),
+        makeResource({ id: 'img-z', kind: 'image', name: 'zeta.png' }),
+        makeResource({ id: 'img-a', kind: 'image', name: 'alpha.png' }),
       ],
       'list'
     );

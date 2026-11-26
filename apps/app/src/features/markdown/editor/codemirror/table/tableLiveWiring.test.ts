@@ -267,6 +267,9 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
 
   it('clicking blank widget space at EOF deselects without focusing hidden text', () => {
     const view = mount(TABLE, false);
+    clickCell(findCell(view, 'Name'));
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    const depth = undoDepth(view.state);
     const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
     const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true });
     wrapper.dispatchEvent(event);
@@ -274,8 +277,10 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(selected(view)).toEqual([]);
     expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(false);
     expect(document.activeElement).toBe(wrapper.parentElement);
+    expect(view.state.selection.main.head).toBe(TABLE.length);
     expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     expect(view.state.doc.toString()).toBe(TABLE);
+    expect(undoDepth(view.state)).toBe(depth);
     clickCell(findCell(view, 'Role'));
     expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
     expect(wrapper.classList.contains('cm-table-wrapper-selected')).toBe(false);

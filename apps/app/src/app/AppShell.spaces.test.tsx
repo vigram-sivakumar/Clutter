@@ -49,7 +49,7 @@ const probeOverrides = vi.hoisted(() => new Map<string, string>());
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => tauri.isTauri,
   convertFileSrc: (path: string) => `asset://localhost${path}`,
-  invoke: (...args: unknown[]) =>
+  invoke: async (...args: unknown[]) =>
     args[0] === 'create_space_folder'
       ? tauri.createFolder((args[1] as { name: string }).name)
       : args[0] === 'check_space_filesystem'
@@ -607,6 +607,22 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
 
     expect(await screen.findByText('scan failed')).toBeInTheDocument();
     expect(screen.queryByText('Let’s create a space')).toBeNull();
+    expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
+  });
+
+  it('keeps the startup error when the native permission check fails', async () => {
+    const root = '/Users/me/Broken';
+    seed([root], root);
+    const before = window.localStorage.getItem('clutter.spaces.v1');
+    tauri.invoke.mockImplementation((command: string) => {
+      if (command === 'documents_permission_status') throw new Error('Permission check failed');
+    });
+
+    render(<ToastProvider><AppShell /></ToastProvider>);
+
+    expect(await screen.findByText('scan failed')).toBeInTheDocument();
+    expect(tauri.invoke).toHaveBeenCalledWith('documents_permission_status', { path: root });
+    expect(tauri.invoke).not.toHaveBeenCalledWith('show_documents_permission_alert');
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
   });
 
