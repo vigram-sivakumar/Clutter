@@ -13,7 +13,6 @@
   padding-inline: 0;
   /* The widget must not clip the table handles. */
   overflow: visible;
-  
 }
 .cm-editor .cm-table-wrapper {
   /* The actual table owns its normal border. */
@@ -107,12 +106,15 @@
   background: var(--surface-secondary);
   opacity: 0;
   cursor: pointer;
-  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
 }
 .cm-editor .cm-table-quick-add:hover,
 .cm-editor .cm-table-quick-add:focus-visible {
   color: var(--foreground-primary);
-  background: var(--surface-tertiary);
+  background: var(--surface-layer-subtle);
   opacity: 1;
 }
 /* Reveal the relevant control at its corresponding edge, without moving
@@ -125,12 +127,12 @@
 .cm-editor .cm-table-quick-add-row {
   align-self: stretch;
   width: 100%;
-  height: var(--height-sm);
+  height: var(--height-xs);
 }
 .cm-editor .cm-table-quick-add-column {
   align-self: flex-start;
-  flex: 0 0 var(--height-sm);
-  width: var(--height-sm);
+  flex: 0 0 var(--height-xm);
+  width: var(--height-xs);
   min-height: 0;
   box-sizing: border-box;
 }
@@ -322,9 +324,15 @@
 
 /* Engine selection uses the existing continuous, rounded overlay rather
  * than painting independent inset edges on each cell. */
-.cm-editor [data-table-engine-cells="true"] [data-cell]:focus { outline: none; }
-.cm-editor [data-table-engine-cells="true"] .cm-table-dragging-active .cm-table-selection-overlay { visibility: hidden; }
-
+.cm-editor [data-table-engine-cells='true'] [data-cell]:focus {
+  outline: none;
+}
+.cm-editor
+  [data-table-engine-cells='true']
+  .cm-table-dragging-active
+  .cm-table-selection-overlay {
+  visibility: hidden;
+}
 
 /* Equal-width columns fill the available scrollport, bounded by 110–420px
  * per column. The layout reserves the quick-add track only for editable
@@ -342,10 +350,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  padding-inline: var(--cm-table-handle-gutter);
-  padding-block-start: var(--cm-table-handle-gutter);
   margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
-  padding-bottom: 12px;
   overflow-x: auto;
 }
 .cm-editor .cm-table-wrapper--auto-widths .cm-table-layout {
