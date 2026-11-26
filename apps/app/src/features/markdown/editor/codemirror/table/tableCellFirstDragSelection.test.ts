@@ -6,7 +6,8 @@ import { EditorView } from '@codemirror/view';
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
-import { attachTableOutsideClickHandling, tableSelectionField } from './tableSelection';
+import { attachTableOutsideClickHandling } from './tableSelection';
+import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
 
 /**
  * End-to-end coverage for the 2026-09-27 "inactive-cell first drag"
@@ -70,7 +71,7 @@ afterEach(() => {
  * `tableLiveWiring.test.ts`, which doesn't need it) specifically to test #8
  * below: that the forwarded mousedown never reaches it.
  */
-function mount(doc: string): { view: EditorView; controller: TableActiveCellController } {
+function mount(doc: string): { view: EditorView; controller: TableCellEditor } {
   const controller = new TableActiveCellController();
   const parent = document.createElement('div');
   document.body.appendChild(parent);
@@ -90,7 +91,7 @@ function mount(doc: string): { view: EditorView; controller: TableActiveCellCont
   const detach = attachTableOutsideClickHandling(view, controller);
   outsideClickCleanups.push(detach);
   mountedViews.push(view);
-  return { view, controller };
+  return { view, controller: view.plugin(tableCellEditor)! };
 }
 
 function findCell(view: EditorView, text: string): Element {
@@ -109,8 +110,8 @@ function wrapperOf(cell: Element): Element {
   return wrapper;
 }
 
-function nestedViewOf(controller: TableActiveCellController): EditorView {
-  const view = controller.nestedView;
+function nestedViewOf(controller: TableCellEditor): EditorView {
+  const view = controller.nested;
   if (!view) {
     throw new Error('no active nested view');
   }
@@ -173,7 +174,7 @@ describe('inactive-cell first drag — text is actually selected (the reported b
     mockLinearPosition();
     const { view, controller } = mount(TABLE);
     const cell = findCell(view, 'Hello beautiful world');
-    expect(controller.activeAnchor).toBeNull(); // starts inactive
+    expect(controller.nested).toBeNull(); // starts inactive
 
     wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1, clientX: 60, clientY: 10 }));
     dragMove(140, 10);
@@ -240,19 +241,26 @@ describe('inactive-cell first drag — text is actually selected (the reported b
     const { view, controller } = mount(TABLE);
     const cell = findCell(view, 'Hello beautiful world');
 
-    wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1, clientX: 60, clientY: 10 }));
-    // Cross into the "Engineer" cell — beginCellDragTracking's own
-    // elementFromPoint-based detection needs a real element under the
-    // point, so this simulates the crossing directly against its own
-    // resolver rather than relying on jsdom's (absent) hit-testing.
+    // The production engine tracks cross-cell movement with pointer events;
+    // CM6 still receives the compatibility mousedown for native text selection.
+    const pointer = (type: string, x: number, buttons: number) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, buttons, clientX: x, clientY: 10 });
+      Object.defineProperties(event, { pointerId: { value: 1 }, isPrimary: { value: true }, pointerType: { value: 'mouse' } });
+      return event;
+    };
+    const wrapper = wrapperOf(cell);
+    wrapper.dispatchEvent(pointer('pointerdown', 60, 1));
+    wrapper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1, clientX: 60, clientY: 10 }));
     const engineerCell = findCell(view, 'Engineer');
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(engineerCell as HTMLElement);
-    dragMove(300, 10);
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(wrapperOf(engineerCell));
+    document.dispatchEvent(pointer('pointermove', 300, 1));
+    document.dispatchEvent(pointer('pointerup', 300, 0));
     dragEnd(300, 10);
 
-    expect(view.state.field(tableSelectionField)).not.toBeNull();
-    expect(view.state.field(tableSelectionField)!.kind).toBe('range');
-    expect(controller.activeAnchor).toBeNull(); // deactivated by the cross-cell promotion
+    expect(controller.nested).toBeNull();
+    expect(cell.classList.contains('cm-table-engine-selected')).toBe(true);
+    expect(engineerCell.classList.contains('cm-table-engine-selected')).toBe(true);
+    expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(2);
   });
 });
 
@@ -326,7 +334,7 @@ describe('forwarded mousedown — re-entry prevention', () => {
     // searching from `view.dom` itself (which also carries the
     // `.cm-editor` class) would only ever find the nested one, not root.
     expect(document.querySelectorAll('.cm-editor').length).toBe(2); // root + exactly one nested
-    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nested).not.toBeNull();
   });
 
   it('9. exactly one resolved position wins for the initial gesture — no leftover manual refinement dispatch overwriting or racing the forwarded one', () => {
