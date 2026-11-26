@@ -459,6 +459,12 @@
   margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
   overflow-x: auto;
 }
+/* The clickable leading separator is an independent CM6 block. Do not
+ * borrow its space for the scrollport's handle gutter. Preserve all handle
+ * geometry and the normal offset on non-leading and read-only tables. */
+.cm-editor .cm-block-separator[data-table-from] + .cm-table-widget[data-table-engine-cells='true'] > .cm-table-wrapper--auto-widths > .cm-table-scroll {
+  margin-block-start: 0;
+}
 /* Outside the page pane (e.g. an isolated editor), keep the original
  * prose-width scrollport fallback. Within the centred page, extend the
  * visible table equally in both directions. The scrollport has asymmetric
