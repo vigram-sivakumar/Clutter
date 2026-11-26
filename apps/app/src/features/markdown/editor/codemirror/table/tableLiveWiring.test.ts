@@ -8,7 +8,6 @@ import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
-import { tableSelectionField } from './tableSelection';
 
 /** Live editor integration using the production extension set. */
 const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId'> = {
@@ -770,7 +769,7 @@ describe('engine original table handles (M9b candidate)', () => {
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     return view;
   };
-  it('opens the original logical menu on handle release and resolves its live anchor without legacy selection', () => {
+  it('opens the original logical menu on handle release and resolves its live anchor from engine selection', () => {
     const notify = vi.fn<OnTableHandleMenuChange>();
     const view = mountHistory(TABLE, notify);
     const hit = view.dom.querySelector<HTMLElement>('th .cm-table-column-handle-hit')!;
@@ -779,9 +778,8 @@ describe('engine original table handles (M9b candidate)', () => {
     expect(notify).not.toHaveBeenCalled();
     pointer('pointerup', document);
     const selection = { kind: 'column' as const, tableFrom: 0, columnIndex: 0 };
-    expect(notify).toHaveBeenCalledWith({ selection, engine: true });
+    expect(notify).toHaveBeenCalledWith({ selection });
     expect(resolveTableHandleMenuAnchor(view, selection)).toBe(view.dom.querySelector('th .cm-table-column-handle'));
-    expect(view.state.field(tableSelectionField, false) ?? null).toBeNull();
     expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(2);
     const c = view.plugin(tableCellEditor)!;
     expect(c.axisCommand(selection, { kind: 'setAlignment', col: 0, alignment: 'center' })).toBe(true);
@@ -798,7 +796,7 @@ describe('engine original table handles (M9b candidate)', () => {
     pointer('pointerup', document);
     const selection = controller.currentAxisSelection();
     expect(selection?.kind).toBe(axis);
-    expect(notify).toHaveBeenCalledWith({ selection, engine: true });
+    expect(notify).toHaveBeenCalledWith({ selection });
 
     // Match Overlay's real portal structure and event order: the backdrop
     // is a sibling of the surface, and click (not mousedown) dismisses it.
