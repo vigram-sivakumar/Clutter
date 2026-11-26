@@ -47,12 +47,19 @@ class ResizeObserverMock {
   disconnect = vi.fn();
 }
 
+// Pin the local calendar day for the entire suite, but leave real timers
+// available to React and the async persistence fixtures. Use the 27th
+// specifically to cover the fixture's collision with the virtual Today row.
+const TEST_NOW = new Date(2026, 10, 27, 12);
 beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(TEST_NOW);
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 });
 
 afterAll(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 afterEach(() => {
@@ -61,11 +68,8 @@ afterEach(() => {
 
 const ROOT = '/vault';
 
-// Every fixture below is anchored to the real wall-clock "today" (same
-// convention DailyNotesShortcuts.test.tsx uses) rather than a hardcoded
-// date, since "which month is the current month" and the virtual Today
-// entry are both wall-clock-driven.
-const TODAY = toISODate(new Date());
+// Fixtures and the component's clock must share the same local day.
+const TODAY = toISODate(TEST_NOW);
 const TODAY_YEAR = TODAY.slice(0, 4);
 const MONTH_NAMES = [
   'January',
@@ -81,7 +85,7 @@ const MONTH_NAMES = [
   'November',
   'December',
 ];
-const TODAY_MONTH_NAME = MONTH_NAMES[new Date().getMonth()]!;
+const TODAY_MONTH_NAME = MONTH_NAMES[TEST_NOW.getMonth()]!;
 
 function addMonths(iso: string, delta: number): string {
   const [y, m] = iso.split('-').map(Number);
@@ -591,7 +595,7 @@ describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
     const early = makeDailyNote('daily-early', dayInMonth(TODAY, 2), 'month');
     const late = makeDailyNote('daily-late', dayInMonth(TODAY, 27), 'month');
     const { vault, query, membershipSelector, workspace } = setup(
-      [early, late],
+      [late, early],
       [dailyNotesRoot, year, month]
     );
 
@@ -603,7 +607,11 @@ describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
 
     // The whole list is one ascending timeline (DailyNotesList's
     // sortRenderedSections), and days within a month follow it.
-    expect(dayNumbers).toEqual(['2', '27']);
+    // The 27th is Today, so dayInMonth deliberately moved the late
+    // fixture to the 28th. Reverse input above proves the visible sort.
+    expect(early.name).toBe('2026-11-02');
+    expect(late.name).toBe('2026-11-28');
+    expect(dayNumbers).toEqual(['2', '28']);
   });
 
   it('puts past months behind "Show earlier" (nearest first) and future months behind "Show upcoming"', () => {
