@@ -1,5 +1,6 @@
 import type { Extension } from '@codemirror/state';
 import { ViewPlugin, type EditorView } from '@codemirror/view';
+import { completionPopupDOM } from './completionTooltipSpace';
 
 const LIST_SELECTOR = '.cm-tooltip-autocomplete > ul';
 const ATTRIBUTE = 'data-can-scroll-down';
@@ -10,8 +11,8 @@ const ATTRIBUTE = 'data-can-scroll-down';
  * rule. CSS cannot tell that a list has more to scroll to, and CM6 exposes no hook for it, so the
  * list is measured after each editor update (a selection move can scroll it) and on its own scroll.
  *
- * The list is found from the editor: CM6 mounts the tooltip inside the editor's DOM, or inside
- * the `parent` a host passed to `tooltips()`, which is a sibling container of the editor.
+ * Resolve the list from the view's own tooltip, independent of the
+ * `parent` configured through CodeMirror's tooltips API.
  */
 export function completionScrollFade(): Extension {
   return ViewPlugin.fromClass(
@@ -37,8 +38,8 @@ export function completionScrollFade(): Extension {
       }
 
       private findList(): HTMLElement | null {
-        const { dom } = this.view;
-        return dom.querySelector<HTMLElement>(LIST_SELECTOR) ?? dom.parentElement?.querySelector<HTMLElement>(LIST_SELECTOR) ?? null;
+        return completionPopupDOM(this.view)?.querySelector<HTMLElement>('ul') ??
+          this.view.dom.querySelector<HTMLElement>(LIST_SELECTOR);
       }
 
       private watch(list: HTMLElement): void {
