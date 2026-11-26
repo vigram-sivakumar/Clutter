@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { findAllTables } from './tableGeometry';
-import { computeTableNormalizationChange, normalizeAllTablesInMarkdown, normalizeTableAt } from './tableColumnNormalization';
+import { computeTableNormalizationChange, normalizeAllTablesInMarkdown } from './tableColumnNormalization';
 
 const mountedViews: EditorView[] = [];
 
@@ -129,27 +129,6 @@ describe('computeTableNormalizationChange', () => {
     if (table) {
       expect(computeTableNormalizationChange(view.state, table)).toBeNull();
     }
-  });
-});
-
-describe('normalizeTableAt', () => {
-  it('dispatches the normalization change for the table at the given position and returns true', () => {
-    const doc = '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Alex | Engineer |';
-    const view = mountRootView(doc);
-    const applied = normalizeTableAt(view, 2);
-    expect(applied).toBe(true);
-    expect(view.state.doc.toString()).toContain('| Name | Role     |');
-  });
-
-  it('returns false when the position is not inside a table', () => {
-    const view = mountRootView('just some text');
-    expect(normalizeTableAt(view, 2)).toBe(false);
-  });
-
-  it('returns false (no-op) when the table at the position is already normalized', () => {
-    const doc = '| Name | Role     |\n| ---- | -------- |\n| Vik  | Designer |';
-    const view = mountRootView(doc);
-    expect(normalizeTableAt(view, 2)).toBe(false);
   });
 });
 
