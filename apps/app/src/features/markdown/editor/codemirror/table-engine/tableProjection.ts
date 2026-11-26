@@ -1,3 +1,4 @@
+import '../table/tableWidget.css';
 import { tableCellEditor } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
