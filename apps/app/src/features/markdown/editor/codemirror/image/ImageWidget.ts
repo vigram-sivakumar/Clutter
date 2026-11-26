@@ -1,3 +1,4 @@
+import { markBlockRange } from '../blockRangeSelection';
 import { EditorSelection, type EditorState } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
@@ -340,6 +341,7 @@ export class ImageWidget extends WidgetType {
     // without this, Edit-source/the size button would keep dispatching
     // against the *old*, now-shifted position.
     container.dataset.nodeTo = String(this.to);
+    markBlockRange(container, view, this.pos, this.to);
 
     // `from`'s own live-width `ResizeObserver` (if any — only a 12+ pixel
     // width ever creates one) would otherwise leak: `this` is a brand-new
@@ -456,6 +458,7 @@ export class ImageWidget extends WidgetType {
     // additionally claim to be a working `.cm-image-container` it isn't —
     // see that module's own doc comment.
     container.classList.add('cm-media-block');
+    markBlockRange(container, view, this.pos, this.to);
     if (this.isEmbed && !this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.imageSourceRevealed = String(this.ui.revealed);
     // Starts closed unconditionally — a freshly-rendered widget is never
