@@ -13,7 +13,9 @@ ARCHIVE="$SDK/$NAME"
 if [ -f "$CACHE/$NAME" ]; then
   cp "$CACHE/$NAME" "$ARCHIVE"
 else
-  curl -q --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --max-time 120 \
+  echo "Downloading pinned Sparkle SDK $VERSION (HTTPS, SHA-256 verified before extraction)..."
+  curl -q --fail --location --progress-bar --show-error --proto '=https' --proto-redir '=https' \
+    --connect-timeout 30 --max-time 600 --retry 3 --retry-delay 2 --retry-max-time 1200 \
     "https://github.com/sparkle-project/Sparkle/releases/download/$VERSION/$NAME" -o "$ARCHIVE"
 fi
 DIGEST=$(shasum -a 256 "$ARCHIVE")
