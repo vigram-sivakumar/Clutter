@@ -131,7 +131,7 @@ import { projectableTableSnapshot } from '../table-engine/tableModel';
  * cursor for an *empty* range (confirmed against the installed
  * `@codemirror/view` source — `drawSelection.ts` iterates
  * `state.selection.ranges` and draws a cursor layer entry only where
- * `range.empty`); a non-empty range paints a selection-background rect
+ * `range.empty` when drawRangeCursor is disabled); a non-empty range paints a selection-background rect
  * instead, which needs no single line to anchor a caret to. So the
  * "giant caret spanning the widget" failure mode this file's own earlier
  * doc comment describes cannot occur for a non-collapsed range, at either
@@ -161,6 +161,23 @@ export function tableRootSelectionSnap(): Extension {
 
     const range = tr.selection.main;
     const collapsed = range.anchor === range.head;
+    // Pointer selection is block-atomic. If a drag ends within a widget,
+    // include its full source span, preserving the drag direction.
+    if (!tr.docChanged && !tr.startState.readOnly && tr.isUserEvent('select.pointer')) {
+      if (collapsed) {
+        const table = tableAtCaret(tr.state, range.head);
+        if (table) return [tr, { selection: EditorSelection.single(table.from, table.to), sequential: true }];
+      } else {
+        const lower = tableAtCaret(tr.state, range.from);
+        const upper = tableAtCaret(tr.state, range.to);
+        const from = lower && range.from > lower.from && range.from < lower.to ? lower.from : range.from;
+        const to = upper && range.to > upper.from && range.to < upper.to ? upper.to : range.to;
+        if (from !== range.from || to !== range.to) {
+          return [tr, { selection: range.anchor > range.head ? EditorSelection.single(to, from) :
+            EditorSelection.single(from, to), sequential: true }];
+        }
+      }
+    }
     const anchor = snapPosition(tr.state, range.anchor, collapsed);
     const head = snapPosition(tr.state, range.head, collapsed);
 
@@ -197,6 +214,15 @@ function findViolatedTable(state: EditorState, pos: number): SyntaxNode | null {
     }
   }
   return null;
+}
+
+/** Resolve a hidden root position, including the final boundary at EOF.
+ * Used by pointer selection and actual root-focus repair. */
+export function tableAtCaret(state: EditorState, pos: number) {
+  const node = findEnclosingTable(state, pos) ??
+    (pos > 0 ? findEnclosingTable(state, pos - 1) : null);
+  const table = node ? projectableTableSnapshot(state.doc.toString(), node) : null;
+  return table && pos >= table.from && pos <= table.to ? table : null;
 }
 
 function snapPosition(state: EditorState, pos: number, collapsed: boolean): number {
