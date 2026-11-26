@@ -436,33 +436,26 @@ export function attachTableHandleOverlay(
   function updateColumnDropIndicator(startIndex: number, hoveredIndex: number): void {
     const tableElNow = resolveTableElement();
     const hoveredCell = tableElNow?.rows[0]?.children[hoveredIndex] as HTMLElement | undefined;
-    if (!hoveredCell) {
+    if (!tableElNow || !hoveredCell) {
       columnDropIndicator.classList.remove(VISIBLE_CLASS);
       return;
     }
     const wrapperRect = wrapper.getBoundingClientRect();
+    const tableRect = tableElNow.getBoundingClientRect();
     const cellRect = hoveredCell.getBoundingClientRect();
-    const borderWidth = parseFloat(getComputedStyle(wrapper).borderLeftWidth) || 0;
+    const style = getComputedStyle(wrapper);
+    const borderLeftWidth = parseFloat(style.borderLeftWidth) || 0;
+    const borderTopWidth = parseFloat(style.borderTopWidth) || 0;
     const edgeX = hoveredIndex < startIndex ? cellRect.left : cellRect.right;
-    columnDropIndicator.style.left = `${edgeX - wrapperRect.left - borderWidth}px`;
+    columnDropIndicator.style.left = `${edgeX - wrapperRect.left - borderLeftWidth}px`;
+    columnDropIndicator.style.top = `${tableRect.top - wrapperRect.top - borderTopWidth}px`;
+    columnDropIndicator.style.height = `${tableRect.height}px`;
     columnDropIndicator.classList.add(VISIBLE_CLASS);
   }
 
-  /**
-   * Symmetric to `updateColumnDropIndicator`, for the row axis — the
-   * hovered row's own actual rendered **top** edge when it sits before the
-   * dragged row (`hoveredIndex < startIndex`), its **bottom** edge
-   * otherwise, real geometry throughout. Unlike the column indicator
-   * (whose CSS `top: 0; bottom: 0` is always correct — a table's rendered
-   * *height* never diverges from `wrapper`'s own, there being no per-row
-   * equivalent of `tableColumnWidthMetadata.ts`'s persisted explicit
-   * widths), this indicator's *span* also has to be set here, not left to
-   * CSS: `wrapper` is always the editor's full width, but the `<table>`
-   * itself can render narrower (an explicit, narrower persisted table
-   * width) — a plain `left: 0; right: 0` would draw this line all the way
-   * across `wrapper`, visibly wider than the table it's marking a boundary
-   * inside of.
-   */
+  /** Both indicator spans use the actual table rect, excluding the scroll
+   * gutters and the permanently reserved quick-add space. Boundary
+   * coordinates remain wrapper-relative, including horizontal scroll. */
   function updateRowDropIndicator(startIndex: number, hoveredIndex: number): void {
     const tableElNow = resolveTableElement();
     const hoveredRow = tableElNow?.rows[hoveredIndex];
