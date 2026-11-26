@@ -11,88 +11,19 @@
  * Keep spacing on widget-owned boxes, not CM6-managed line margins. */
 .cm-editor .cm-table-widget {
   padding-inline: 0;
-  /* Explicit, not relied on as a block-default — see this file's own top
-   * doc comment for why this element must never become a clipping layer. */
+  /* The widget must not clip the table handles. */
   overflow: visible;
-  /* Reserves the column handle's own protrusion above the header cell —
-   * driven by the *icon* now, not the bar underneath it: the bar itself
-   * (`top: -3px`, height 4px + 2px border, `.cm-table-column-handle`/`-hit`
-   * in `tableHandleOverlay.css`) roughly centers on the header cell's own
-   * top edge, but the three-dot icon layered on top of it
-   * (`.cm-table-column-handle-icon`, same file, absolutely centered on the
-   * bar's own box regardless of the bar's own size) is taller — 14px — and
-   * pokes up to ~8px above the cell, more than the bar alone ever did. Must
-   * stay in sync with both those values if either changes.
-   *
-   * Every layer this widget itself owns is already `overflow: visible`
-   * (this rule, `.cm-table-wrapper`, `.cm-table-scroll`, all below) or
-   * forced to `visible` regardless of any CSS (`<thead>`/`<tr>`, per the
-   * CSS Overflow spec's explicit carve-out for internal table box types)
-   * — none of that clips the handle. The real clip is one level up:
-   * `.page__content` (`Page.css`) is the app's own scroll container
-   * (`overflow-y: auto; overflow-x: hidden;`, both deliberate — see that
-   * rule's own doc comment for why `overflow-x` must stay `hidden`, not
-   * something to touch here) — a table with nothing above it in the
-   * document (the very first block, or scrolled flush to the top) has no
-   * slack left for the handle's negative offset to land in before hitting
-   * that boundary. `padding-top` (not `margin` — this codebase's own
-   * permanent CM6 rule) on this widget's own box is the narrowest fix:
-   * it reserves the room *inside* the one box CM6 already lets this
-   * feature control, touching neither the shared scroll container's own
-   * clipping (which stays exactly as deliberately configured) nor the
-   * `<table>` element's own rendered width/height — only this widget's
-   * own vertical footprint grows by the same few pixels.
-   *
-   * `padding-top` only, not `padding-left` — unlike the vertical axis,
-   * reserving room on the left would shrink the table's own visible width
-   * by that same amount (`.cm-table-wrapper table` is `width: 100%` of
-   * this widget's own content box), a real dimension change this fix is
-   * explicitly scoped to avoid. The row handle's own analogous left-edge
-   * exposure (`inset-inline-start: -3px`) needs a live check against real
-   * layout before deciding on its own fix — not addressed here.
-   */
+  
 }
 .cm-editor .cm-table-wrapper {
-  /* No border here — see `.cm-table-wrapper table`'s own rule below for
-   * why the border now lives on the table itself, not this wrapper.
-   * `--cm-table-border-thickness`/`--cm-table-border-color` remain the
-   * single source of truth for the border's own appearance either way;
-   * `tableHandleOverlay.css`'s own centerline math
-   * (`calc(-1 * var(--cm-table-border-thickness) / 2)`) still centers the
-   * select/reorder handles on that same border line — for a no-metadata
-   * table (the common case), the table's own top-left corner still sits
-   * exactly at the wrapper's own top-left corner (no padding/offset
-   * between them), so that math remains correct unchanged. */
+  /* The actual table owns its border and selection halo. */
   position: relative;
   overflow: visible;
-  /* Explicit, not relied on as a block-default: this is the outer layer of
-   * the five-layer width architecture above (widget → wrapper → scroll
-   * viewport → inner → table) — it must *never* grow past the editor's own content
-   * column no matter how wide an explicit-width table inside it gets.
-   * Stated explicitly rather than left to an ordinary block box's implicit
-   * fill-available-width behavior, so this invariant is visible here, not
-   * an accident of what this element happens to inherit from its parent. */
+  /* The outer wrapper remains capped to the prose width. */
   width: 100%;
   max-width: 100%;
 }
-/* Split out from `.cm-table-wrapper` itself so the handle overlay anchored
- * on the wrapper (`tableHandleOverlay.ts`) can extend past the wrapper's
- * own border without this element's own overflow clipping it, and so this
- * is the positioning context for the column/row/range selection outline
- * (`tableSelectionOverlay.ts`) — deliberately here, not on `.cm-table-wrapper`
- * the way the hover-handle overlay's own `position: relative` is: that
- * overlay must scroll *together* with `<table>` itself, which only happens
- * for an absolutely-positioned element that is a fellow child of this same
- * container — see `tableSelectionOverlay.ts`'s own doc comment for the
- * full coordinate-space reasoning.
- *
- * **This is the one horizontal-clipping layer in the whole chain — see
- * this file's own top doc comment for why it has to live here and nowhere
- * else.** Stays `overflow: visible` by default (a no-metadata table never
- * needs to clip anything, and clipping here unconditionally would also
- * clip the selection-overlay halo's own 1px bleed past the table's edge,
- * `tableSelectionOverlay.css`) — the `--explicit-widths` modifier below is
- * what turns on `overflow-x: auto` for a table that actually needs it. */
+/* The scrollport is the selection overlay's positioning context. */
 .cm-editor .cm-table-scroll {
   overflow: visible;
   position: relative;
@@ -105,41 +36,7 @@
   max-width: 100%;
 }
 
-/* Whole-table Backspace/Delete (`tableDeletionSelection.ts`) and the
- * whole-table root-selection halo (`tableGeometry.ts`'s
- * `tableIntersectsSelectionRange`, Ctrl+A/drag-across) — a first Backspace
- * on the blank line below the table, or a root selection genuinely
- * overlapping it, arms/shows this state; the only visual signal either
- * way (the root selection itself never moves into the table). Reuses the
- * same focus/selection tokens the rest of the app already uses for "this
- * is selected," not a new color.
- *
- * The class itself still lands on `.cm-table-wrapper` (`tableWidget.ts`'s
- * own `isSelected` toggle, unchanged — `tableSelectionHalo.test.ts` and
- * `tableDeletionSelection.test.ts` both assert it there), but the paint
- * itself targets `table`, the intrinsic table-hugging layer, not
- * `.cm-table-wrapper` or `.cm-table-scroll`.
- *
- * **Not `.cm-table-wrapper`** — it stays capped to the prose measure even
- * for an explicit-width table (`tableWidget.css`'s own top doc comment),
- * so a background painted there would stop short of a real, wider table.
- *
- * **Not `.cm-table-scroll` either.** It stays unconditionally `width:
- * 100%; max-width: 100%` (this file's own base rule) regardless of the
- * table's own intrinsic width, so it would always over-paint a smaller
- * explicit-width table (background wider than the visible table) and
- * always under-paint an oversized one (background stopping short of the
- * table's own real right edge). `table` itself is the one element whose
- * own border-box *is*
- * the actual rendered table, at whatever
- * intrinsic width its own `<colgroup>`/content gives it (`width: 100%` for
- * a no-metadata table, `width: max-content` for an explicit-width one) —
- * painting it directly needs no separate geometry computation, no
- * scroll-position math, and no `ResizeObserver` the way an absolutely-
- * positioned overlay sibling would: it *is* the table, so it is
- * automatically exactly as wide as the table, and — being ordinary
- * scrolled content inside `.cm-table-scroll`, not a fixed-position layer
- * — it already scrolls and reflows correctly with zero extra code. */
+/* Paint the whole-table selection on the actual table, so it scrolls and reflows with its intrinsic width. */
 .cm-editor .cm-table-wrapper-selected table {
   background: var(--selection-surface);
   box-shadow: inset 0 0 0 1.5px var(--surface-primary);
@@ -150,36 +47,10 @@
 }
 
 .cm-editor .cm-table-wrapper table {
-  /* Moved here from `.cm-table-wrapper` itself — the outer wrapper is
-   * capped to the editor's own content width (`.cm-table-wrapper`'s own
-   * `width`/`max-width: 100%`), but the *table* is what may legitimately
-   * become wider than that (explicit column widths, third layer below).
-   * A border on the wrapper would stay pinned at the editor's own edge no
-   * matter how wide the table inside actually renders — visually
-   * detached from the table's own right edge, which would then extend
-   * *past* the border, reachable only by scrolling past where the border
-   * already stopped. Putting the border on the table itself means it
-   * always wraps the table's own real rendered box, at whatever width
-   * that currently is — for a no-metadata (100%-wide) table this looks
-   * identical to before (the table's own edges already coincide exactly
-   * with the wrapper's, so the border sits in the same visual place), and
-   * for an explicit-width table it now correctly extends with the table,
-   * reachable at its own far edge only via the scroll viewport's own
-   * horizontal scroll. */
+  /* Keep the border on the actual rendered table. */
   border: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
   border-radius: var(--cm-table-border-radius);
-  /* Auto layout (the default) sizes each column by its own widest cell's
-   * content, so columns end up unequal widths whenever cell content
-   * lengths differ. `fixed` instead splits the table's own `width: 100%`
-   * evenly across however many columns the header has (first-row cell
-   * count, per the CSS table-layout spec) regardless of content —
-   * exactly "equal column widths." Safe with no explicit per-column
-   * `<col>`/cell widths anywhere else in this file: fixed layout without
-   * them still divides evenly, it just also stops a very long cell from
-   * growing its own column at its neighbors' expense (content wraps
-   * instead) — an accepted, standard trade-off of requesting equal
-   * widths at all, not a separate behavior change.
-   */
+  /* The automatic-sizing rule below supplies the current intrinsic table layout. */
   table-layout: fixed;
   /* `separate` + zero spacing, not `collapse` — deliberately, not the
    * CSS default. `collapse` requires WebKit to resolve every internal
