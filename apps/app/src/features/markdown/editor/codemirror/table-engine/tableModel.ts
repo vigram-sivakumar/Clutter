@@ -1,4 +1,4 @@
-import { parseTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
+import { isTableColumnWidthsAttributeLine } from '../table/tableColumnWidthMetadata';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { buildDelimiterCellText, cellGapWidth, minimumDelimiterGapWidth } from '../table/tableAlignment';
 import { padCellContent } from '../table/tableGeometry';
@@ -150,11 +150,13 @@ export function snapshotFromTableNode(source: string, node: SyntaxNode): TableSn
   if (end < source.length) {
     const attributeEnd = lineEnd(source, end + 1);
     const line = source.slice(end + 1, attributeEnd);
-    if (line.trim().startsWith('{table-col-widths')) {
-      // Recognise the old format only, never infer or use pixel widths.
-      // A stale column count is immaterial; malformed text stays in the
-      // compatibility renderer rather than being silently discarded.
-      if (!parseTableColumnWidthsAttribute(line)) fail('Malformed legacy width metadata');
+    if (isTableColumnWidthsAttributeLine(line)) {
+      // The complete attribute syntax identifies retired presentation
+      // metadata, even if its values are invalid or the count is stale.
+      // Preserve it on read; the existing edit path removes it atomically
+      // on a real table edit, with exact undo. A near-match (missing quotes,
+      // trailing prose, another key) is ordinary Markdown, not ours to hide
+      // or delete.
       legacyWidthFrom = end;
       to = attributeEnd;
     }
