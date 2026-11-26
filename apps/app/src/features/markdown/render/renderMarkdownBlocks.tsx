@@ -1,7 +1,6 @@
 import { createElement, type ReactNode } from 'react';
 import type { SyntaxNode } from '@lezer/common';
 
-import { parseTableColumnWidthsAttribute } from '../editor/codemirror/table/tableColumnWidthMetadata';
 import { dividerLabelText, trimEdgeWhitespace } from './blocks/selectCompactBlock';
 import { tokenizeInline, type InlineSpan } from './inlineSpan';
 import { renderCompactSpans, type CompactMarkdownResolvers } from './renderCompactMarkdown';
@@ -144,29 +143,6 @@ function renderLines(node: SyntaxNode, ctx: BlockContext, from?: number): ReactN
   ));
 }
 
-/**
- * Skips a table's `{table-col-widths="..."}` attribute line, which the
- * grammar leaves as (the start of) the next sibling paragraph — same case
- * `selectCompactBlock.ts` handles. Returns where this paragraph's real
- * content starts, or `null` when nothing but the attribute line is there.
- */
-function paragraphContentFrom(node: SyntaxNode, text: string): number | null {
-  if (node.prevSibling?.name !== 'Table') {
-    return node.from;
-  }
-  const raw = text.slice(node.from, node.to);
-  const newlineIndex = raw.indexOf('\n');
-  const firstLine = newlineIndex === -1 ? raw : raw.slice(0, newlineIndex);
-  if (parseTableColumnWidthsAttribute(firstLine) === null) {
-    return node.from;
-  }
-  if (newlineIndex === -1) {
-    return null;
-  }
-  const from = node.from + newlineIndex + 1;
-  return text.slice(from, node.to).trim().length > 0 ? from : null;
-}
-
 function renderCode(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode {
   const lines: string[] = [];
   for (let child = node.firstChild; child; child = child.nextSibling) {
@@ -302,7 +278,7 @@ function renderBlock(node: SyntaxNode, ctx: BlockContext, key: number): ReactNod
 
   switch (node.name) {
     case 'Paragraph': {
-      const from = paragraphContentFrom(node, ctx.text);
+      const from = node.from;
       if (from === null) {
         return null;
       }
