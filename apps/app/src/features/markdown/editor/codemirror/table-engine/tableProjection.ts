@@ -110,8 +110,7 @@ export class TableProjection extends WidgetType {
     const selection = (axis: 'row' | 'column', index: number) => axis === 'row'
       ? { kind: 'row' as const, tableFrom: from(), rowIndex: index }
       : { kind: 'column' as const, tableFrom: from(), columnIndex: index };
-    const dispose = attachTableHandleOverlay(root.firstElementChild as HTMLElement, this.snapshot.model.header.length,
-      view, null, from(), null, null, () => params => {
+    const dispose = attachTableHandleOverlay(root.firstElementChild as HTMLElement, from(), () => params => {
         const notify = this.getOnTableHandleMenuChange();
         if (params && notify) controller()?.openHandleMenu(params.selection, notify);
       }, {
