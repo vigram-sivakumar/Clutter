@@ -40,9 +40,10 @@ function rectangular(raw: unknown): string[][] {
 /** Escape only unescaped pipes; keep existing Markdown escapes intact.
  * Embedded line breaks become spaces per the single-line cell contract.
  */
-export function externalCell(text: string): string {
-  return text.replace(/\r\n?|\n/g, ' ').replace(/(\\*)\|/g,
-    (_match, slash: string) => slash + (slash.length % 2 === 0 ? '\\|' : '|')).trim();
+export function externalCell(text: string, trim = true): string {
+  const escaped = text.replace(/\r\n?|\n/g, ' ').replace(/(\\*)\|/g,
+    (_match, slash: string) => slash + (slash.length % 2 === 0 ? '\\|' : '|'));
+  return trim ? escaped.trim() : escaped;
 }
 
 /** Quoted spreadsheet TSV. Preserve empty edge cells and quoted tabs/newlines;

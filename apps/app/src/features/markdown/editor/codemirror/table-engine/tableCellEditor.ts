@@ -6,10 +6,11 @@ import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction } from './tableTransaction';
-import { bookmark, tableSelectionTransition } from './tableSelectionHistory';
+import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
-import { clearSelectedCommand } from './tableClipboard';
+import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid } from './tableClipboard';
+import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
@@ -24,6 +25,7 @@ export class TableCellEditor {
   // only the mapped address of the mounted nested document.
   private interaction: TableInteraction = noInteraction;
   private interactionTable: number | null = null;
+  private pendingHistory: SelectionBookmark | null | undefined;
 
   private readonly drag = new TableDragSelection((widget, anchor, head) => {
     if (!this.root.dom.contains(widget)) return false;
@@ -155,6 +157,125 @@ export class TableCellEditor {
     }
   }
 
+  private clearSelected(): boolean {
+    if (this.interactionTable === null) return false;
+    const from = this.interactionTable;
+    const command = clearSelectedCommand(this.snapshot(from).model, this.interaction);
+    if (!command) return false;
+    const mark = bookmark(from, this.interaction);
+    const tr = createTableTransaction(this.root.state, from, command, parse,
+      tableSelectionTransition.of({ before: mark, after: mark }));
+    if (tr) {
+      this.forwarding = true;
+      try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+    }
+    return true;
+  }
+
+  /** Called in capture phase on the projection. Native text copy/cut in the
+   * nested editor remains CodeMirror's responsibility. Selected grid events
+   * must not bubble to the root's unrelated text selection. */
+  clipboard(widget: HTMLElement, event: ClipboardEvent): void {
+    if (event.defaultPrevented || !event.clipboardData ||
+      this.interactionTable !== Number(widget.dataset.tableFrom) || this.interaction.kind === 'none') return;
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest('[data-table-engine-cells="true"]') !== widget) return;
+    const editing = this.interaction.kind === 'editing';
+    if (editing && (!this.nested?.dom.contains(target) || event.type !== 'paste')) return;
+    const consume = () => { event.preventDefault(); event.stopPropagation(); };
+    const from = this.interactionTable;
+    const data = event.clipboardData;
+    try {
+      if (event.type === 'copy' || event.type === 'cut') {
+        const grid = selectedGrid(this.snapshot(from).model, this.interaction);
+        if (!grid) return;
+        consume();
+        writeGrid(data, grid, text => renderInlineMarkdown(text));
+        if (event.type === 'cut') this.clearSelected();
+        return;
+      }
+      if (event.type !== 'paste') return;
+      // A selected host or live cell owns the paste, even if the payload
+      // is empty or unsupported; never fall back to root source insertion.
+      consume();
+      this.cancelDrag();
+      const grid = readGrid(data, !editing);
+      if (!grid) {
+        if (editing && this.nested && this.active) {
+          const text = data.getData('text/plain');
+          if (text !== '') this.nested.dispatch({
+            ...this.nested.state.replaceSelection(externalCell(text, false)),
+            userEvent: 'input.paste',
+          });
+        }
+        return;
+      }
+      const previous = this.interaction;
+      const command = pasteSelectedCommand(this.snapshot(from).model, previous, grid);
+      if (!command) return;
+      const next: TableInteraction = previous.kind === 'editing' ? { kind: 'cell', cell: previous.cell } : previous;
+      const effect = tableSelectionTransition.of({ before: bookmark(from, previous), after: bookmark(from, next) });
+      const tr = createTableTransaction(this.root.state, from, command, parse, effect);
+      this.close();
+      if (tr) {
+        this.forwarding = true;
+        try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+      }
+      this.select(from, next);
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      consume();
+      // A rejected clipboard edit must not reach the root's normal paste.
+    }
+  }
+
+  /** Root paste routing calls this only for its existing table-create
+   * classification. Other root paste strategies remain unchanged. */
+  pasteNewTable(data: DataTransfer): boolean {
+    try {
+      const grid = readGrid(data, false);
+      if (!grid) return false;
+      const tr = createPastedTable(this.root.state, grid, parse);
+      if (!tr) return false;
+      this.cancelDrag();
+      this.close();
+      this.root.dispatch(tr);
+      const mark = tr.effects.find(effect => effect.is(tableSelectionTransition));
+      const after = mark?.is(tableSelectionTransition) ? mark.value.after : null;
+      if (after) this.select(after.tableFrom, after.interaction);
+      return true;
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      // Unsupported or malformed grids must not be reinterpreted as root
+      // Markdown by another paste handler.
+      return true;
+    }
+  }
+
+  private stepHistory(backwards: boolean): boolean {
+    this.cancelDrag();
+    this.close();
+    this.root.focus();
+    (backwards ? undo : redo)(this.root);
+    return true;
+  }
+
+  /** Run after CM6 reconciles its block widgets, not during plugin update.
+   * History stores only intent; the current root source validates it. */
+  restoreHistory(): void {
+    const mark = this.pendingHistory;
+    if (mark === undefined) return;
+    this.pendingHistory = undefined;
+    this.close();
+    if (!mark) { this.root.focus(); return; }
+    try {
+      if (this.select(mark.tableFrom, mark.interaction, true)) return;
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+    }
+    this.root.focus();
+  }
+
   selectedKey(tableFrom: number, cell: CellAddress, host: HTMLElement, event: KeyboardEvent): void {
     if (event.target !== host || event.isComposing || event.defaultPrevented ||
       this.interactionTable !== tableFrom || this.interaction.kind === 'none' || this.interaction.kind === 'editing') return;
@@ -163,7 +284,7 @@ export class TableCellEditor {
       if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
       if (event.key === 'Escape') { consume(); this.close(); host.blur(); return; }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-        consume(); this.close(); (event.shiftKey ? redo : undo)(this.root); return;
+        consume(); this.stepHistory(event.shiftKey); return;
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
         consume(); this.select(tableFrom, { kind: 'table', cell }); return;
@@ -178,15 +299,7 @@ export class TableCellEditor {
       }
       if (event.key === 'Backspace' || event.key === 'Delete') {
         consume();
-        const command = clearSelectedCommand(this.snapshot(tableFrom).model, this.interaction);
-        if (!command) return;
-        const mark = bookmark(tableFrom, this.interaction);
-        const tr = createTableTransaction(this.root.state, tableFrom, command, parse,
-          tableSelectionTransition.of({ before: mark, after: mark }));
-        if (tr) {
-          this.forwarding = true;
-          try { this.root.dispatch(tr); } finally { this.forwarding = false; }
-        }
+        this.clearSelected();
         return;
       }
       if (!event.metaKey && !event.ctrlKey && !event.altKey && [...event.key].length === 1) {
@@ -235,8 +348,8 @@ export class TableCellEditor {
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
         keymap.of([
-          { key: 'Mod-z', run: () => { this.close(); undo(this.root); return true; } },
-          { key: 'Mod-Shift-z', run: () => { this.close(); redo(this.root); return true; } },
+          { key: 'Mod-z', run: () => this.stepHistory(false) },
+          { key: 'Mod-Shift-z', run: () => this.stepHistory(true) },
           { key: 'Tab', run: () => this.navigateTab(false) },
           { key: 'Shift-Tab', run: () => this.navigateTab(true) },
           { key: 'Escape', run: () => this.exitEdit() },
@@ -282,6 +395,8 @@ export class TableCellEditor {
 
   sync(transactions: readonly Transaction[]): void {
     for (const tr of transactions) {
+      const mark = restoredSelection(tr);
+      if (mark !== undefined) this.pendingHistory = mark;
       if (!tr.docChanged) continue;
       if (!this.forwarding) this.cancelDrag();
       if (!this.active) {
@@ -328,7 +443,7 @@ export class TableCellEditor {
     this.cancelDrag();
     this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
     this.nested?.destroy(); this.nested = null; this.active = null;
-    this.interaction = noInteraction; this.interactionTable = null;
+    this.interaction = noInteraction; this.interactionTable = null; this.pendingHistory = undefined;
   }
 }
 

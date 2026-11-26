@@ -331,6 +331,101 @@ describe('engine staged pointer selection (M6 candidate)', () => {
   });
 });
 
+describe('engine staged clipboard and root history (M7 candidate)', () => {
+  const doc = 'Before\n\n' + TABLE + '\n\nAfter';
+  const host = (view: EditorView, row: number, col: number) =>
+    view.dom.querySelector<HTMLElement>(`[data-table-engine-cells="true"] [data-cell="${row},${col}"]`)!;
+  const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
+    .map(cell => (cell as HTMLElement).dataset.cell);
+  const key = (target: Element, name: string, shiftKey = false) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true, cancelable: true }));
+  const fire = (target: Element, type: string, values: Record<string, string> = {}) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const data = { getData: (mime: string) => values[mime] ?? '', setData: (mime: string, value: string) => { values[mime] = value; }, files: [], types: Object.keys(values) };
+    Object.defineProperty(event, 'clipboardData', { value: data });
+    target.dispatchEvent(event);
+    return { event, values };
+  };
+  const selectRange = (view: EditorView) => {
+    clickCell(host(view, 1, 1).parentElement!);
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    key(host(view, 1, 1), 'ArrowLeft', true);
+  };
+  it('copies Markdown in three formats, cuts once and restores the reverse selection on undo/redo', () => {
+    const source = doc.replace('Vik', '**Vik**');
+    const view = mount(source, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    selectRange(view);
+    const { event, values } = fire(host(view, 1, 0), 'copy');
+    expect(event.defaultPrevented).toBe(true);
+    expect(values['text/plain']).toBe('**Vik**\tDesigner');
+    expect(values['text/html']).toContain('<strong>');
+    expect(JSON.parse(values['application/x-clutter-table']!)).toEqual({ kind: 'clutter-table-range', rows: [['**Vik**', 'Designer']] });
+    expect(view.state.doc.toString()).toBe(source);
+    fire(host(view, 1, 0), 'cut');
+    const cleared = view.state.doc.toString();
+    expect(cleared).toContain('|  |  |');
+    expect(selected(view)).toEqual(['1,0','1,1']);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(selected(view)).toEqual(['1,0','1,1']);
+    expect(document.activeElement).toBe(host(view, 1, 0));
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(cleared);
+    expect(selected(view)).toEqual(['1,0','1,1']);
+  });
+  it('pastes an expanding TSV grid from the geometric top-left of a reverse range, retaining selection', () => {
+    const view = mount(doc, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    selectRange(view);
+    const paste = fire(host(view, 1, 0), 'paste', { 'text/plain': 'A\tB\tC\nD\tE\tF' });
+    expect(paste.event.defaultPrevented).toBe(true);
+    const expanded = view.state.doc.toString();
+    expect(expanded).toContain('| A | B | C |\n| D | E | F |');
+    expect(selected(view)).toEqual(['1,0','1,1']);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(selected(view)).toEqual(['1,0','1,1']);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(expanded);
+  });
+  it('pastes plain text at the editing caret and escapes raw pipes without changing neighbours', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 1 } });
+    fire(nested.contentDOM, 'paste', { 'text/plain': 'a|b' });
+    expect(nested.state.doc.toString()).toBe('Va\\|bik');
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik','Va\\|bik'));
+    expect(nested.dom.isConnected).toBe(true);
+  });
+  it('rejects malformed internal data and preserves the selected host and source', () => {
+    const view = mount(doc, false, undefined, true);
+    selectRange(view);
+    const { event } = fire(host(view, 1, 0), 'paste', { 'application/x-clutter-table': '{broken', 'text/plain': 'bad' });
+    expect(event.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(selected(view)).toEqual(['1,0','1,1']);
+  });
+  it('creates a second table through root paste routing and restores its selection on redo', () => {
+    const view = mount(doc, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    view.dispatch({ selection: { anchor: doc.length } });
+    const paste = fire(view.contentDOM, 'paste', { 'text/plain': 'A\tB\nx\ty' });
+    expect(paste.event.defaultPrevented).toBe(true);
+    const created = view.state.doc.toString();
+    expect(created).toBe(doc + '\n\n| A | B |\n| --- | --- |\n| x | y |');
+    expect(view.dom.querySelectorAll('[data-table-engine-cells="true"]')).toHaveLength(2);
+    expect(selected(view)).toEqual(['0,0']);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(selected(view)).toEqual([]);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(created);
+    expect(selected(view)).toEqual(['0,0']);
+  });
+});
+
 describe('engine editable cell projection', () => {
   it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
     const view = mount(TABLE, false, undefined, true);

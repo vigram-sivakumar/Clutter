@@ -2,6 +2,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { createTableFromClipboard } from '../table/tableCreatePaste';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
 import type { TableActiveCellController } from '../table/tableActiveCellController';
 import { type PasteTarget, pasteIntoActiveCell, pasteIntoSelectedTableSelection, resolveActiveCellTarget } from '../table/tablePaste';
 import { tableSelectionField } from '../table/tableSelection';
@@ -31,6 +32,7 @@ function run(
       return selection != null && table !== null && pasteIntoSelectedTableSelection(view, selection, table);
     }
     case 'tableCreate':
+      if (view.plugin(tableCellEditor)?.pasteNewTable(event.clipboardData!)) return true;
       createTableFromClipboard(view, table!);
       return true;
     case 'files':

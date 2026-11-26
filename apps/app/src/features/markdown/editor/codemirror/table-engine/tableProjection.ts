@@ -45,9 +45,16 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) {
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
+      const clipboard = (event: ClipboardEvent) => view.plugin(tableCellEditor)?.clipboard(root, event);
+      root.addEventListener('copy', clipboard, true);
+      root.addEventListener('cut', clipboard, true);
+      root.addEventListener('paste', clipboard, true);
       root.addEventListener('pointerdown', pointerDown, true);
       root.addEventListener('click', click, true);
       dragDisposers.set(root, () => {
+        root.removeEventListener('copy', clipboard, true);
+        root.removeEventListener('cut', clipboard, true);
+        root.removeEventListener('paste', clipboard, true);
         root.removeEventListener('pointerdown', pointerDown, true);
         root.removeEventListener('click', click, true);
         view.plugin(tableCellEditor)?.cancelDrag(root);

@@ -347,7 +347,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
   const engineCells = !readOnly && (options.tableEngineCells ??
     (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')));
   const table: Extension[] = [
-    ...(engineCells ? [tableCellEditor, tableSelectionHistory] : []),
+    ...(engineCells ? [tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
