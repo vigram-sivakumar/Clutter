@@ -6,7 +6,6 @@ import type { SyntaxNode } from '@lezer/common';
 import { splitPipeRowCells } from './tableAlignment';
 import { arrayMove, findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, type TableSelection } from './tableSelection';
-import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnMove, resolveTableColumnWidths } from './tableColumnWidthMetadata';
 
 /**
  * "Move up"/"Move down" (row handle menu), "Move left"/"Move right" (column
@@ -346,20 +345,6 @@ function moveColumn(view: EditorView, table: TableInfo, fromIndex: number, toInd
     if (change) {
       changes.push(change);
     }
-  }
-
-  // Width metadata follows the moved column, in the same transaction —
-  // never a second dispatch (see `tableColumnWidthMetadata.ts`'s own
-  // "Structural-operation synchronization" section). A `null` attribute
-  // (no persisted widths) or `null` change (metadata already at target
-  // shape, unreachable here since a real move always permutes a real
-  // array) contributes nothing to `changes`, matching every other
-  // conditional push in this function.
-  const attribute = resolveTableColumnWidths(view.state, table);
-  const nextWidths = nextWidthsAfterColumnMove(attribute?.widths ?? null, fromIndex, toIndex);
-  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
-  if (widthsChange) {
-    changes.push(widthsChange);
   }
 
   dispatchMove(view, changes, { kind: 'column', tableFrom: table.from, columnIndex: toIndex });
