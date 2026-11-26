@@ -4,8 +4,6 @@ import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
-import { TableActiveCellController } from './tableActiveCellController';
-import { tableCellNavigation } from './tableCellNavigation';
 import { attachTableOutsideClickHandling } from './tableSelection';
 import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
 
@@ -35,7 +33,7 @@ import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCell
  * time.
  */
 
-const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId' | 'getTableActiveCellController'> = {
+const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId'> = {
   resolveWikiLink: () => undefined,
   resolveEmbedImage: () => undefined,
   resolveEmbedPdf: () => undefined,
@@ -72,7 +70,6 @@ afterEach(() => {
  * below: that the forwarded mousedown never reaches it.
  */
 function mount(doc: string): { view: EditorView; controller: TableCellEditor } {
-  const controller = new TableActiveCellController();
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -82,13 +79,11 @@ function mount(doc: string): { view: EditorView; controller: TableCellEditor } {
         ...REQUIRED,
         readOnly: false,
         hostPageId: 'test-page',
-        getTableActiveCellController: () => controller,
       }),
     }),
     parent,
   });
-  controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
-  const detach = attachTableOutsideClickHandling(view, controller);
+  const detach = attachTableOutsideClickHandling(view);
   outsideClickCleanups.push(detach);
   mountedViews.push(view);
   return { view, controller: view.plugin(tableCellEditor)! };
