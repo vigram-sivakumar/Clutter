@@ -101,7 +101,36 @@ describe('table engine model and structural commands', () => {
     expect(() => planTableEdit(doc, start, { kind: 'setCell', row: 1, col: 0, markdown: 'a\nb' }, parse)).toThrow(TableEngineError);
     expect(() => planTableEdit(table + '\n{table-col-widths="bad"}', 0, { kind: 'insertColumn', index: 1 }, parse)).toThrow(TableEngineError);
     expect(planTableEdit(table + '\n{table-col-widths="120"}', 0, { kind: 'insertColumn', index: 1 }, parse)!.expectedDocument).not.toContain('table-col-widths');
-    expect(() => readTable('| A | B |\n| --- | --- |\n| x | y | z |', 0, parse)).toThrow(TableEngineError);
+
+  });
+
+  it('projects every overflow cell and pads only the derived model on read', () => {
+    const original = '| A | B |\n| --- | :---: |\n| x | y | z |\n| q |';
+    const snapshot = readTable(original, 0, parse);
+    expect(snapshot.source).toBe(original);
+    expect(snapshot.model).toEqual({
+      header: ['A', 'B', ''], rows: [['x', 'y', 'z'], ['q', '', '']],
+      alignments: ['none', 'center', 'none'],
+    });
+    expect(snapshot.cells[0]![2]).toBeNull();
+    expect(snapshot.cells[2]![2]).toBeNull();
+    const extra = snapshot.cells[1]![2]!;
+    expect(original.slice(extra.from, extra.to)).toBe('z');
+  });
+
+  it('materialises overflow columns with no dropped content and exact undo/redo', () => {
+    const original = '| A | B |\n| --- | --- |\n| x | y | z |';
+    const input = before + original + after;
+    const target = makeHistory(input);
+    const transaction = createTableTransaction(target.state, start, { kind: 'materialize' }, parse)!;
+    target.dispatch(transaction);
+    const materialized = before + '| A | B |  |\n| --- | --- | --- |\n| x | y | z |' + after;
+    expect(target.state.doc.toString()).toBe(materialized);
+    expect(undoDepth(target.state)).toBe(1);
+    expect(undo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(input);
+    expect(redo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(materialized);
   });
 
   it('does not normalise the document for a semantic no-op', () => {
