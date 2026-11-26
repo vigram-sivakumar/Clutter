@@ -1,7 +1,9 @@
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
-import type { TableActiveCellController } from './tableActiveCellController';
+import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
+import { tableSelectionChanged, tableSelectionField } from './tableSelection';
+import { tableCellEditor } from '../table-engine/tableCellEditor';
 import {
   endOfCellContent,
   findAllTables,
@@ -131,6 +133,18 @@ export function enterCellOf(
   columnIndex: number,
   cursorAt: 'start' | 'end'
 ): boolean {
+  // The supported projection owns its own nested editor. Do not send
+  // a keyboard entry (including a missing cell) through legacy activation.
+  const engineWidget = rootView.dom.querySelector<HTMLElement>(
+    `[data-table-engine-cells="true"][data-table-from="${table.from}"]`);
+  if (engineWidget) {
+    if (controller.activeAnchor || rootView.state.field(tableSelectionField, false)) {
+      controller.deactivate();
+      rootView.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
+    }
+    return rootView.plugin(tableCellEditor)?.enterCell(table.from, { row: rowIndex, col: columnIndex }, cursorAt) ?? false;
+  }
+  rootView.plugin(tableCellEditor)?.close();
   const navigableRows = getNavigableRows(table.node);
   const row = navigableRows[rowIndex];
   if (!row) {

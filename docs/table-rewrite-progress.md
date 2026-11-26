@@ -4,12 +4,12 @@ Last updated 26 November 2026 (Asia/Kolkata).
 
 ## Current status and resume point
 
-**9 of 12 milestones accepted (75% by milestone count, not effort).** M1–M9 are accepted; M10a implementation and manual validation are complete, with a clean automated exit still pending.
+**9 of 12 milestones accepted (75% by milestone count, not effort).** M1–M9 are accepted; M10a accepted on owner-reported clean rerun; M10b application integration is in progress.
 
 - Accepted development branch: `feature/production-table-engine` at `ca315b6b` (M9). Main has not been merged.
-- Active validation branch: `candidate/table-engine-m10a`, implementation commit `9f8bd3bc`. Resume here; the latest commit may be documentation-only.
+- Active validation branch: `candidate/table-engine-m10b`, based on verified M10a implementation `9f8bd3bc` and ledger `550dc4ce`. Resume on M10b; not promoted.
 - The new editable engine is enabled in the development browser with `?tableEngineCells`; default editable mode is still legacy. Supported read-only tables already use the new projection. Unsupported source shapes use compatibility rendering.
-- Latest observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Do not promote on assertion counts alone.
+- Latest observed results on `9f8bd3bc`: TypeScript clean, focused 96/96 across 2 files, broader 1,895/1,895 across 63 files. All 10 M10a manual checks passed before the missing-cell correction. **Broad run exited 1 because of one unhandled ReferenceError: document is not defined, at NoteEmbedWidget.ts:408, attributed to noteEmbed.test.ts.** That file's 96 tests passed; the error is intermittent and its root cause is not yet established. Owner subsequently confirmed both requested reruns passed; raw rerun output was not supplied. Intermittent embed exception remains a known lifecycle risk, not a diagnosed defect in the new engine.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5181. Before manual validation confirm the flagged URL and `document.querySelectorAll('[data-table-engine-cells="true"]').length > 0` for the note under test.
 
 This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Every verified milestone updates this file in its implementation commit and is pushed to the development branch. Merging into `main` requires owner approval.
@@ -36,7 +36,7 @@ This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-tab
 | Copy/cut/clear, internal Markdown, HTML grid, TSV, scalar insertion and new-table paste | Staged and accepted in M7 | M7–M10a regressions; full-stack clipboard/asset routing audit in M10b |
 | Structural operations, quick-add and root history | Staged and accepted in M8 | 1,881/1,881 broad at M8; mixed consecutive keyboard undo/redo passed |
 | Resize, reorder, axis selection, menus, alignment | Staged and accepted in M9; temporary context menu removed | M9a 1,884/1,884; M9b owner confirmed final tests and all manual checks, including backdrop dismissal |
-| Explicit Format table, inline shortcuts and selection outline | Staged in M10a; width-aligned source, compact absent-cell materialisation, shared rounded outline | Owner 10/10 manual; focused 96/96; broad assertions all passed but one unhandled embed error blocks clean gate |
+| Explicit Format table, inline shortcuts and selection outline | Staged in M10a; width-aligned source, compact absent-cell materialisation, shared rounded outline | Owner 10/10 manual; focused 96/96; broad 1,895/1,895 and owner confirmed clean rerun |
 | Whole-table deletion | Root validated deletion transaction; legacy arming remains shared during migration | M2 and M8 tests; final-axis removal and compatibility still need full integration coverage |
 | Persistence, root history and lifecycle | Single root Markdown/history; no new persistence layer | M10b save/reopen, note switch, external refresh, multiple tables, editable/read-only and full app tests; M11 native checks |
 
@@ -70,22 +70,23 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 | Milestone | Status | Next actions / acceptance gate |
 | --- | --- | --- |
 | M1–M9 | Accepted | Accepted branch at ca315b6b; no main merge. |
-| M10a — visual and formatting parity | Awaiting clean regression | Rerun noteEmbed.test.ts alone, then the same broad suite. Capture exit status, counts and errors. If the unhandled exception recurs, investigate deferred CM6 widget work after embed/test teardown before promotion. Do not suppress the error. No repeat of the 10 manual checks required for the compact materialisation fix unless new behaviour changes. |
-| M10b — full application integration | Next | Exercise actual MarkdownEditor with flag, not just the staged harness. Test multiple tables and mixed supported/compatibility rendering; external prefix edits, cell replacement and table removal; note switch/unmount and history; editable/read-only switching; save/reopen, source fidelity and persisted widths; clipboard routing (including unsupported files/HTML), root focus and whole-table removal; lifecycle cleanup and scroll. Run TypeScript and full application Vitest suite. Audit any legacy-only tests that fail to exercise the new renderer; add targeted flagged coverage. Record evidence and promote M10 only after clean verification. |
+| M10a — visual and formatting parity | Accepted (owner-confirmed clean rerun) | Rerun noteEmbed.test.ts alone, then the same broad suite. Capture exit status, counts and errors. If the unhandled exception recurs, investigate deferred CM6 widget work after embed/test teardown before promotion. Do not suppress the error. No repeat of the 10 manual checks required for the compact materialisation fix unless new behaviour changes. |
+| M10b — full application integration | In progress | Exercise actual MarkdownEditor with flag, not just the staged harness. Test multiple tables and mixed supported/compatibility rendering; external prefix edits, cell replacement and table removal; note switch/unmount and history; editable/read-only switching; save/reopen, source fidelity and persisted widths; clipboard routing (including unsupported files/HTML), root focus and whole-table removal; lifecycle cleanup and scroll. Run TypeScript and full application Vitest suite. Audit any legacy-only tests that fail to exercise the new renderer; add targeted flagged coverage. Record evidence and promote M10 only after clean verification. |
 | M11 — native macOS | Pending | Build and run a native test configuration that explicitly enables the engine (the browser development query alone does not establish packaged enablement). Validate WKWebView caret placement, IME composition/commit/cancel, non-Latin input, native clipboard, focus, keyboard navigation, history, resize/reorder, scroll and persistence. Record build, environment and results. |
 | M12 — retirement and rollout | Blocked on M10/M11 | Remove superseded editable legacy controllers, selection state, mutation paths, flags and tests only after coverage and a compatibility strategy are established. Retain shared renderer/grammar/width/CSS components as needed. Establish default engine and run final regression and release checks; main merge requires explicit owner approval. |
 
 ### Immediate verification
 
-From the active worktree on the candidate branch:
+Switch to candidate/table-engine-m10b and run from the repository root:
 
 ```sh
-git pull --ff-only
-npm run test:run -- noteEmbed.test.ts
-npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault/ingest/grammar markdownLanguage.regression noteEmbed.test.ts MarkdownEditor.paste.fullStack
+git fetch origin
+git switch --track origin/candidate/table-engine-m10b
+node_modules/.bin/tsc --noEmit -p apps/app
+npm run test:run -- MarkdownEditor.paste.fullStack tableLiveWiring.test.ts tableBoundaryNavigation.test.ts
 ```
 
-Expected standalone 96/96, broader 1,895/1,895 across 63 files, **zero unhandled errors and exit status 0**. If isolated execution passes but the broad error repeats, collect the full stack and investigate lifecycle cleanup. Prior whole-table deletion intermittency is not root-caused but has not recurred in recent runs.
+Expected 280 assertions (179 full-stack, 76 live wiring, 25 boundary), zero errors, exit 0. Six new integration cases exercise the actual flagged editor. After they pass, audit mixed compatibility ownership, native clipboard notifications, explicit-width boundary navigation, and other remaining gaps; run full application tests before M10 promotion. Previously intermittent note-embed and deletion errors remain unroot-caused.
 
 ### Historical architecture notes (M4 snapshot)
 
@@ -166,3 +167,9 @@ Source review found the staged Format table command only compacted Markdown, unl
 **M10a regression follow-up:** Owner passed all 10 manual checks. Raw output: TypeScript no diagnostics, 94/95 focused tests, 1,893/1,894 broad tests (62/63 files), both failing only missing-cell materialisation. Source confirms activate() called the same `format` command used by the explicit menu, whose serializer changed in M10a. Split an internal `materialize` command that uses the previous compact serialization only when missing cells exist, leaving explicit width-aligned `format` unchanged. Strengthen existing live assertions (empty nested doc and exact source before/after typing), add model regression for materialization vs formatting/idempotence. Local rerun needed; no promotion.
 
 **M10a rerun (2026-11-26, implementation 9f8bd3bc):** TypeScript clean; focused 96/96 (20 engine + 76 live wiring), 2/2 files; broad 1,895/1,895, 63/63 files. However Vitest caught one uncaught ReferenceError at NoteEmbedWidget.toDOM (NoteEmbedWidget.ts:408, document.createElement) attributed to noteEmbed.test.ts, despite its 96 assertions passing. npm exit status 1. Similar exception previously occurred at M5; do not assume harmless or attribute it to the current materialisation fix without investigation. M10a remains on candidate branch; M9 remains the accepted development head. Current status, feature matrix and roadmap above supersede the historical handoff notes. Next action: standalone embed and clean broad rerun, investigate if repeated, then M10b full-stack integration.
+
+**M10a acceptance (2026-11-26):** Owner confirmed the requested standalone embed and broad rerun both passed following 550dc4ce. Exact rerun counts and zero-error status are owner-reported rather than raw output. Prior verified assertion counts were 96 focused and 1,895 broad. M10 as a whole remains unpromoted.
+
+## M10b candidate — flagged application integration (unverified)
+
+Audit found root boundary navigation still invoked legacy activation on supported engine widgets. Route this entry to the engine's own activation and caret-placement method; retain legacy entry for compatibility widgets. Validate the active mapped source span against its logical cell after external revisions, closing rather than keeping stale addressing if row/column changes invalidate it. Add six real MarkdownEditor tests with URL flag, restoring the URL after each case: root arrow entry; multi-table editor reuse and source callbacks; prefix refresh and row-removal/external replacement; editable/read-only reconfiguration; active-cell scalar/grid/file-only paste routing; note unmount and reopening from reported source. Existing 173 unflagged characterization tests retained. Tests not run remotely; actual persistence layer, mixed supported/compatibility ownership and file-skip feedback still need audit, along with wider application regression and native gate. No promotion yet.

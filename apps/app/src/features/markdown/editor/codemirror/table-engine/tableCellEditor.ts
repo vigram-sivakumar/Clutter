@@ -517,6 +517,22 @@ export class TableCellEditor {
 
   owns(host: Element): boolean { return !!this.nested && host.contains(this.nested.dom); }
 
+  /** Root boundary navigation shares the same activation path as a click. */
+  enterCell(tableFrom: number, cell: CellAddress, cursorAt: 'start' | 'end'): boolean {
+    if (this.root.state.readOnly) return false;
+    try {
+      const host = this.hostAt(tableFrom, cell);
+      if (!host) return false;
+      this.activate(tableFrom, cell, host);
+      if (!this.active || !this.nested) return false;
+      this.nested.dispatch({ selection: { anchor: cursorAt === 'start' ? 0 : this.nested.state.doc.length } });
+      return true;
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  }
+
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
     this.close();
@@ -617,6 +633,21 @@ export class TableCellEditor {
       this.active.to = tr.changes.mapPos(this.active.to, 1);
       this.active.tableFrom = tr.changes.mapPos(this.active.tableFrom, 1);
       this.interactionTable = this.active.tableFrom;
+      if (!this.forwarding) {
+        // A change outside the active text may still remove the table,
+        // insert a preceding row/column or turn it into unsupported input.
+        // Validate the mapped span against the same logical cell before
+        // accepting further nested keystrokes.
+        try {
+          const snap = readTable(tr.newDoc.toString(), this.active.tableFrom, parse);
+          const cell = snap.cells[this.active.cell.row]?.[this.active.cell.col];
+          if (!cell || this.active.from < cell.rawFrom || this.active.to > cell.rawTo ||
+              tr.newDoc.sliceString(this.active.from, this.active.to) !== this.nested?.state.doc.toString()) this.close();
+        } catch (error) {
+          if (!(error instanceof TableEngineError)) throw error;
+          this.close();
+        }
+      }
     }
   }
 

@@ -14,6 +14,7 @@ import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistor
 import type { PasteAssets } from './codemirror/paste/assetPaste';
 import { findAllTables } from './codemirror/table/tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './codemirror/table/tableSelection';
+import { tableCellEditor } from './codemirror/table-engine/tableCellEditor';
 
 /**
  * CHARACTERIZATION of the paste pipeline as the app runs it: a real `<MarkdownEditor>` (so the real
@@ -1683,5 +1684,164 @@ describe('O. code blocks keep pasted text exactly', () => {
 
     expect(o.doc).toBe(`${doc}p\nq`);
     expect(fencedCode(o.doc)).toBe(1);
+  });
+});
+
+
+// The legacy characterization above remains deliberately unflagged. These
+// cases exercise the real React editor with the staged projection enabled.
+describe('M10b — flagged table engine integration in MarkdownEditor', () => {
+  let originalUrl: string;
+  beforeEach(() => {
+    originalUrl = window.location.href;
+    const url = new URL(originalUrl);
+    url.searchParams.set('tableEngineCells', '');
+    window.history.replaceState(null, '', url.href);
+  });
+  afterEach(() => window.history.replaceState(null, '', originalUrl));
+
+  const engineWidgets = (root: EditorView) => root.dom.querySelectorAll<HTMLElement>('[data-table-engine-cells="true"]');
+  const assertEngine = (root: EditorView) => {
+    expect(root.plugin(tableCellEditor)).not.toBeNull();
+    expect(engineWidgets(root).length).toBeGreaterThan(0);
+  };
+
+  it('enters the engine cell from adjacent root Markdown using the original boundary keymap', () => {
+    const { container } = render(<MarkdownEditor pageId="engine-boundary" markdown={DOC_TABLE} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    const press = (key: string) => act(() => {
+      root.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+    act(() => { root.dispatch({ selection: { anchor: DOC_TABLE.indexOf(TABLE) - 1 } }); root.focus(); });
+    press('ArrowDown');
+    const controller = root.plugin(tableCellEditor)!;
+    expect(controller.nested).toBe(nestedOf(container));
+    expect(controller.nested!.state.doc.toString()).toBe('A');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
+    act(() => { controller.close(); root.dispatch({ selection: { anchor: DOC_TABLE.indexOf(TABLE) + TABLE.length + 1 } }); root.focus(); });
+    press('ArrowLeft');
+    expect(controller.nested).toBe(nestedOf(container));
+    expect(controller.nested!.state.doc.toString()).toBe('b2');
+    expect(controller.nested!.state.selection.main.head).toBe(2);
+    expect(root.state.doc.toString()).toBe(DOC_TABLE);
+  });
+
+  it('reuses one nested engine editor across two tables and reports exact root source through onEdit', () => {
+    const markdown = DOC_TABLE + '\n\n| C | D |\n| --- | --- |\n| c1 | d1 |';
+    const onEdit = vi.fn();
+    const { container } = render(<MarkdownEditor pageId="engine-two" markdown={markdown} onEdit={onEdit} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    expect(engineWidgets(root)).toHaveLength(2);
+    activateCell(root, 'a1');
+    const nested = nestedOf(container)!;
+    act(() => nested.dispatch({ changes: { from: 2, insert: '!' }, userEvent: 'input.type' }));
+    activateCell(root, 'd1');
+    expect(nestedOf(container)).toBe(nested);
+    act(() => nested.dispatch({ changes: { from: 2, insert: '?' }, userEvent: 'input.type' }));
+    const edited = markdown.replace('a1', 'a1!').replace('d1', 'd1?');
+    expect(root.state.doc.toString()).toBe(edited);
+    expect(onEdit).toHaveBeenLastCalledWith(edited);
+    expect(container.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    act(() => undo(root));
+    expect(root.state.doc.toString()).toBe(markdown.replace('a1', 'a1!'));
+    act(() => redo(root));
+    expect(root.state.doc.toString()).toBe(edited);
+  });
+
+  it('maps external prefix refreshes but closes editing when an earlier row changes the logical address', () => {
+    const { container, rerender } = render(<MarkdownEditor pageId="engine-external" markdown={DOC_TABLE} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    activateCell(root, 'b2');
+    const nested = nestedOf(container)!;
+    const prefix = 'New paragraph\n\n' + DOC_TABLE;
+    rerender(<MarkdownEditor pageId="engine-external" markdown={prefix} />);
+    expect(nestedOf(container)).toBe(nested);
+    expect(nested.state.doc.toString()).toBe('b2');
+    const removedRow = prefix.replace('| a1 | b1 |\n', '');
+    rerender(<MarkdownEditor pageId="engine-external" markdown={removedRow} />);
+    expect(root.state.doc.toString()).toBe(removedRow);
+    expect(nestedOf(container)).toBeNull();
+    activateCell(root, 'b2');
+    expect(nestedOf(container)!.state.doc.toString()).toBe('b2');
+    rerender(<MarkdownEditor pageId="engine-external" markdown="Replacement" />);
+    expect(root.state.doc.toString()).toBe('Replacement');
+    expect(nestedOf(container)).toBeNull();
+    expect(engineWidgets(root)).toHaveLength(0);
+  });
+
+  it('switches the real editor to read-only and back without retaining editable controls or changing source', () => {
+    const markdown = TABLE + '\n{table-col-widths="120,260"}';
+    const { container, rerender } = render(<MarkdownEditor pageId="engine-mode" markdown={markdown} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    activateCell(root, 'b1');
+    const nested = nestedOf(container)!;
+    rerender(<MarkdownEditor pageId="engine-mode" markdown={markdown} readOnly />);
+    expect(rootOf(container)).toBe(root);
+    expect(root.state.readOnly).toBe(true);
+    expect(nested.dom.isConnected).toBe(false);
+    expect(nestedOf(container)).toBeNull();
+    expect(engineWidgets(root)).toHaveLength(0);
+    expect(root.dom.querySelector('.cm-table-quick-add, .cm-table-column-resize-hit, .cm-table-row-handle-hit')).toBeNull();
+    expect(root.state.doc.toString()).toBe(markdown);
+    rerender(<MarkdownEditor pageId="engine-mode" markdown={markdown} />);
+    expect(rootOf(container)).toBe(root);
+    assertEngine(root);
+    activateCell(root, 'b1');
+    expect(nestedOf(container)!.state.doc.toString()).toBe('b1');
+    expect(root.state.doc.toString()).toBe(markdown);
+  });
+
+  it('routes active-cell plain text, grid and file-only clipboard events without leaking to root paste', async () => {
+    const fake = fakeAssets();
+    const { container } = render(<MarkdownEditor pageId="engine-paste" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    activateCell(root, 'a1');
+    const nested = nestedOf(container)!;
+    act(() => nested.dispatch({ selection: { anchor: 1 } }));
+    const scalar = pasteEvent({ text: '!' });
+    act(() => nested.contentDOM.dispatchEvent(scalar));
+    expect(scalar.defaultPrevented).toBe(true);
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
+    const file = pasteEvent({ files: [png()] });
+    act(() => nested.contentDOM.dispatchEvent(file));
+    await sleep();
+    expect(file.defaultPrevented).toBe(true);
+    expect(fake.stored).toEqual([]);
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
+    const grid = pasteEvent({ text: TSV });
+    act(() => nested.contentDOM.dispatchEvent(grid));
+    expect(grid.defaultPrevented).toBe(true);
+    expect(root.state.doc.toString()).toBe(FILLED);
+    expect(nestedOf(container)).toBeNull();
+    act(() => undo(root));
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a!1'));
+  });
+
+  it('unmounts the active nested editor on note switch and restores the saved source on reopening', () => {
+    const onEdit = vi.fn();
+    const { container, rerender } = render(<MarkdownEditor key="engine-a" pageId="engine-a" markdown={DOC_TABLE} onEdit={onEdit} />);
+    const root = rootOf(container);
+    assertEngine(root);
+    activateCell(root, 'a1');
+    const nested = nestedOf(container)!;
+    act(() => nested.dispatch({ changes: { from: 2, insert: '!' }, userEvent: 'input.type' }));
+    const saved = root.state.doc.toString();
+    expect(onEdit).toHaveBeenLastCalledWith(saved);
+    rerender(<MarkdownEditor key="engine-b" pageId="engine-b" markdown="Other note" />);
+    expect(nested.dom.isConnected).toBe(false);
+    expect(root.dom.isConnected).toBe(false);
+    expect(rootOf(container).state.doc.toString()).toBe('Other note');
+    rerender(<MarkdownEditor key="engine-a" pageId="engine-a" markdown={saved} onEdit={onEdit} />);
+    const reopened = rootOf(container);
+    assertEngine(reopened);
+    expect(reopened.state.doc.toString()).toBe(DOC_TABLE.replace('a1', 'a1!'));
+    expect(nestedOf(container)).toBeNull();
+    activateCell(reopened, 'a1!');
+    expect(nestedOf(container)!.state.doc.toString()).toBe('a1!');
   });
 });
