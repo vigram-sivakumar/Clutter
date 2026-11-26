@@ -30,7 +30,7 @@ function expectOutsideAnyTable(state: EditorState, pos: number): void {
 }
 
 describe('tableRootSelectionSnap — non-doc-changing selection (mouse drag / keyboard extend)', () => {
-  it('selects the whole table when a root pointer lands exactly at table.from', () => {
+  it('snaps a collapsed root pointer to actual text rather than selecting a table', () => {
     const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
     let state = makeState(doc);
     const table = findEnclosingTable(state, doc.indexOf('| a |'))!;
@@ -39,17 +39,15 @@ describe('tableRootSelectionSnap — non-doc-changing selection (mouse drag / ke
     const tr = state.update({ selection: { anchor: table.from }, userEvent: 'select.pointer' });
     state = tr.state;
 
-    expect(state.selection.main.from).toBe(table.from);
-    expect(state.selection.main.to).toBe(table.to);
-    expect(state.selection.main.empty).toBe(false);
+    expect(state.selection.main.head).toBe(table.from - 1);
+    expect(state.selection.main.empty).toBe(true);
   });
 
-  it('selects the full table at EOF instead of exposing a hidden caret', () => {
+  it('does not convert a collapsed EOF pointer into a range; focus controller handles the parked position', () => {
     const state = makeState(BASIC_TABLE);
     const tr = state.update({ selection: { anchor: BASIC_TABLE.length }, userEvent: 'select.pointer' });
-    expect(tr.state.selection.main.from).toBe(0);
-    expect(tr.state.selection.main.to).toBe(BASIC_TABLE.length);
-    expect(tr.state.selection.main.empty).toBe(false);
+    expect(tr.state.selection.main.head).toBe(BASIC_TABLE.length);
+    expect(tr.state.selection.main.empty).toBe(true);
     expect(tr.docChanged).toBe(false);
   });
 
