@@ -133,10 +133,19 @@ export class TableCellEditor {
     this.close();
   };
 
-  private clearRootTableInteraction(): void {
+  private clearRootTableInteraction(tableFrom?: number): void {
     const armed = this.root.state.field(tableDeletionSelectionField, false) ?? null;
-    if (armed === null) return;
-    this.root.dispatch({ effects: [tableDeletionSelectionChanged.of(null)] });
+    // Collapse any previous root text range when ownership transfers to a
+    // cell. A parked boundary is never a typing target while the host owns focus.
+    const table = tableFrom !== undefined && !this.root.state.selection.main.empty
+      ? this.snapshot(tableFrom) : null;
+    if (armed === null && !table) return;
+    const anchor = table ? table.from > 0 ? table.from - 1 :
+      Math.min(table.to + 1, this.root.state.doc.length) : undefined;
+    this.root.dispatch({
+      effects: armed === null ? [] : [tableDeletionSelectionChanged.of(null)],
+      selection: anchor === undefined ? undefined : { anchor },
+    });
   }
 
   private hostAt(tableFrom: number, cell: CellAddress): HTMLElement | null {
@@ -160,9 +169,13 @@ export class TableCellEditor {
     const from = Number(widget.dataset.tableFrom);
     let bounds: ReturnType<typeof selectionBounds> = null;
     let focus: CellAddress | null = null;
+    let full = false;
     if (this.interactionTable === from && this.interaction.kind !== 'editing') {
       try {
-        bounds = selectionBounds(this.interaction, this.shape(from));
+        const shape = this.shape(from);
+        bounds = selectionBounds(this.interaction, shape);
+        full = !!bounds && bounds.top === 0 && bounds.left === 0 &&
+          bounds.bottom === shape.rows - 1 && bounds.right === shape.cols - 1;
         focus = focusCell(this.interaction);
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
@@ -187,9 +200,9 @@ export class TableCellEditor {
     // more specific interaction. Suppress the coarse halo while editing or
     // selecting cells, and restore it when that interaction closes.
     widget.firstElementChild?.classList.toggle('cm-table-wrapper-selected',
-      widget.dataset.tableRootSelected === 'true' &&
-      !(this.interactionTable === from && this.interaction.kind !== 'none'));
-    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: bounds }));
+      full || (widget.dataset.tableRootSelected === 'true' &&
+      !(this.interactionTable === from && this.interaction.kind !== 'none')));
+    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: full ? null : bounds }));
   }
 
   private paintSelection(): void {
@@ -199,7 +212,7 @@ export class TableCellEditor {
   private select(tableFrom: number, interaction: TableInteraction, preventScroll = false): boolean {
     const cell = focusCell(interaction);
     if (!cell || !isValidCell(cell, this.shape(tableFrom))) return false;
-    this.clearRootTableInteraction();
+    this.clearRootTableInteraction(tableFrom);
     const host = this.hostAt(tableFrom, cell);
     if (!host) return false;
     this.close();
@@ -212,18 +225,24 @@ export class TableCellEditor {
     return true;
   }
 
+  /** Non-cell widget space belongs to the table, not hidden root Markdown. */
+  selectBlock(tableFrom: number): boolean {
+    if (this.root.state.readOnly) return false;
+    try {
+      this.cancelDrag();
+      return this.select(tableFrom, { kind: 'table', cell: { row: 0, col: 0 } });
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  }
+
   private navigateTab(backwards: boolean): boolean {
     if (this.interactionTable === null) return false;
     const from = this.interactionTable;
     const next = tabInteraction(this.interaction, this.shape(from), backwards);
     if (next.kind !== 'none') return this.select(from, next);
-    const snapshot = this.snapshot(from);
-    this.close();
-    const anchor = backwards ? Math.max(0, snapshot.from - 1) :
-      Math.min(this.root.state.doc.length, snapshot.to + 1);
-    this.root.dispatch({ selection: { anchor }, scrollIntoView: true });
-    this.root.focus();
-    return true;
+    return this.leaveTable(from, backwards);
   }
 
   /** Enter navigates vertically like Tab's caret-free selection, but never
@@ -260,6 +279,12 @@ export class TableCellEditor {
       this.cancelDrag();
       return this.enterCell(tableFrom, next, direction === 'left' ? 'end' : 'start');
     }
+    return this.leaveTable(tableFrom, backwards);
+  }
+
+  /** An explicit keyboard exit may create a real text line at EOF, but
+   * never focus the root on the table's hidden last source line. */
+  private leaveTable(tableFrom: number, backwards: boolean): boolean {
     const snapshot = this.snapshot(tableFrom);
     // At the first document position there is no preceding text line.
     if (backwards && snapshot.from === 0) return true;
@@ -644,7 +669,7 @@ export class TableCellEditor {
 
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
-    this.clearRootTableInteraction();
+    this.clearRootTableInteraction(tableFrom);
     host = this.hostAt(tableFrom, cell) ?? host;
     this.close();
     let snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
