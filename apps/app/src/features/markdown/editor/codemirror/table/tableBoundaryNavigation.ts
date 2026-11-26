@@ -1,4 +1,4 @@
-import { Prec, type Extension } from '@codemirror/state';
+import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
