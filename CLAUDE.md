@@ -71,4 +71,4 @@ Every logically complete implementation milestone must satisfy the mandatory reg
 3. If verification passes, create a Git commit with a clear, descriptive message.
 4. Report the commit hash and message before starting the next milestone.
 
-Do not accumulate multiple completed milestones into one uncommitted change unless explicitly told to. If verification fails, do not commit — explain the failure first and fix it before proceeding.
+Do not accumulate multiple completed milestones into one uncommitted change unless explicitly told to. If verification fails, do not commit to a shared development branch or main — explain the failure first and fix it before proceeding. Only the isolated testing candidate exception in §7 permits unverified candidate commits.
