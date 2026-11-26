@@ -4,7 +4,7 @@ import type { EditorView } from '@codemirror/view';
 import { resolveTableColumnWidths, tableRemovalRangeIncludingWidths } from '../table/tableColumnWidthMetadata';
 import type { TableInfo } from '../table/tableGeometry';
 import { planTableEdit, type TableCommand } from './tableCommands';
-import { readTable, TableEngineError, type ParseMarkdown } from './tableModel';
+import { projectableTableSnapshot, readTable, TableEngineError, type ParseMarkdown } from './tableModel';
 
 /** Construct exactly one root history entry from a validated Markdown edit.
  * Filters still run. Refuse any change to the proposed source or history intent.
@@ -42,9 +42,13 @@ function createTableRemoval(state: EditorState, from: number, to: number, effect
  * table also works for imported rows the rectangular model cannot represent.
  * Only a width line positively associated with that table belongs to the edit.
  */
-export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>): boolean {
+export function deleteProjectedTable(view: EditorView, table: TableInfo, effect: StateEffect<unknown>, engineOnly = false): boolean {
   if (view.state.readOnly) return false;
-  const { from, to } = tableRemovalRangeIncludingWidths(table, resolveTableColumnWidths(view.state, table));
+  const range = engineOnly
+    ? projectableTableSnapshot(view.state.doc.toString(), table.node)
+    : tableRemovalRangeIncludingWidths(table, resolveTableColumnWidths(view.state, table));
+  if (!range) return false;
+  const { from, to } = range;
   let transaction: Transaction;
   try {
     transaction = createTableRemoval(view.state, from, to, effect);
