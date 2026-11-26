@@ -537,7 +537,7 @@ describe('engine staged structural commands (M8 candidate)', () => {
     press(true); expect(view.state.doc.toString()).toBe(col);
     expect(redoDepth(view.state)).toBe(0);
   });
-  it('continues history if a restored cell loses DOM focus, without taking another input's shortcut', async () => {
+  it('continues history after restored cell focus loss without intercepting unrelated input shortcuts', async () => {
     const view = mountHistory();
     clickCell(findCell(view, 'Vik'));
     view.plugin(tableCellEditor)!.nested!.dispatch({ changes: { from: 3, insert: '!' }, userEvent: 'input.type' });
