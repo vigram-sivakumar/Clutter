@@ -136,10 +136,14 @@ describe('tableWidgetField — inactive cells render formatted (not plain-text) 
     expect(view.dom.textContent).not.toContain('**');
   });
 
-  it('a WikiLink inside a cell renders via renderInlineMarkdown', () => {
+  it('a WikiLink inside a cell renders the shared unresolved widget', () => {
     const view = mountView('| a |\n| - |\n| [[Page]] |\n\nOther');
 
-    expect(view.dom.querySelector('tbody td .cm-table-cell-wikilink')?.textContent).toBe('Page');
+    const widget = view.dom.querySelector('tbody td .tok-wikilink');
+    expect(widget?.getAttribute('data-wikilink-status')).toBe('unresolved');
+    expect(widget?.querySelector('.tok-wikilink__title')?.textContent).toBe('Page');
+    expect(widget?.querySelector('.tok-wikilink__icon-wrap svg')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('[[Page]]');
   });
 });
 
