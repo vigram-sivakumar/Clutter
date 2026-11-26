@@ -3,6 +3,7 @@ import { keymap, type Command, type EditorView, type KeyBinding } from '@codemir
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { projectableTableSnapshot } from '../table-engine/tableModel';
 import { findAllTables, type TableInfo } from './tableGeometry';
+import { tableDeletionSelectionField } from './tableDeletionSelection';
 
 function enterCellOf(view: EditorView, table: TableInfo, row: number, col: number, cursorAt: 'start' | 'end'): boolean {
   return view.plugin(tableCellEditor)?.enterCell(table.from, { row, col }, cursorAt) ?? false;
@@ -84,7 +85,23 @@ export function tableBoundaryNavigation(): Extension {
     return false;
   };
 
+  const enterSelectedTable: Command = view => {
+    if (view.state.readOnly) return false;
+    const sel = view.state.selection.main;
+    const armed = view.state.field(tableDeletionSelectionField, false) ?? null;
+    for (const table of findAllTables(view.state)) {
+      const snapshot = projectableTableSnapshot(view.state.doc.toString(), table.node);
+      if (!snapshot) continue;
+      if ((!sel.empty && sel.from === snapshot.from && sel.to === snapshot.to) ||
+          (sel.empty && armed === snapshot.from)) {
+        return enterCellOf(view, table, 0, 0, 'start');
+      }
+    }
+    return false;
+  };
+
   const bindings: readonly KeyBinding[] = [
+    { key: 'Enter', run: enterSelectedTable },
     { key: 'ArrowDown', run: arrowDown },
     { key: 'ArrowUp', run: arrowUp },
     { key: 'ArrowRight', run: arrowRight },
