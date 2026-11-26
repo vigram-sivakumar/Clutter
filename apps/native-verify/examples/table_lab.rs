@@ -10,7 +10,7 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             // Exercise the normal native Edit menu too, not just DOM events.
-            app.set_menu(Menu::default(app)?)?;
+            app.set_menu(Menu::default(app.handle())?)?;
             let url = "http://localhost:5176/table-next-lab.html?cell=codemirror"
                 .parse()
                 .expect("static lab URL");
