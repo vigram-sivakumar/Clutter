@@ -813,6 +813,19 @@ export class TableCellEditor {
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false),
         formatShortcutsKeymap(),
+        // Escape belongs to a visible completion popup, not to an
+        // invisible pending query after ordinary cell typing. Cancel
+        // that query and exit the cell in the same gesture. Register
+        // before semanticCompletion: CM6's default completion keymap
+        // also has Prec.highest; equal precedence follows extension order.
+        Prec.highest(keymap.of([{
+          key: 'Escape',
+          run: view => {
+            if (completionStatus(view.state) !== 'pending') return false;
+            closeCompletion(view);
+            return this.exitEdit();
+          },
+        }])),
         // Same completion sources, rows, theme and reactivation as prose.
         // WikiLink suggestions stay disabled until alias writes and indexing
         // share a validated table-escaping contract; embeds are excluded.
@@ -822,17 +835,6 @@ export class TableCellEditor {
         tooltips({ parent: this.root.dom.ownerDocument.body }),
         tagAutocomplete(),
         dateAutocomplete(),
-        // Escape belongs to a visible completion popup, not to an
-        // invisible pending query after ordinary cell typing. Cancel
-        // that query and exit the cell in the same gesture.
-        Prec.highest(keymap.of([{
-          key: 'Escape',
-          run: view => {
-            if (completionStatus(view.state) !== 'pending') return false;
-            closeCompletion(view);
-            return this.exitEdit();
-          },
-        }])),
         Prec.low(keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },
           { key: 'Mod-Shift-z', run: () => this.stepHistory(false) },
