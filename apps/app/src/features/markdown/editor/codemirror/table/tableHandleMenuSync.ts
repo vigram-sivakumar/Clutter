@@ -1,40 +1,28 @@
-import type { Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 
-import { tableSelectionField, type TableSelection } from './tableSelection';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 
-/**
- * The row/column handle's own floating menu (`TableHandleMenu.tsx`) —
- * shared types + the one CM6-side mechanism that closes it from outside a
- * discrete click (see that component's own doc comment for the full UI).
- *
- * `Extract<TableSelection, {kind:'row'}|{kind:'column'}>` — never `range`:
- * only the row/column handles have a menu at all (`tableHandleOverlay.ts`'s
- * own pointerup handler is the only caller that constructs one of
- * these).
- */
-export type TableHandleMenuSelection = Extract<TableSelection, { kind: 'row' } | { kind: 'column' }>;
+export type TableHandleMenuSelection =
+  | { readonly kind: 'row'; readonly tableFrom: number; readonly rowIndex: number }
+  | { readonly kind: 'column'; readonly tableFrom: number; readonly columnIndex: number };
 
 export interface OpenTableHandleMenuParams {
   readonly selection: TableHandleMenuSelection;
-  readonly engine?: true;
 }
 
 /** Resolve the physical handle from the current TableSelection and live editor DOM. */
 export function resolveTableHandleMenuAnchor(
   view: EditorView | null,
-  requestedSelection: TableHandleMenuSelection | null,
-  engine = false
+  requestedSelection: TableHandleMenuSelection | null
 ): HTMLElement | null {
   if (!view || !requestedSelection || !view.dom.isConnected) {
     return null;
   }
 
   const engineWidget = view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${requestedSelection.tableFrom}"]`);
-  if (engine && !engineWidget) return null;
-  const currentSelection = engineWidget ? view.plugin(tableCellEditor)?.currentAxisSelection() ?? null : view.state.field(tableSelectionField, false) ?? null;
-  if (!currentSelection || (engineWidget && currentSelection.tableFrom !== requestedSelection.tableFrom)) {
+  if (!engineWidget) return null;
+  const currentSelection = view.plugin(tableCellEditor)?.currentAxisSelection() ?? null;
+  if (!currentSelection || currentSelection.tableFrom !== requestedSelection.tableFrom) {
     return null;
   }
 
@@ -80,47 +68,4 @@ export function resolveTableHandleMenuAnchor(
  */
 export type OnTableHandleMenuChange = (params: OpenTableHandleMenuParams | null) => void;
 
-// `TABLE_HANDLE_MENU_CLASS` lives in `tableSelection.ts` itself (re-exported
-// here for convenience) — it needs to be read by
-// `attachTableOutsideClickHandling` there, and defining it in *this* file
-// instead would make that a circular import (`tableSelection.ts` already
-// exports `tableSelectionField`/`TableSelection`, which this file imports).
-// See that file's own doc comment on the constant for the full reasoning.
-export { TABLE_HANDLE_MENU_CLASS } from './tableSelection';
-
-/**
- * Closes the table handle menu whenever `tableSelectionField` transitions
- * from set to `null` — the two cases the product spec calls out
- * ("clicking a cell should close the menu," "clicking outside... should
- * close the menu"), both of which *already* clear `tableSelectionField` to
- * `null` through entirely pre-existing mechanisms this extension never
- * touches: cell activation's own mutual-exclusivity effect
- * (`tableSelectionField.update()`, `tableSelection.ts`) and
- * `attachTableOutsideClickHandling`'s own explicit dispatch. This
- * extension only *observes* that transition and forwards it to React —
- * one more small, single-purpose `EditorView.updateListener`, the same
- * primitive `tableActiveCellReconciliation`/`tableSelectionCaretVisibility`
- * already use for an analogous "sync a side effect from state" concern.
- *
- * Deliberately does **not** fire when the selection changes from one
- * non-null value to a different one (row → another row, row → column,
- * etc.) — that transition is exactly a handle click, and
- * `tableHandleOverlay.ts`'s document-level pointerup handler calls
- * `OnTableHandleMenuChange` directly with the new anchor/selection after
- * the selection dispatch and any synchronous widget rebuild, which is the
- * only place a fresh anchor *element* is available (a `StateField`/`Transaction` has no DOM access at all, so
- * "open with this specific handle as anchor" can never be derived from
- * state alone the way "close" can). Firing here too would be redundant at
- * best; since it also has no anchor to offer, it could only ever close the
- * menu, immediately fighting the pointerup handler's own call to
- * reopen it.
- */
-export function tableHandleMenuSync(getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined): Extension {
-  return EditorView.updateListener.of((update) => {
-    const wasSet = update.startState.field(tableSelectionField, false) ?? null;
-    const isSet = update.state.field(tableSelectionField, false) ?? null;
-    if (wasSet !== null && isSet === null) {
-      getOnTableHandleMenuChange()?.(null);
-    }
-  });
-}
+export const TABLE_HANDLE_MENU_CLASS = 'cm-table-handle-menu';
