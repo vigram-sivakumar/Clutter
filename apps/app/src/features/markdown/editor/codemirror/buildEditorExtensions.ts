@@ -76,6 +76,7 @@ import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { selectNewMarkdownTable, tableSelectionHistory } from './table-engine/tableSelectionHistory';
 import { tableWidgetDecoration } from './table/tableWidgetField';
+import { blockRangeSelection } from './blockRangeSelection';
 
 /**
  * Every getter here follows the same "read fresh per rebuild/per click"
@@ -252,6 +253,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
 
   const rendering: Extension[] = [
     markdownLanguageExtension(),
+    blockRangeSelection(),
     ...fencedCodeHighlighting(),
     inlineLivePreviewRegion(
       createInlineLivePreviewParticipants({
