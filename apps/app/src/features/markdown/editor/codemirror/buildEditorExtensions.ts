@@ -1,4 +1,4 @@
-import { Compartment, Transaction, type Extension } from '@codemirror/state';
+import { Compartment, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { readOnlyModeEffect } from './createEditorView';
@@ -86,6 +86,7 @@ import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableCellEditor, tableEngineIntegration } from './table-engine/tableCellEditor';
 import { tableSelectionHistory } from './table-engine/tableSelectionHistory';
+import { tableRootTrace } from './table-engine/tableRootTrace';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
@@ -352,24 +353,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
       (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tableEngineCells')))));
   const table: Extension[] = [
     ...(engineCells ? [tableEngineIntegration.of({ compatibilityController: tableActiveCellController, getPasteAssets }), tableCellEditor, tableSelectionHistory, EditorView.updateListener.of(update => update.view.plugin(tableCellEditor)?.restoreHistory())] : []),
-    ...(engineCells && import.meta.env.DEV && import.meta.env.VITE_CLUTTER_TABLE_TRACE === '1' ? [
-      EditorView.updateListener.of(update => {
-        for (const tr of update.transactions) {
-          if (!tr.docChanged) continue;
-          // Explicit disposable-note diagnostics only. Never enable in a
-          // packaged build. Capture exact root revisions, not rendered DOM.
-          console.info('[table-root-trace]', JSON.stringify({
-            event: tr.annotation(Transaction.userEvent) ?? 'unannotated',
-            addToHistory: tr.annotation(Transaction.addToHistory) !== false,
-            changes: tr.changes.toJSON(),
-            before: tr.startState.doc.toString(),
-            after: tr.newDoc.toString(),
-            selection: tr.newSelection.main.head,
-            focus: update.view.dom.ownerDocument.activeElement?.className,
-          }));
-        }
-      }),
-    ] : []),
+    ...(import.meta.env.DEV && import.meta.env.VITE_CLUTTER_TABLE_TRACE === '1' && !readOnly ? [tableRootTrace(engineCells)] : []),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.(), readOnly, engineCells),
     tableColumnWidthsConcealment(engineCells),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,

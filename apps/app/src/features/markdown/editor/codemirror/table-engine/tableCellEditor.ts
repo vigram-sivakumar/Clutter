@@ -28,10 +28,12 @@ export const tableEngineIntegration = Facet.define<{
   readonly getPasteAssets?: () => PasteAssets | undefined;
 }>();
 
+interface ActiveCell { tableFrom: number; cell: CellAddress; from: number; to: number }
+
 /** At most one live nested view per root, scoped to a single cell activation. */
 export class TableCellEditor {
   nested: EditorView | null = null;
-  private active: { tableFrom: number; cell: CellAddress; from: number; to: number } | null = null;
+  private active: ActiveCell | null = null;
   private forwarding = false;
 
   // The interaction owns logical selection. The active source span above is
@@ -664,7 +666,8 @@ export class TableCellEditor {
     if (!this.nested || !this.active) return;
     for (const tr of transactions) {
       if (!tr.docChanged) { this.nested.update([tr]); continue; }
-      const active = this.active;
+      const active: ActiveCell | null = this.active;
+      if (!active) return;
       const mark = bookmark(active.tableFrom, { kind: 'editing', cell: active.cell });
       try {
         // Keep the exact editable span chosen at activation as spaces are typed.
@@ -689,7 +692,11 @@ export class TableCellEditor {
       const mark = restoredSelection(tr);
       if (mark !== undefined) this.pendingHistory = mark;
       if (!tr.docChanged) continue;
-      if (!this.forwarding) this.cancelDrag();
+      if (!this.forwarding) {
+        const dragging = this.drag.inProgress;
+        this.cancelDrag();
+        if (dragging && this.interaction.kind === 'range') this.close();
+      }
       if (!this.active) {
         if (this.interactionTable !== null && !this.forwarding) {
           // A revision outside this exact table does not invalidate its

@@ -13,6 +13,8 @@ export class TableDragSelection {
 
   constructor(private readonly onRange: (widget: HTMLElement, anchor: CellAddress, head: CellAddress) => boolean) {}
 
+  get inProgress(): boolean { return this.gesture !== null; }
+
   cancel(widget?: HTMLElement): void {
     if (!widget || this.gesture?.widget === widget) {
       this.gesture?.abort.abort();
