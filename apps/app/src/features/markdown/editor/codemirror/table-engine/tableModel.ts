@@ -93,8 +93,8 @@ function readAlignments(source: string): Alignment[] {
 }
 
 /** The engine supports top-level tables. It refuses
- * nested or overflowing rows instead of silently discarding source content.
- * Parsing does not modify the document, including ragged rows.
+ * nested tables instead of rewriting their container syntax. Overflow
+ * and ragged rows are projected without losing source cells or editing on read.
  */
 export function readTable(source: string, tableFrom: number, parse: ParseMarkdown): TableSnapshot {
   const tree = parse(source);
@@ -127,13 +127,20 @@ export function snapshotFromTableNode(source: string, node: SyntaxNode): TableSn
   const alignments = readAlignments(source.slice(delimiter.from, delimiter.to));
   if (alignments.length !== count) fail('Header and delimiter disagree');
   const cells: (CellSource | null)[][] = [headerCells];
+  let width = count;
   for (let row = delimiter.nextSibling; row; row = row.nextSibling) {
     if (row.name !== 'TableRow') fail('Unrecognised table child');
     const found: (CellSource | null)[] = readRow(source, row);
-    if (found.length > count) fail('Overflow cells must not be discarded');
-    while (found.length < count) found.push(null);
+    width = Math.max(width, found.length);
     cells.push(found);
   }
+  // Imported overflow rows may contain real Markdown beyond the header.
+  // Project every source cell, adding only virtual empty cells and default
+  // alignments to the derived model. Reading and editing an existing cell
+  // do not rewrite the source. Explicit structural edits (or activation of
+  // an absent cell) use the validated serializer to materialise the width.
+  while (alignments.length < width) alignments.push('none');
+  for (const row of cells) while (row.length < width) row.push(null);
   const textRows = cells.map((row) => row.map((cell) => cell ? source.slice(cell.from, cell.to) : ''));
   // Include trailing whitespace on the table's own final source line, if any.
   const end = lineEnd(source, node.to);
