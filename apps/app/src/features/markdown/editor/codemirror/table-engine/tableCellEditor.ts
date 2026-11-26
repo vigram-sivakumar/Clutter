@@ -91,8 +91,13 @@ export class TableCellEditor {
    * keydown. Both routes must target the one root history, never browser
    * history for a contenteditable nested document or its projection. */
   private ownsHistoryTarget(target: EventTarget | null): boolean {
-    if (this.interactionTable === null || this.interaction.kind === 'none') return false;
     const doc = this.root.dom.ownerDocument;
+    // Neutral focus after a non-cell click or quick-add still belongs to
+    // this editor's single root history, not native browser history.
+    if (target instanceof HTMLElement && target === doc.activeElement &&
+        target.matches('.cm-table-widget[data-table-engine-cells="true"]') &&
+        this.root.dom.contains(target)) return true;
+    if (this.interactionTable === null || this.interaction.kind === 'none') return false;
     const cell = focusCell(this.interaction);
     const host = cell && this.hostAt(this.interactionTable, cell);
     if (target instanceof Node && host?.contains(target)) return true;
