@@ -10,7 +10,6 @@ import { attachTableHandleOverlay } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
-import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from './tableWidgetBreakoutWidth';
 import { insertRowBelowSelection } from './tableRowInsertion';
 import { insertColumnRightSelection } from './tableColumnInsertion';
 import {
@@ -34,13 +33,6 @@ function rangeEq(a: SelectedRangeBounds, b: SelectedRangeBounds): boolean {
     return a === b;
   }
   return a.minRow === b.minRow && a.maxRow === b.maxRow && a.minCol === b.minCol && a.maxCol === b.maxCol;
-}
-
-function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null): boolean {
-  if (a === null || b === null) {
-    return a === b;
-  }
-  return a.length === b.length && a.every((width, i) => width === b[i]);
 }
 
 /**
@@ -271,17 +263,6 @@ export class TableWidget extends WidgetType {
      * regardless, at which point this getter is simply read again fresh.
      */
     readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined,
-    /**
-     * This table's own persisted column widths (`tableColumnWidthMetadata.ts`'s
-     * `resolveTableColumnWidths`), or `null` when no valid metadata exists —
-     * `tableWidgetField.ts` resolves this fresh on every rebuild, the same
-     * "no state of its own" shape every other field here already follows.
-     * Part of `eq()`: a resize commit only ever rewrites the attribute line
-     * (never `rawText`, this table's own `[from, to)` range), so this field
-     * is what actually notices a resize happened and triggers a rebuild —
-     * see `toDOM()`'s own `<colgroup>` rendering below for how it's applied.
-     */
-    readonly columnWidths: readonly number[] | null = null,
     readonly automaticSizing = false
   ) {
     super();
@@ -303,19 +284,6 @@ export class TableWidget extends WidgetType {
    * other per-render listener in this file.
    */
   private resizeObserver: ResizeObserver | null = null;
-
-  /**
-   * The breakout-width `ResizeObserver` handle (`tableWidgetBreakoutWidth.ts`),
-   * when this instance has explicit column widths at all — `null`
-   * otherwise, and `null` again once `destroy()` has torn it down. Same
-   * one-per-instance lifecycle and the same "why an explicit `destroy()`"
-   * reasoning as `resizeObserver` just above, kept as a genuinely separate
-   * field rather than folded into it: the two observe different ancestors
-   * for different reasons (this table's own selection overlay vs. the page
-   * shell's own available width) and are gated on different conditions (a
-   * selection existing vs. explicit column widths existing).
-   */
-  private breakoutWidthHandle: BreakoutWidthHandle | null = null;
 
   /** Root view retained for lifecycle-level scroll restoration. */
   private rootView: EditorView | null = null;
@@ -341,7 +309,7 @@ export class TableWidget extends WidgetType {
       this.selectedColumnIndex === other.selectedColumnIndex &&
       this.selectedRowIndex === other.selectedRowIndex &&
       rangeEq(this.selectedRange, other.selectedRange) &&
-      this.automaticSizing === other.automaticSizing && columnWidthsEq(this.columnWidths, other.columnWidths)
+      this.automaticSizing === other.automaticSizing
     );
   }
 
@@ -373,15 +341,6 @@ export class TableWidget extends WidgetType {
 
     const widget = document.createElement('div');
     widget.className = 'cm-table-widget';
-    // Defensive disconnect-before-create, matching `this.resizeObserver`'s
-    // own identical guard further below — in practice a given instance's
-    // `toDOM()` only ever runs once (CM6 builds a fresh instance per
-    // rebuild), but this avoids ever leaking a previous call's observer if
-    // that ever changes. The actual `attachTableWidgetBreakoutWidth` call
-    // is below, once `tableWrapper` exists — see that function's own doc
-    // comment for why it needs both elements.
-    this.breakoutWidthHandle?.disconnect();
-    this.breakoutWidthHandle = null;
     this.quickAddResizeObserver?.disconnect();
     this.quickAddResizeObserver = null;
     widget.contentEditable = 'false';
@@ -459,23 +418,7 @@ export class TableWidget extends WidgetType {
     if (this.isSelected) {
       tableWrapper.classList.add('cm-table-wrapper-selected');
     }
-    // Explicit column widths (persisted resize metadata) switch the table
-    // out of "stretch to 100% of the container, columns divide evenly"
-    // mode into "size to the literal sum of column widths, scroll
-    // horizontally past the container if needed" — `tableWidget.css`'s own
-    // `.cm-table-wrapper--explicit-widths` rule pair (on this element and
-    // `.cm-table-scroll`) implements both halves together. Scoped to only
-    // tables that actually have resized widths, not applied globally — an
-    // untouched table keeps today's exact rendering.
     if (this.automaticSizing) tableWrapper.classList.add('cm-table-wrapper--auto-widths');
-    if (this.columnWidths !== null) {
-      tableWrapper.classList.add('cm-table-wrapper--explicit-widths');
-      // `tableWidgetBreakoutWidth.ts`'s own top doc comment has the full
-      // mechanism — deferred internally, so it's safe to call before
-      // `<table>` itself exists below; measurement happens once this whole
-      // subtree is actually attached.
-      this.breakoutWidthHandle = attachTableWidgetBreakoutWidth(widget, tableWrapper);
-    }
     widget.appendChild(tableWrapper);
 
     // Horizontal-scroll container, split out from `.cm-table-wrapper`
@@ -531,23 +474,11 @@ export class TableWidget extends WidgetType {
     const table = document.createElement('table');
     tableInner.appendChild(table);
 
-    // One `<col>` per column — the standard native mechanism for real
-    // per-column widths under `table-layout: fixed`, not a second layout
-    // system. Always present (even with no explicit widths) so the resize
-    // gesture (`tableColumnResizeHandle.ts`) always has a `<col>` per
-    // column to write an inline width onto directly, with no DOM
-    // restructuring needed the moment a drag starts. Carries an explicit
-    // pixel `width` only when `this.columnWidths` has a valid entry for
-    // that index — otherwise `table-layout: fixed`'s own even-division
-    // default applies exactly as it does with no `<colgroup>` at all.
+    // One unsized column element per logical column.
     const colgroup = document.createElement('colgroup');
     for (let i = 0; i < this.headerCells.length; i++) {
       const col = document.createElement('col');
       col.dataset.columnIndex = String(i);
-      const width = this.columnWidths?.[i];
-      if (width !== undefined) {
-        col.style.width = `${width}px`;
-      }
       colgroup.appendChild(col);
     }
     table.appendChild(colgroup);
@@ -617,7 +548,7 @@ export class TableWidget extends WidgetType {
         // The destination remains pending across replacement widgets until
         // the user deliberately scrolls away from the far edge.
         pendingEndSet(view).add(this.tableFrom);
-        if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
+        if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false)) {
           view.focus();
         } else {
           pendingEndSet(view).delete(this.tableFrom);
@@ -990,8 +921,6 @@ export class TableWidget extends WidgetType {
     }
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    this.breakoutWidthHandle?.disconnect();
-    this.breakoutWidthHandle = null;
     this.quickAddResizeObserver?.disconnect();
     this.quickAddResizeObserver = null;
   }
