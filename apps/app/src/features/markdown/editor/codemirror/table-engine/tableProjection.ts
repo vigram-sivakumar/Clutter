@@ -133,6 +133,7 @@ export class TableProjection extends WidgetType {
     const root = document.createElement('div');
     root.className = 'cm-table-widget';
     root.contentEditable = 'false';
+    if (this.cellEditing) root.tabIndex = -1;
     const wrapper = container(root, 'cm-table-wrapper');
     const scroll = container(wrapper, 'cm-table-scroll');
     const layout = container(scroll, 'cm-table-layout');
@@ -155,9 +156,9 @@ export class TableProjection extends WidgetType {
         const target = event.target;
         if (event.button !== 0 || event.shiftKey || !(target instanceof Element) ||
             target.closest('th, td, button, .cm-table-row-handle-hit, .cm-table-column-handle-hit, .cm-table-row-handle, .cm-table-column-handle')) return;
-        // Blank widget space is not a text line. Do not let WebKit focus
-        // the root contenteditable at the hidden table boundary.
-        if (view.plugin(tableCellEditor)?.selectBlock(Number(root.dataset.tableFrom))) {
+        // Blank widget space and table-level borders are not selection
+        // gestures. Transfer to safe text or neutral widget focus.
+        if (view.plugin(tableCellEditor)?.dismissTableSpace(Number(root.dataset.tableFrom))) {
           event.preventDefault();
           event.stopPropagation();
         }
