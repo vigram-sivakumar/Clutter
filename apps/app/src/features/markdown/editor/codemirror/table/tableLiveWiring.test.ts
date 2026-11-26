@@ -941,8 +941,11 @@ describe('engine editable cell projection', () => {
     const host = view.dom.querySelector<HTMLElement>('tbody tr td:last-child .cm-table-cell-wrapper')!;
     host.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(nested.state.doc.toString()).toBe('');
+    expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n| one |  |');
     nested.dispatch({ changes: { from: 0, insert: 'new' } });
-    expect(view.state.doc.toString()).toContain('| one | new |');
+    expect(nested.state.doc.toString()).toBe('new');
+    expect(view.state.doc.toString()).toBe('| A | B |\n| --- | --- |\n| one | new |');
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: 'External' } });
     expect(nested.dom.isConnected).toBe(false);
     expect(view.state.doc.toString()).toBe('External');

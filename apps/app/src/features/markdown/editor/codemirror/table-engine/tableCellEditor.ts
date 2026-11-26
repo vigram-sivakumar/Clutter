@@ -522,7 +522,7 @@ export class TableCellEditor {
     this.close();
     let snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
     if (!snapshot.cells[cell.row]?.[cell.col]) {
-      const tr = createTableTransaction(this.root.state, tableFrom, { kind: 'format' }, parse);
+      const tr = createTableTransaction(this.root.state, tableFrom, { kind: 'materialize' }, parse);
       if (tr) {
         this.forwarding = true;
         try { this.root.dispatch(tr); } finally { this.forwarding = false; }

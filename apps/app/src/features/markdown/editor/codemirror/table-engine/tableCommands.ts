@@ -19,6 +19,7 @@ export type TableCommand =
   | { readonly kind: 'setAlignment'; readonly col: number; readonly alignment: Alignment }
   | { readonly kind: 'resizeColumn'; readonly col: number; readonly width: number; readonly initialWidths?: readonly number[] }
   | { readonly kind: 'paste'; readonly row: number; readonly col: number; readonly grid: readonly (readonly string[])[] }
+  | { readonly kind: 'materialize' }
   | { readonly kind: 'format' };
 
 function requireIndex(value: number, min: number, max: number): void {
@@ -114,6 +115,7 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
       }));
       break;
     }
+    case 'materialize':
     case 'format':
       break;
   }
@@ -136,7 +138,8 @@ export interface TableEdit {
 export function planTableEdit(source: string, tableFrom: number, command: TableCommand, parse: ParseMarkdown): TableEdit | null {
   const before = readTable(source, tableFrom, parse);
   const next = applyTableCommand(before.model, command);
-  if (command.kind !== 'format' && modelsEqual(before.model, next)) return null;
+  if (command.kind === 'materialize' && before.cells.every(row => row.every(cell => cell !== null))) return null;
+  if (command.kind !== 'format' && command.kind !== 'materialize' && modelsEqual(before.model, next)) return null;
   // Resize changes metadata only, never normalizes imported cell padding,
   // optional pipes, delimiter spelling or ragged rows.
   const resize = command.kind === 'resizeColumn';

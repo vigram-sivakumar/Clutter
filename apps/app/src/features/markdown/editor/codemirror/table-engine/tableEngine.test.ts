@@ -64,6 +64,16 @@ describe('table engine model and structural commands', () => {
     expect(deleted.expectedDocument).toBe(moved.expectedDocument);
   });
 
+  it('materialises absent cells without applying explicit source alignment', () => {
+    const source = '| A | B |\n| --- | --- |\n| one |';
+    const materialized = planTableEdit(source, 0, { kind: 'materialize' }, parse)!;
+    expect(materialized.expectedDocument).toBe('| A | B |\n| --- | --- |\n| one |  |');
+    expect(materialized.after.model).toEqual(materialized.before.model);
+    expect(materialized.after.cells[1]![1]).not.toBeNull();
+    expect(planTableEdit(materialized.expectedDocument, 0, { kind: 'materialize' }, parse)).toBeNull();
+    const formatted = planTableEdit(source, 0, { kind: 'format' }, parse)!;
+    expect(formatted.expectedDocument).not.toBe(materialized.expectedDocument);
+  });
   it('formats source columns to their widest cell, preserving alignment, Markdown and widths', () => {
     const source = '|A|B|\n|---|:---:|\n|longer|**x**|\n{table-col-widths="120,260"}';
     const result = planTableEdit(source, 0, { kind: 'format' }, parse)!;
