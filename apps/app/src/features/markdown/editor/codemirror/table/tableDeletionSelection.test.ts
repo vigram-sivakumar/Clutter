@@ -5,8 +5,7 @@ import { EditorSelection, EditorState, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { TableActiveCellController } from './tableActiveCellController';
-import { tableCellNavigation } from './tableCellNavigation';
+import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './tableDeletionSelection';
 import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { tableWidgetDecoration } from './tableWidgetField';
@@ -19,21 +18,19 @@ afterEach(() => {
   }
 });
 
-function mountRootView(doc: string, pos: number, extra: Extension = []): { view: EditorView; controller: TableActiveCellController } {
-  const controller = new TableActiveCellController();
+function mountRootView(doc: string, pos: number, extra: Extension = []): { view: EditorView; controller: TableCellEditor } {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
     state: EditorState.create({
       doc,
       selection: EditorSelection.cursor(pos),
-      extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableDeletionSelectionField, tableWholeDeletionKeymap(), extra],
+      extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true), tableDeletionSelectionField, tableWholeDeletionKeymap(), extra],
     }),
     parent,
   });
-  controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
   mountedViews.push(view);
-  return { view, controller };
+  return { view, controller: view.plugin(tableCellEditor)! };
 }
 
 function dispatchKey(view: EditorView, key: string): void {
@@ -209,8 +206,7 @@ describe('tableWholeDeletionKeymap — the root selection never resolves inside 
     dispatchKey(view, 'Backspace'); // arm
     expect(view.state.field(tableDeletionSelectionField)).toBe(0);
 
-    const wrapper = document.createElement('div');
-    controller.activate(view, wrapper, 2, 6, 6); // click into "Name"
+    expect(controller.enterCell(0, { row: 0, col: 0 }, 'end')).toBe(true); // click into "Name"
 
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeNull();
@@ -221,55 +217,47 @@ describe('tableWholeDeletionKeymap — existing cell-level Backspace/Delete rule
   // "Name" is the header cell's own trimmed content range within
   // TABLE ('| Name | Role |\n...') — [2, 6), not [0, 4) (that would
   // include the leading "| ").
-  const NAME_CELL_FROM = 2;
-  const NAME_CELL_TO = 6;
 
   it('Backspace at the very start of an empty cell does nothing (no pipe deletion, no exit)', () => {
     const doc = `| Name | Role |\n| --- | --- |\n|  | Designer |\n`;
     const { view, controller } = mountRootView(doc, doc.length);
-    const wrapper = document.createElement('div');
     // The body row's own first (empty) cell: "|  | Designer |" — content range is zero-width.
-    const bodyRowStart = doc.indexOf('|  | Designer |');
-    const emptyCellPos = bodyRowStart + 2;
-    controller.activate(view, wrapper, emptyCellPos, emptyCellPos, emptyCellPos);
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'start')).toBe(true);
 
-    dispatchKey(controller.nestedView!, 'Backspace');
+    dispatchKey(controller.nested!, 'Backspace');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('');
+    expect(controller.nested!.state.doc.toString()).toBe('');
     expect(view.state.doc.toString()).toBe(doc);
   });
 
   it('Backspace at the start of a non-empty cell does nothing (cannot reach the root-level "|")', () => {
     const doc = `${TABLE}\n`;
     const { view, controller } = mountRootView(doc, doc.length);
-    const wrapper = document.createElement('div');
-    controller.activate(view, wrapper, NAME_CELL_FROM, NAME_CELL_TO, NAME_CELL_FROM); // "Name", caret at position 0
+    expect(controller.enterCell(0, { row: 0, col: 0 }, 'start')).toBe(true); // "Name", caret at position 0
 
-    dispatchKey(controller.nestedView!, 'Backspace');
+    dispatchKey(controller.nested!, 'Backspace');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
     expect(view.state.sliceDoc(0, 15)).toBe('| Name | Role |');
   });
 
   it('Delete at the end of a cell does nothing (cannot reach the root-level "|")', () => {
     const doc = `${TABLE}\n`;
     const { view, controller } = mountRootView(doc, doc.length);
-    const wrapper = document.createElement('div');
-    controller.activate(view, wrapper, NAME_CELL_FROM, NAME_CELL_TO, NAME_CELL_TO); // "Name", caret at its own end
+    expect(controller.enterCell(0, { row: 0, col: 0 }, 'end')).toBe(true); // "Name", caret at its own end
 
-    dispatchKey(controller.nestedView!, 'Delete');
+    dispatchKey(controller.nested!, 'Delete');
 
-    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
     expect(view.state.sliceDoc(0, 15)).toBe('| Name | Role |');
   });
 
   it('an active-cell Backspace/Delete never arms or triggers the whole-table deletion state', () => {
     const doc = `${TABLE}\n`;
     const { view, controller } = mountRootView(doc, doc.length);
-    const wrapper = document.createElement('div');
-    controller.activate(view, wrapper, NAME_CELL_FROM, NAME_CELL_TO, NAME_CELL_TO);
+    expect(controller.enterCell(0, { row: 0, col: 0 }, 'end')).toBe(true);
 
-    dispatchKey(controller.nestedView!, 'Backspace');
+    dispatchKey(controller.nested!, 'Backspace');
 
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
     expect(view.dom.querySelector('.cm-table-widget')).toBeTruthy();
