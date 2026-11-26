@@ -172,10 +172,10 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 ## 14. Every implementation preserves verified architecture and behaviour
 
-**Rule:** All contributors and AI agents follow the mandatory workflow in [the implementation rulebook §7](docs/implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents), including presentation changes and direct development-branch work. Preserve subsystem ownership and previously accepted interaction contracts; do not publish unverified runtime changes.
+**Rule:** All contributors and AI agents follow the mandatory workflow in [the implementation rulebook §7](docs/implementation-rules.md#7-mandatory-architecture-and-regression-gate-all-contributors-and-ai-agents), including presentation changes and direct development-branch work. Preserve subsystem ownership and previously accepted interaction contracts; do not publish unverified runtime changes to shared development or main. Isolated `testing/<task>` candidates are permitted only under the owner-approved verification exception in §7.
 
 **Why it exists:** Table layout and visual-selection changes exposed hidden dependencies between CSS, selection rendering, keyboard navigation and pointer handling. Passing an earlier milestone or inspecting source alone does not establish that later changes preserve its behaviour.
 
 **How it is enforced:** Architecture compliance review, executed regression tests, native runtime evidence where applicable, and the verified milestone gate before commit/push. Required CI checks are the automated enforcement target; native verification is an additional gate.
 
-**Regression signature:** A changed behaviour without explicit approval, weakened regression coverage, an architecture violation hidden behind a styling workaround, or a shared-branch runtime commit without the required verification evidence.
+**Regression signature:** A changed behaviour without explicit approval, weakened regression coverage, an architecture violation hidden behind a styling workaround, or a shared-branch runtime commit without the required verification evidence (isolated testing candidates are not accepted milestones).
