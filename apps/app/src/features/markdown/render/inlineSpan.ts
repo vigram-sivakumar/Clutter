@@ -32,7 +32,7 @@ export interface StyledSpan {
   readonly children: readonly InlineSpan[];
 }
 
-export type InlineSpan =
+export type InlineSpan = (
   | { readonly kind: 'text'; readonly value: string }
   | StyledSpan
   | { readonly kind: 'code'; readonly value: string }
@@ -47,9 +47,12 @@ export type InlineSpan =
    * unchanged.
    */
   | { readonly kind: 'image'; readonly alt: string; readonly src?: string }
-  | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null };
+  | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null }
+) & { readonly source?: string };
 
 export interface TokenizeInlineOptions {
+  /** Retain exact semantic-token source for the editor's static widget projection. */
+  readonly includeSemanticSource?: boolean;
   /** Retain the parser’s link destination for an interactive rendering surface. */
   readonly includeLinkDestination?: boolean;
   /** Also record each Image's raw destination as `src` — see `InlineSpan`'s image variant. */
@@ -349,7 +352,8 @@ function tokenizeChildren(
 
     if (n.name === 'WikiLink' || n.name === 'Tag' || n.name === 'Date') {
       pushText(cursor, n.from);
-      spans.push(n.name === 'WikiLink' ? readWikiLink(n, text) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text));
+      const span = n.name === 'WikiLink' ? readWikiLink(n, text) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text);
+      spans.push(options.includeSemanticSource ? { ...span, source: text.slice(n.from, n.to) } : span);
       cursor = n.to;
       return;
     }
