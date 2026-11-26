@@ -12,7 +12,6 @@ import {
   getRowCellBounds,
   resolveLogicalCell,
 } from '../table/tableGeometry';
-import { tableActivationNormalization } from '../table/tableActivationNormalization';
 import { tableRootSelectionSnap } from '../table/tableRootSelectionSnap';
 import { markdownEnterCommand } from './markdownEnterKeymap';
 import {
@@ -191,7 +190,7 @@ describe('|-\\| / | - | + Space table shortcut', () => {
     const state = EditorState.create({
       doc: '|-|\n',
       selection: EditorSelection.cursor(3),
-      extensions: [markdownLanguageExtension(), tableActivationNormalization(), tableRootSelectionSnap()],
+      extensions: [markdownLanguageExtension(), tableRootSelectionSnap()],
     });
     const next = pressSpace(state);
     expect(findAllTables(next)).toHaveLength(1);
