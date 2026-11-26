@@ -6,6 +6,7 @@ import type { TableSnapshot } from './tableModel';
 
 // The mounted DOM can outlive an individual WidgetType during reconciliation.
 const widthObservers = new WeakMap<HTMLElement, BreakoutWidthHandle>();
+const dragDisposers = new WeakMap<HTMLElement, () => void>();
 
 function container(parent: HTMLElement, className: string): HTMLDivElement {
   const child = parent.ownerDocument.createElement('div');
@@ -41,10 +42,22 @@ export class TableProjection extends WidgetType {
     table.createTHead();
     table.createTBody();
     this.paint(root, view);
+    if (this.cellEditing) {
+      const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
+      const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
+      root.addEventListener('pointerdown', pointerDown, true);
+      root.addEventListener('click', click, true);
+      dragDisposers.set(root, () => {
+        root.removeEventListener('pointerdown', pointerDown, true);
+        root.removeEventListener('click', click, true);
+        view.plugin(tableCellEditor)?.cancelDrag(root);
+      });
+    }
     return root;
   }
 
   override updateDOM(root: HTMLElement, _view: EditorView, previous: TableProjection): boolean {
+    if (this.cellEditing !== previous.cellEditing) return false;
     if (this.snapshot.source === previous.snapshot.source) {
       root.dataset.tableFrom = String(this.snapshot.from);
       root.firstElementChild!.classList.toggle('cm-table-wrapper-selected', this.selected);
@@ -66,7 +79,8 @@ export class TableProjection extends WidgetType {
     if (model.columnWidths && !widthObservers.has(root)) {
       widthObservers.set(root, attachTableWidgetBreakoutWidth(root, wrapper));
     } else if (!model.columnWidths) {
-      this.destroy(root);
+      widthObservers.get(root)?.disconnect();
+      widthObservers.delete(root);
       wrapper.style.removeProperty('--table-breakout-max-width');
     }
 
@@ -108,6 +122,8 @@ export class TableProjection extends WidgetType {
   override ignoreEvent(): boolean { return false; }
 
   override destroy(root: HTMLElement): void {
+    dragDisposers.get(root)?.();
+    dragDisposers.delete(root);
     widthObservers.get(root)?.disconnect();
     widthObservers.delete(root);
   }

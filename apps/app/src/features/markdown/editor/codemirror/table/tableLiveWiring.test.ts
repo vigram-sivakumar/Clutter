@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { history, undo, redo } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { EditorState, StateEffect } from '@codemirror/state';
@@ -233,6 +233,101 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(selected(view)).toEqual(['1,0','1,1']);
     expect(view.state.doc.toString()).toContain('|  |  |');
     expect(view.state.doc.toString()).toContain('| Name | Role |');
+  });
+});
+
+describe('engine staged pointer selection (M6 candidate)', () => {
+  const doc = 'Before\n\n' + TABLE + '\n\nAfter';
+  const host = (view: EditorView, row: number, col: number) =>
+    view.dom.querySelector<HTMLElement>(`[data-table-engine-cells="true"] [data-cell="${row},${col}"]`)!;
+  const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
+    .map(cell => (cell as HTMLElement).dataset.cell);
+  const pointer = (target: EventTarget, type: string, buttons = 1, id = 1) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, buttons, clientX: 40, clientY: 20 });
+    Object.defineProperties(event, { pointerId: { value: id }, isPrimary: { value: true }, pointerType: { value: 'mouse' } });
+    target.dispatchEvent(event);
+    return event;
+  };
+  function hitTest(initial: Element) {
+    const original = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+    const hit = vi.fn(() => initial);
+    Object.defineProperty(document, 'elementFromPoint', { value: hit, configurable: true });
+    return { hit, restore: () => {
+      if (original) Object.defineProperty(document, 'elementFromPoint', original);
+      else Reflect.deleteProperty(document, 'elementFromPoint');
+    } };
+  }
+
+  it('keeps native text editing within the anchor and hands off on crossing to a reverse rectangular range', () => {
+    const view = mount(doc, false, undefined, true);
+    const anchor = host(view, 1, 1);
+    const controller = view.plugin(tableCellEditor)!;
+    const h = hitTest(anchor);
+    try {
+      pointer(anchor, 'pointerdown');
+      clickCell(anchor.parentElement!);
+      const nested = controller.nested!;
+      const within = pointer(document, 'pointermove');
+      expect(within.defaultPrevented).toBe(false);
+      expect(nested.dom.isConnected).toBe(true);
+      h.hit.mockReturnValue(host(view, 0, 0));
+      const crossing = pointer(document, 'pointermove');
+      expect(crossing.defaultPrevented).toBe(true);
+      expect(selected(view)).toEqual(['0,0', '0,1', '1,0', '1,1']);
+      expect(nested.dom.isConnected).toBe(false);
+      expect(document.activeElement).toBe(host(view, 0, 0));
+      h.hit.mockReturnValue(anchor);
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['1,1']);
+      pointer(document, 'pointerup', 0);
+      h.hit.mockReturnValue(host(view, 0, 0));
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['1,1']);
+      expect(view.state.doc.toString()).toBe(doc);
+    } finally { controller.cancelDrag(); h.restore(); }
+  });
+
+  it('starts from an already active editor and ends the gesture on pointer cancellation', () => {
+    const view = mount(doc, false, undefined, true);
+    clickCell(findCell(view, 'Vik'));
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    const h = hitTest(host(view, 1, 1));
+    try {
+      pointer(nested.contentDOM, 'pointerdown');
+      pointer(document, 'pointermove', 1, 2);
+      expect(nested.dom.isConnected).toBe(true);
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['1,0', '1,1']);
+      pointer(document, 'pointercancel', 0);
+      h.hit.mockReturnValue(host(view, 0, 0));
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['1,0', '1,1']);
+      expect(view.state.doc.toString()).toBe(doc);
+    } finally { controller.cancelDrag(); h.restore(); }
+  });
+
+  it('does not transfer a drag to another table and cancels on external document edits', () => {
+    const source = doc + '\n\n' + TABLE;
+    const view = mount(source, false, undefined, true);
+    const second = view.dom.querySelectorAll<HTMLElement>('[data-table-engine-cells="true"]')[1]!;
+    const anchor = host(view, 1, 0);
+    const controller = view.plugin(tableCellEditor)!;
+    const h = hitTest(second.querySelector<HTMLElement>('[data-cell="0,0"]')!);
+    try {
+      pointer(anchor, 'pointerdown');
+      clickCell(anchor.parentElement!);
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual([]);
+      expect(controller.nested!.dom.isConnected).toBe(true);
+      h.hit.mockReturnValue(host(view, 1, 1));
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual(['1,0', '1,1']);
+      view.dispatch({ changes: { from: 0, insert: 'Prefix\n\n' } });
+      pointer(document, 'pointermove');
+      expect(selected(view)).toEqual([]);
+      expect(view.state.doc.toString()).toBe('Prefix\n\n' + source);
+    } finally { controller.cancelDrag(); h.restore(); }
   });
 });
 

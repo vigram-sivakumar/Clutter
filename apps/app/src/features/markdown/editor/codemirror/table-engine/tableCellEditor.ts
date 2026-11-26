@@ -10,6 +10,7 @@ import { bookmark, tableSelectionTransition } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
 import { clearSelectedCommand } from './tableClipboard';
+import { TableDragSelection } from './tableDragSelection';
 
 const parse = (source: string) => sharedMarkdownParser.parse(source);
 
@@ -24,6 +25,28 @@ export class TableCellEditor {
   private interaction: TableInteraction = noInteraction;
   private interactionTable: number | null = null;
 
+  private readonly drag = new TableDragSelection((widget, anchor, head) => {
+    if (!this.root.dom.contains(widget)) return false;
+    const tableFrom = Number(widget.dataset.tableFrom);
+    try {
+      return this.select(tableFrom, { kind: 'range', anchor, head }, true);
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  });
+
+  beginDrag(event: PointerEvent, widget: HTMLElement): void {
+    const host = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-cell]') : null;
+    if (!host || host.closest('[data-table-engine-cells="true"]') !== widget) return;
+    const [row, col] = host.dataset.cell!.split(',').map(Number);
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
+    this.drag.begin(event, widget, host, { row: row!, col: col! });
+  }
+
+  consumeDragClick(widget: HTMLElement, event: MouseEvent): void { this.drag.consumeClick(widget, event); }
+  cancelDrag(widget?: HTMLElement): void { this.drag.cancel(widget); }
+
   constructor(readonly root: EditorView) {
     root.dom.ownerDocument.addEventListener('mousedown', this.outsideClick, true);
   }
@@ -33,6 +56,7 @@ export class TableCellEditor {
     const target = event.target;
     if (target instanceof Element &&
       this.root.dom.contains(target) && target.closest('[data-table-engine-cells="true"]')) return;
+    this.cancelDrag();
     this.close();
   };
 
@@ -83,7 +107,7 @@ export class TableCellEditor {
     this.root.dom.querySelectorAll<HTMLElement>('[data-table-engine-cells="true"]').forEach(widget => this.paintWidget(widget));
   }
 
-  private select(tableFrom: number, interaction: TableInteraction): boolean {
+  private select(tableFrom: number, interaction: TableInteraction, preventScroll = false): boolean {
     const cell = focusCell(interaction);
     if (!cell || !isValidCell(cell, this.shape(tableFrom))) return false;
     const host = this.hostAt(tableFrom, cell);
@@ -92,7 +116,7 @@ export class TableCellEditor {
     this.interactionTable = tableFrom;
     this.interaction = interaction;
     this.paintSelection();
-    host.focus();
+    host.focus({ preventScroll });
     return true;
   }
 
@@ -134,7 +158,7 @@ export class TableCellEditor {
   selectedKey(tableFrom: number, cell: CellAddress, host: HTMLElement, event: KeyboardEvent): void {
     if (event.target !== host || event.isComposing || event.defaultPrevented ||
       this.interactionTable !== tableFrom || this.interaction.kind === 'none' || this.interaction.kind === 'editing') return;
-    const consume = () => { event.preventDefault(); event.stopPropagation(); };
+    const consume = () => { this.cancelDrag(); event.preventDefault(); event.stopPropagation(); };
     try {
       if (event.key === 'Tab') { consume(); this.navigateTab(event.shiftKey); return; }
       if (event.key === 'Escape') { consume(); this.close(); host.blur(); return; }
@@ -185,15 +209,18 @@ export class TableCellEditor {
 
   activate(tableFrom: number, cell: CellAddress, host: HTMLElement, event?: MouseEvent): void {
     if (this.root.state.readOnly) return;
+    this.close();
     let snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
     if (!snapshot.cells[cell.row]?.[cell.col]) {
       const tr = createTableTransaction(this.root.state, tableFrom, { kind: 'format' }, parse);
-      if (tr) this.root.dispatch(tr);
+      if (tr) {
+        this.forwarding = true;
+        try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+      }
       snapshot = readTable(this.root.state.doc.toString(), tableFrom, parse);
       host = this.root.dom.querySelector<HTMLElement>(
         `.cm-table-widget[data-table-from="${tableFrom}"] [data-cell="${cell.row},${cell.col}"]`) ?? host;
     }
-    this.close();
     const source = this.root.state.doc.toString();
     const range = editableCell(source, snapshot, cell);
     this.active = { tableFrom, cell, from: range.from, to: range.to };
@@ -256,6 +283,7 @@ export class TableCellEditor {
   sync(transactions: readonly Transaction[]): void {
     for (const tr of transactions) {
       if (!tr.docChanged) continue;
+      if (!this.forwarding) this.cancelDrag();
       if (!this.active) {
         if (this.interactionTable !== null && !this.forwarding) {
           // A source mutation outside the controller may change logical
@@ -297,6 +325,7 @@ export class TableCellEditor {
   }
 
   destroy(): void {
+    this.cancelDrag();
     this.root.dom.ownerDocument.removeEventListener('mousedown', this.outsideClick, true);
     this.nested?.destroy(); this.nested = null; this.active = null;
     this.interaction = noInteraction; this.interactionTable = null;
