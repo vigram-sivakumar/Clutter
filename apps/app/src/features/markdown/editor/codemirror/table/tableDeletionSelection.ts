@@ -3,7 +3,6 @@ import { keymap, type Command, type EditorView, type KeyBinding } from '@codemir
 
 import { deleteProjectedTable } from '../table-engine/tableTransaction';
 import { projectableTableSnapshot } from '../table-engine/tableModel';
-import { tableActiveCellChanged } from './tableActiveCellController';
 import { findAllTables, type TableInfo } from './tableGeometry';
 
 /**
@@ -84,19 +83,6 @@ export const tableDeletionSelectionField = StateField.define<number | null>({
     if (tr.docChanged) {
       return null;
     }
-    // A cell being activated (or deactivated) un-arms it too — a click
-    // into a cell dispatches only `tableActiveCellChanged` with no
-    // document change and, critically, no root `selection` change either
-    // (activation moves the *nested* cell's own caret, not the root
-    // view's — `TableActiveCellController.activate()`'s own dispatch
-    // never includes a `selection` field), so the `tr.selection` check
-    // below alone would never catch a click on a cell while armed.
-    // Confirmed directly: without this check, clicking a cell right after
-    // arming left the table visibly "selected" even while a cell was
-    // simultaneously active.
-    if (tr.effects.some((e) => e.is(tableActiveCellChanged))) {
-      return null;
-    }
     // A selection change (a click, an arrow move) that leaves the armed
     // table's own adjacent line un-arms it — matches "any other
     // interaction cancels a pending destructive action" and keeps this
@@ -147,18 +133,18 @@ function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table
 }
 
 /** The table whose own blank line directly below it currently holds a collapsed caret at `pos` — `null` if `pos` isn't on any such line. The Backspace-only arming trigger for the "below" direction. */
-function findTableAboveBlankLine(state: EditorState, range: SelectionRange, engineOnly: boolean): TableInfo | null {
+function findTableAboveBlankLine(state: EditorState, range: SelectionRange): TableInfo | null {
   if (state.doc.lineAt(range.head).length !== 0) return null;
-  return findAllTables(state).find((table) => (!engineOnly || projectableTableSnapshot(state.doc.toString(), table.node) !== null) && isCaretJustBelowTable(state, range, table)) ?? null;
+  return findAllTables(state).find((table) => projectableTableSnapshot(state.doc.toString(), table.node) !== null && isCaretJustBelowTable(state, range, table)) ?? null;
 }
 
 /** The table whose own first line directly follows the line ending at `pos` — `null` if `pos` isn't at such a line's own end. The Delete-only arming trigger for the "above" direction, mirroring `findTableAboveBlankLine`. */
-function findTableBelowLineEnd(state: EditorState, pos: number, engineOnly: boolean): TableInfo | null {
+function findTableBelowLineEnd(state: EditorState, pos: number): TableInfo | null {
   const line = state.doc.lineAt(pos);
   if (pos !== line.to) {
     return null;
   }
-  return findAllTables(state).find((table) => (!engineOnly || projectableTableSnapshot(state.doc.toString(), table.node) !== null) && state.doc.lineAt(table.from).number === line.number + 1) ?? null;
+  return findAllTables(state).find((table) => projectableTableSnapshot(state.doc.toString(), table.node) !== null && state.doc.lineAt(table.from).number === line.number + 1) ?? null;
 }
 
 /**
@@ -174,7 +160,7 @@ function findTableBelowLineEnd(state: EditorState, pos: number, engineOnly: bool
  * genuinely separate `EditorView` with its own keymap; this module only
  * ever installs on the root view.
  */
-export function tableWholeDeletionKeymap(engineOnly = false): Extension {
+export function tableWholeDeletionKeymap(): Extension {
   /**
    * Shared by both commands' first branch: if a table is already armed
    * and the caret is still adjacent to it (below *or* above — whichever
@@ -191,7 +177,7 @@ export function tableWholeDeletionKeymap(engineOnly = false): Extension {
     if (!table || !isCaretAdjacentToTable(view.state, sel, table)) {
       return null;
     }
-    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null), engineOnly);
+    deleteProjectedTable(view, table, tableDeletionSelectionChanged.of(null), true);
     // Consume the armed gesture even if a root filter refuses the edit.
     return true;
   }
@@ -208,7 +194,7 @@ export function tableWholeDeletionKeymap(engineOnly = false): Extension {
     // Arming trigger: only from the blank line below a table — a plain
     // Backspace at the end of an ordinary line (the "above" position)
     // must keep doing ordinary character deletion, never arm anything.
-    const table = findTableAboveBlankLine(view.state, sel, engineOnly);
+    const table = findTableAboveBlankLine(view.state, sel);
     if (!table) {
       return false;
     }
@@ -229,7 +215,7 @@ export function tableWholeDeletionKeymap(engineOnly = false): Extension {
     // mirror of `backspaceCommand`'s own arming trigger. A plain Delete
     // on an ordinary blank line (the "below" position) must keep doing
     // ordinary forward deletion, never arm anything.
-    const table = findTableBelowLineEnd(view.state, sel.head, engineOnly);
+    const table = findTableBelowLineEnd(view.state, sel.head);
     if (!table) {
       return false;
     }
