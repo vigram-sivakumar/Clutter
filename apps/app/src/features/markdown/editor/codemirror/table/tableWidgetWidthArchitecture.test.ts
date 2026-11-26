@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 // jsdom cannot compute the actual layout. Assert the stylesheet contract;
 // real scroll/handle clipping remains a native smoke-test requirement.
-const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\s+/g, ' ')
+  .replace(/\(\s+/g, '(')
+  .replace(/\s+\)/g, ')')
+  .replace(/'/g, '"');
 function rule(selector: string): string {
   const start = css.indexOf(selector + ' {');
   expect(start).toBeGreaterThanOrEqual(0);
@@ -44,6 +48,15 @@ describe('automatic table sizing stylesheet', () => {
     expect(wrapper).toContain('--cm-table-column-min: 110px');
     expect(wrapper).toContain('--cm-table-column-max: 420px');
     expect(wrapper).toContain('--cm-table-add-column-space: 0px');
+    expect(wrapper).toContain('--cm-table-add-column-width: var(--height-xs)');
+    expect(rule('.cm-editor [data-table-engine-cells="true"] > .cm-table-wrapper--auto-widths')).toContain('--cm-table-add-column-space: calc(var(--cm-table-add-column-width) + 6px)');
+    const track = rule('.cm-editor .cm-table-quick-add-track-column');
+    expect(track).toContain('flex: 0 0 var(--cm-table-add-column-space)');
+    expect(track).toContain('width: var(--cm-table-add-column-space)');
+    const button = rule('.cm-editor .cm-table-quick-add-column');
+    expect(button).toContain('width: var(--cm-table-add-column-width)');
+    expect(button).toContain('flex: 0 0 var(--cm-table-add-column-width)');
+    expect(rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-inner')).toContain('flex: 0 0 calc(100% - var(--cm-table-add-column-space))');
     const layout = rule('.cm-editor .cm-table-wrapper--auto-widths .cm-table-layout');
     expect(layout).toContain('width: clamp(');
     expect(layout).toContain('var(--cm-table-column-count) * var(--cm-table-column-min)');
