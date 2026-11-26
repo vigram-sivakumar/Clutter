@@ -1,7 +1,6 @@
 import type { SyntaxNode } from '@lezer/common';
 
 import { matchStraightLabeledDivider, matchWrappedDivider } from '../../../../core/vault/ingest/grammar/dividerLabelMatch';
-import { parseTableColumnWidthsAttribute } from '../../editor/codemirror/table/tableColumnWidthMetadata';
 import { sharedMarkdownParser } from '../sharedMarkdownParser';
 import { tokenizeInline, type InlineSpan, type TokenizeInlineOptions } from '../inlineSpan';
 
@@ -42,10 +41,7 @@ import { tokenizeInline, type InlineSpan, type TokenizeInlineOptions } from '../
  * - `FencedCode`, `Table`, and anything else unrecognized at the top
  *   level are structural/unsupported for this policy's v1 scope —
  *   skipped, never partially exposed (no first-cell, no first-code-line,
- *   no fence/language leak). A `Table`'s own `{table-col-widths="..."}`
- *   attribute line (see `tableColumnWidthMetadata.ts`) is skipped right
- *   along with it, whether the attribute line stands alone or is merged
- *   (no blank line) with real content that follows it.
+ *   no fence/language leak).
  *
  * `EmojiListMark` is deliberately never treated as a marker to strip —
  * see `inlineSpan.ts`'s own doc comment: the chosen emoji is real,
@@ -150,13 +146,7 @@ export interface CompactBlockSelection {
   /** Non-null only for a divider-with-label match — its node has no inline content to tokenize, only this precomputed label. */
   readonly dividerLabel: string | null;
   /**
-   * Where `node`'s own meaningful content starts, in `text`'s coordinates —
-   * `node.from` for every ordinary selection. Only ever different for a
-   * table's `{table-col-widths="..."}` attribute line glued (no blank line
-   * between them) to real content that follows it on the same `Paragraph`
-   * node: `node` is that merged paragraph, and `contentFrom` points past the
-   * attribute line's own text so only the real content after it is
-   * extracted. See `findMeaningfulTopLevelBlock`'s `Table` case.
+   * Where the selected block's meaningful content starts in the source.
    */
   readonly contentFrom: number;
 }
@@ -199,40 +189,6 @@ function findMeaningfulTopLevelBlock(topNode: SyntaxNode, text: string): Compact
       const label = dividerLabelText(node, text);
       if (label !== null) {
         return { node, dividerLabel: label, contentFrom: node.from };
-      }
-      continue;
-    }
-
-    if (node.name === 'Table') {
-      const next = node.nextSibling;
-      if (next) {
-        const nextText = text.slice(next.from, next.to);
-        const newlineIndex = nextText.indexOf('\n');
-        const firstLine = newlineIndex === -1 ? nextText : nextText.slice(0, newlineIndex);
-        if (parseTableColumnWidthsAttribute(firstLine) !== null) {
-          // The table's own column-width metadata line — persisted as a
-          // plain sibling paragraph immediately after the table by design
-          // (see `tableColumnWidthMetadata.ts`'s own doc comment), never a
-          // distinct grammar node.
-          if (newlineIndex === -1) {
-            // The attribute line is the sibling's entire text (isolated by
-            // a blank line, or the document's last line) — skip it along
-            // with the table it belongs to, rather than exposing it as if
-            // it were the next real block.
-            node = next;
-            continue;
-          }
-          // No blank line separates the attribute line from real content
-          // that follows it — GFM's own paragraph-continuation rule merges
-          // both into this single `Paragraph` node. Skip only the attribute
-          // line's own text; the remainder, if any, is this block's content.
-          const contentFrom = next.from + newlineIndex + 1;
-          if (text.slice(contentFrom, next.to).trim().length > 0) {
-            return { node: next, dividerLabel: null, contentFrom };
-          }
-          node = next;
-          continue;
-        }
       }
       continue;
     }
