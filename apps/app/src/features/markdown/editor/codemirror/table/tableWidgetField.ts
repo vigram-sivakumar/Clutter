@@ -284,7 +284,8 @@ function buildTableDecorations(
         // metadata. Leaving a concealed paragraph outside the widget gives
         // the native selection/undo system a second editable landing site.
         const to = editableProjection ? snapshot.to : table.to;
-        const selected = tableIntersectsSelectionRange(state.selection.main, { ...table, to });
+        const selected = (editableProjection && state.field(tableDeletionSelectionField, false) === table.from) ||
+          tableIntersectsSelectionRange(state.selection.main, { ...table, to });
         const widget = new TableProjection(snapshot, selected, editableProjection, getOnTableHandleMenuChange);
         ranges.push(Decoration.replace({ widget, block: true }).range(table.from, to));
         continue;
