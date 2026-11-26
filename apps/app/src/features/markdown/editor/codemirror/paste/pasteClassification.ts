@@ -1,7 +1,7 @@
 import type { EditorState } from '@codemirror/state';
 
-import { type ClipboardTable, readClipboardTable } from '../table/tablePaste';
-import { tableSelectionField } from '../table/tableSelection';
+import { type ClipboardGrid, readClipboardGrid } from '../table-engine/tableClipboard';
+import { TableEngineError } from '../table-engine/tableModel';
 import { hasRichHtml } from './htmlToMarkdown';
 import { type PasteContext, pasteContextAt } from './pasteContext';
 
@@ -11,15 +11,13 @@ export const SUPPORTED_TYPE = /^(?:image\/(?:png|jpeg|gif|webp|svg\+xml)|applica
 /**
  * Which existing paste strategy handles a paste. Exactly one per paste, decided once by `classifyPaste`:
  *
- * - `tableRange`   cells are selected in a rendered table and the clipboard is a grid: fill them (`pasteIntoSelectedRange`)
- * - `tableCell`    the clipboard is a grid and a table cell is being edited: fill from that cell (`pasteIntoActiveCell`)
- * - `tableCreate`  the clipboard is a grid at an ordinary caret: create a table (`createTableFromClipboard`)
+ * - `tableCreate`  the clipboard is a grid at an ordinary caret: create a table (engine table creation)
  * - `files`        supported image/PDF files: store and embed them (`embedPasted`)
  * - `richHtml`     HTML with structure or an image: convert it to Markdown (`embedPasted`)
  * - `empty`        nothing to insert (no plain text, no URI list): change nothing
  * - `default`      everything else: CodeMirror's own paste (with the input filters of the editor)
  */
-export type PasteStrategy = 'tableRange' | 'tableCell' | 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
+export type PasteStrategy = 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
 
 /** Why clipboard files are left out: an `unsupported` type, or a `target` (a table) that takes no files. */
 export interface SkippedFiles {
@@ -30,7 +28,7 @@ export interface SkippedFiles {
 export interface PasteClassification {
   readonly strategy: PasteStrategy;
   /** The grid the clipboard carries, read once (set for every table strategy). */
-  readonly table: ClipboardTable | null;
+  readonly table: ClipboardGrid | null;
   /** The block the root caret is in, when it limits what the paste may become. */
   readonly context: PasteContext | null;
   /** The clipboard files the chosen strategy leaves out, to be reported once — null when none (or nothing can report them). */
@@ -38,14 +36,8 @@ export interface PasteClassification {
 }
 
 export interface PasteEnvironment {
-  /** `root`: the document view. `cell`: the nested editor of an active table cell (`state` is still the root's). */
-  readonly scope: 'root' | 'cell';
-  /** The root view's state: its selection, table selection and syntax tree decide the context. */
   readonly state: EditorState;
-  /** Whether the app can store files (an asset importer is wired and the editor is editable). */
   readonly canEmbed: boolean;
-  /** `cell` scope only: whether an active cell is the paste target. */
-  readonly cellActive?: boolean;
 }
 
 const HAS_TABLE = /<table[\s>]/i;
@@ -53,38 +45,32 @@ const HAS_TABLE = /<table[\s>]/i;
 /**
  * The one decision about a paste: which strategy handles it, in what context, and which files it leaves out. It only
  * reads the clipboard and the editor state — nothing is dispatched. The order is the tested priority of the handlers
- * it replaces: a selected table range, a table created from a grid, files, rich HTML, then the plain paste.
+ * it replaces: a table created from a grid, files, rich HTML, then the plain paste.
  *
  * - A grid never creates a table inside code, a list item or a blockquote (it would be literal, glued to the item, or lose
  *   its `>`). Rich HTML is not converted inside code, and HTML containing a table is not converted inside a list item or a
  *   blockquote either (a top-level table would break them): both fall to the plain paste.
  * - A grid read only from tab-separated text, next to HTML tables that are not one standalone grid (two tables), is that
- *   HTML flattened: with an importer, the HTML wins and each table stays a table. A cell or a range still fills from the grid.
- * - Files lose to a grid (a spreadsheet copy with a preview image pastes its table) and are never embedded into cells or
- *   a selected range; `skipped` says so.
- * - A selected range with no grid in the clipboard takes no files and no HTML conversion: the plain paste (or `empty`).
+ *   HTML flattened: with an importer, the HTML wins and each table stays a table.
+ * - Files lose to a grid (a spreadsheet copy with a preview image pastes its table) and are never embedded into cells; `skipped` says so.
  */
 export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteClassification {
   const { state } = env;
   const files = Array.from(data.files ?? []);
   const supported = files.filter((file) => SUPPORTED_TYPE.test(file.type));
   const unsupported = files.filter((file) => !SUPPORTED_TYPE.test(file.type));
-  const selection = state.field(tableSelectionField, false) ?? null;
-  const parsedTable = readClipboardTable(data);
   const context = pasteContextAt(state, state.selection.main.from);
   const plainText = data.getData('text/plain');
-  // Plain text without tabs is one cell value when a table cell or table selection
-  // is the explicit target. Newlines are normalised to spaces by normalizeGrid;
-  // tabs remain reserved for spreadsheet-style grid pastes.
   const html = data.getData('text/html');
   const hasHtmlTable = HAS_TABLE.test(html);
-  const isTableTarget = selection !== null || (env.scope === 'cell' && env.cellActive === true);
-  const isSingleCellText = plainText !== '' && !plainText.includes('\t') && !hasHtmlTable;
-  const table: ClipboardTable | null = parsedTable ?? (
-    isTableTarget && isSingleCellText
-      ? { source: 'text', grid: [[plainText.replace(/\r\n?/g, ' ').replace(/\n/g, ' ')]] }
-      : null
-  );
+  let table: ClipboardGrid | null = null;
+  let rejectedGrid = false;
+  try {
+    table = readClipboardGrid(data, false, true);
+  } catch (error) {
+    if (!(error instanceof TableEngineError)) throw error;
+    rejectedGrid = true;
+  }
   const nothing = plainText === '' && data.getData('text/uri-list') === '';
   const fallback: PasteStrategy = nothing ? 'empty' : 'default';
 
@@ -100,13 +86,11 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
     return result('default');
   }
 
-  if (env.scope === 'cell') {
-    // A cell embeds no files.
-    return result(env.cellActive && table ? 'tableCell' : fallback, { names: names(files), reason: 'target' });
-  }
-
-  if (selection) {
-    return result(table ? 'tableRange' : fallback, { names: names(files), reason: 'target' });
+  // A malformed grid at a valid table insertion site must not be interpreted
+  // as a different source representation. Code and list/quote contexts still
+  // retain ordinary text/file handling.
+  if (rejectedGrid && context === null) {
+    return result('empty', { names: names(files), reason: 'target' });
   }
 
   // Rich HTML can be converted here (an importer is wired, not in code, no table where a table would break the block).
@@ -117,7 +101,7 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
 
   // A grid read from the plain text of a clipboard whose HTML holds tables that were not one standalone grid (two tables,
   // a layout table) is the flattened form of that HTML: the HTML is authoritative, so it is converted instead (each table
-  // stays a table). Only here: a cell or a selected range has no conversion and keeps filling from the grid (above).
+  // stays a table). Only here: a cell or a selected range has no conversion and keeps filling from the grid.
   const flattenedHtmlTables = table?.source === 'text' && htmlTable && richHtml();
 
   if (table && context === null && !flattenedHtmlTables) {
