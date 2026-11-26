@@ -7,8 +7,6 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
-import { TableActiveCellController } from './tableActiveCellController';
-import { tableCellNavigation } from './tableCellNavigation';
 import { tableDeletionSelectionChanged } from './tableDeletionSelection';
 import { findAllTables } from './tableGeometry';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
@@ -26,7 +24,7 @@ import { tableCellEditor } from '../table-engine/tableCellEditor';
  * are all exercised together exactly as they run in the app.
  */
 
-const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId' | 'getTableActiveCellController'> = {
+const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId'> = {
   resolveWikiLink: () => undefined,
   resolveEmbedImage: () => undefined,
   resolveEmbedPdf: () => undefined,
@@ -47,7 +45,7 @@ afterEach(() => {
   }
 });
 
-function mount(doc: string, controller?: TableActiveCellController): EditorView {
+function mount(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -57,7 +55,6 @@ function mount(doc: string, controller?: TableActiveCellController): EditorView 
         ...REQUIRED,
         readOnly: false,
         hostPageId: 'test-page',
-        getTableActiveCellController: controller ? () => controller : undefined,
       }),
     }),
     parent,
@@ -224,9 +221,7 @@ describe('table selection halo — coexistence with whole-table deletion arming'
 
 describe('table selection halo — suppressed during active-cell editing', () => {
   it('does not show the halo for a table whose cell is currently active, even if the root selection still technically overlaps it', () => {
-    const controller = new TableActiveCellController();
-    const view = mount(BASIC_TABLE, controller);
-    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+    const view = mount(BASIC_TABLE);
 
     // Simulate a stale full-document selection left over from before the
     // click — this is the realistic way the root selection can still
@@ -296,8 +291,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
     // overlay at all (`tableWidget.ts`'s own `if (this.controller)` gate,
     // the same "omit the capability entirely" gate a read-only table's
     // widget uses) — not needed for this test's own assertions otherwise.
-    const controller = new TableActiveCellController();
-    const view = mount(BASIC_TABLE, controller);
+    const view = mount(BASIC_TABLE);
 
     selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
@@ -311,8 +305,7 @@ describe('table selection halo — suppressed while a TableSelection exists', ()
   });
 
   it('a real row-handle click while Ctrl+A is active replaces the whole-table halo with an explicit row TableSelection', () => {
-    const controller = new TableActiveCellController();
-    const view = mount(BASIC_TABLE, controller);
+    const view = mount(BASIC_TABLE);
 
     selectAll(view);
     expect(haloedTableFroms(view)).toHaveLength(1);
