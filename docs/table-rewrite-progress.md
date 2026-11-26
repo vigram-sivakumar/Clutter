@@ -330,3 +330,38 @@ Owner explicitly approved automatic escaping and prioritised solid architecture.
 ### Completion clipping — correction candidate (2026-11-26)
 
 Owner native screenshot on the tag/date candidate shows the autocomplete popup cut off below the table. Prior candidate `6823ed1bbba0dee5a4f177e06b08489212b0c441` is not accepted. The UI/Features-only fix uses CodeMirror's documented `tooltips({ parent })` with the document body (https://codemirror.net/docs/ref/#view.tooltips), preserving shared tooltipSpace, theme, native positioning and disposal. Resolve popup DOM through the view-owned `showTooltip`/`getTooltip` API for scroll fade and outside-click ownership; retain table scroll overflow, root transactions and history, no CSS workaround or custom popup. Runtime/test candidate `3622ec9619bc4d348504753c8967a6e557e97cab` adds pointer selection, cell-switch disposal and owned scroll-fade coverage, and updates the existing popup DOM assertion to require external hosting rather than nested hosting. Diff reviewed: five scoped editor/test files. Automated/build/native checks still pending; verify real WebKit clipping, scroll, keyboard/mouse selection and outside dismissal before promotion. No alias or other new feature work.
+
+## Resume checkpoint — 2026-11-26, after tag/date completion and clipping correction
+
+**Start here in a new chat.** Read AGENTS.md, implementation-rules.md §7, ADR-034 and this ledger before making changes. Repository: `vigram-sivakumar/Clutter`. Active isolated branch: `testing/table-tag-date-completion`. Main and development/table-editor verified identical remotely at `8c50bc48ae6633ccdcc573ccd9e434a60485313e`. Do not merge, release, or add features until the regression gate is green and the owner approves promotion.
+
+### Current evidence and blocker
+
+- Rich inline rendering (basic formatting, links, WikiLink/Tag/Date widgets): owner-accepted, 17,754/17,754, 966 files; build passed. See prior checkpoints for hashes and scope.
+- Tag/date completion and external tooltip host: owner reported autocomplete works well after the clipping correction and requested moving on. This is native manual acceptance of that behaviour, not all native regression scenarios.
+- Owner's subsequent full app log on the clipping-fix candidate `aa051414c2c7e5b4ed0922d81ad053e0b3d4657b`: 17,757 passed, 3 failed (17,760 total), 965/966 files, 227.64s. All three failures are in tableLiveWiring.test.ts: existing selected-cell typing / Delete range test expected [1,0; 1,1] but got no selection; new tag and date acceptance tests each failed at undo(view) returning false. No unhandled-error summary reported. Exit code 1 prevented the chained build, diff, HEAD and working-tree checks; local HEAD was not printed. Remote branch matched the reported candidate before correction. Do not report this as a pass.
+- Source inspection established that the two new undo tests did not install history(), which production createEditorView does and existing table history suites explicitly append. Correct the fixture, not production history or the assertions. The older selection failure is consistent with CM6's default Escape closing an invisible pending completion query after ordinary input; this remains a hypothesis until the focused test passes. Guard only pending Escape in the nested controller, cancel the query and exit the cell; active popup Escape still goes to CM6, and ordinary Escape still selects the cell. No history owner, parser, CSS, or source transaction changes.
+- Correction runtime/test SHA: `89bdba42ccdbfba35570cc4fea82d027b5df538e`. Added explicit pending-Escape coverage; all original failing assertions retained; root history installed only in the affected new tests. Diff reviewed: two files. **Unverified**: agent has no local execution; run the focused suite first, then complete regression and build. The documentation-only commit after this runtime SHA does not change the runtime tree.
+
+### Commands and gate
+
+From the repository root on the testing branch:
+
+```sh
+git switch testing/table-tag-date-completion
+git pull --ff-only origin testing/table-tag-date-completion
+npm exec --workspace=apps/app -- vitest run src/features/markdown/editor/codemirror/table/tableLiveWiring.test.ts src/features/markdown/editor/codemirror/completionPopup/completionScrollFade.test.ts
+npm run test:run && npm run build --workspace=apps/app && git diff --check && git rev-parse HEAD && git status --short
+```
+
+Native WKWebView: type ordinary text and immediately Escape, select a range and Delete, open tag/date suggestions at the table bottom/right, use Enter/arrows/mouse/Escape, switch cells, undo/redo acceptance and mixed edits, then applicable §7 table smoke tests. Record exact results. If a failure remains, diagnose on this branch; don't weaken tests. Promote only the exact verified runtime tree with owner approval; main requires separate approval.
+
+### Next milestone (not yet implemented)
+
+1. Table WikiLink aliases: use GFM-compatible escaped storage (e.g. `[[Page\\|Display text]]`) with unescaped `|` in the active cell's user-facing syntax; no manual escaping. The user approved this design, not any specific implementation. Preserve ordinary prose literal-pipe meaning, raw source offsets and the shared grammar; investigate exact adapter mapping before writing code. No independent parser or history.
+2. Reuse shared WikiLink autocomplete (notes, folders, assets, heading references) and existing pipe-accept command; ensure a rejected root transaction never creates a target. No embed completion in cells. Same components, CSS, tokens and popup host.
+3. Reference activation for active/inactive/read-only cells via existing resolvers and handlers; preserve pointer selection and link navigation policy.
+4. Shared contextual reference extraction and rewriting: verify backlinks, rename/move, search, tag/date indexing, cache version and clipboard round-trips. LinkExtractor's legacy regex is an identified integration issue. Reuse the existing owner rather than duplicating scanner rules. Test malformed links, escaped literal pipes, headings, paths, alias edits, paste, undo/redo and source reload.
+5. Further inline composition parity and existing link context menus/URL paste options as applicable. Block-level headings, quotes, lists, tasks, code fences, embeds/images and nested tables stay excluded. Person mentions and other unsupported prose syntax are future features, not table scope.
+
+**Owner requirement:** keep this ledger current after every candidate and verified checkpoint, with exact branch/SHA, actual tests, blockers, decisions and next task. Use it as the cross-chat handover rather than assuming conversational memory.
