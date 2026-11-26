@@ -15,7 +15,7 @@ import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
-import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid } from './tableClipboard';
+import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
 import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
@@ -517,10 +517,8 @@ export class TableCellEditor {
 
   /** Root paste routing calls this only for its existing table-create
    * classification. Other root paste strategies remain unchanged. */
-  pasteNewTable(data: DataTransfer): boolean {
+  pasteNewTable(grid: Grid): boolean {
     try {
-      const grid = readGrid(data, false);
-      if (!grid) return false;
       const tr = createPastedTable(this.root.state, grid, parse);
       if (!tr) return false;
       this.cancelDrag();
