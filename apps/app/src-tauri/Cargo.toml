@@ -1,6 +1,10 @@
 [package]
 name = "app"
+<<<<<<< Updated upstream
 version = "0.0.16"
+=======
+version = "0.1.1"
+>>>>>>> Stashed changes
 description = "Clutter: a local-first Markdown notes app for macOS"
 authors = ["Vigram Sivakumar"]
 # No `license` on purpose: which licence (if any) Clutter is released under has not been decided. Not published to crates.io.
