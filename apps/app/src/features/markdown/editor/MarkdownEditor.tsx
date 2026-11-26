@@ -667,16 +667,16 @@ export const MarkdownEditor = forwardRef<
   // way every other menu's own trigger works. See that module's own doc
   // comment for why closing needs a different mechanism than opening here
   // (no DOM anchor is ever available from CM6 state alone).
-  const [tableHandleMenu, setTableHandleMenu] = useState<{ selection: TableHandleMenuSelection } | null>(null);
+  const [tableHandleMenu, setTableHandleMenu] = useState<{ selection: TableHandleMenuSelection; engine?: true } | null>(null);
 
   // Stable ref identity with a live getter: CodeMirror may replace the table
   // widget after selection changes, so the overlay resolves the current
   // handle rather than measuring a DOM node captured by the pointer gesture.
   const tableHandleMenuAnchorRef = useMemo<TableHandleMenuAnchor>(() => ({
     get current() {
-      return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null);
+      return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null, tableHandleMenu?.engine);
     },
-  }), [tableHandleMenu?.selection]);
+  }), [tableHandleMenu?.selection, tableHandleMenu?.engine]);
 
   // Lifted out of `TableHandleMenu.tsx` itself (unlike every other menu
   // here, which each own a local `useRef(false)`) specifically so this
@@ -702,7 +702,7 @@ export const MarkdownEditor = forwardRef<
     if (params === null) {
       tableHandleMenuSuppressReturnFocusRef.current = true;
     }
-    setTableHandleMenu(params ? { selection: params.selection } : null);
+    setTableHandleMenu(params);
   });
 
   const closeTableHandleMenu = () => {
@@ -713,7 +713,8 @@ export const MarkdownEditor = forwardRef<
   // Engine menu actions never fall through to the legacy source writer,
   // including a stale/rejected engine command. Compatibility tables keep it.
   const engineMenuAction = (view: EditorView, selection: TableHandleMenuSelection, action: (index: number) => TableCommand | 'clear'): boolean => {
-    if (!view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${selection.tableFrom}"]`)) return false;
+    if (!tableHandleMenu?.engine) return false;
+    if (!view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${selection.tableFrom}"]`)) return true;
     const controller = view.plugin(tableCellEditor);
     const index = selection.kind === 'row' ? selection.rowIndex : selection.columnIndex;
     controller?.axisCommand(selection, action(index));

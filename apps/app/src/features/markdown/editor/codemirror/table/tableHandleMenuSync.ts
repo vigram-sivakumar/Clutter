@@ -18,18 +18,21 @@ export type TableHandleMenuSelection = Extract<TableSelection, { kind: 'row' } |
 
 export interface OpenTableHandleMenuParams {
   readonly selection: TableHandleMenuSelection;
+  readonly engine?: true;
 }
 
 /** Resolve the physical handle from the current TableSelection and live editor DOM. */
 export function resolveTableHandleMenuAnchor(
   view: EditorView | null,
-  requestedSelection: TableHandleMenuSelection | null
+  requestedSelection: TableHandleMenuSelection | null,
+  engine = false
 ): HTMLElement | null {
   if (!view || !requestedSelection || !view.dom.isConnected) {
     return null;
   }
 
   const engineWidget = view.dom.querySelector(`[data-table-engine-cells="true"][data-table-from="${requestedSelection.tableFrom}"]`);
+  if (engine && !engineWidget) return null;
   const currentSelection = engineWidget ? view.plugin(tableCellEditor)?.currentAxisSelection() ?? null : view.state.field(tableSelectionField, false) ?? null;
   if (!currentSelection || (engineWidget && currentSelection.tableFrom !== requestedSelection.tableFrom)) {
     return null;

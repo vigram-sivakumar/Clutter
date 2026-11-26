@@ -272,7 +272,7 @@ export class TableCellEditor {
   openHandleMenu(selection: TableHandleMenuSelection, notify: OnTableHandleMenuChange): void {
     if (!this.matchesAxis(selection)) return;
     this.handleMenu = { selection, notify };
-    notify({ selection });
+    notify({ selection, engine: true });
   }
 
   dismissHandleMenu(): void { this.handleMenu = null; }
@@ -283,7 +283,12 @@ export class TableCellEditor {
     if (!this.matchesAxis(selection) || this.root.state.readOnly) return false;
     const from = selection.tableFrom;
     try {
-      if (action === 'clear') return this.clearSelected();
+      if (action === 'clear') {
+        const result = this.clearSelected();
+        const cell = focusCell(this.interaction);
+        if (cell) this.hostAt(from, cell)?.focus({ preventScroll: true });
+        return result;
+      }
       if (action.kind === 'insertRow' || action.kind === 'deleteRow' || action.kind === 'duplicateRow' ||
           action.kind === 'insertColumn' || action.kind === 'deleteColumn' || action.kind === 'duplicateColumn') {
         return this.structural(from, action);
@@ -293,7 +298,11 @@ export class TableCellEditor {
       const tr = createTableTransaction(this.root.state, from, action, parse, tableSelectionTransition.of({
         before: bookmark(from, this.interaction), after: bookmark(from, next),
       }));
-      if (!tr) return false;
+      if (!tr) {
+        const cell = focusCell(this.interaction);
+        if (cell) this.hostAt(from, cell)?.focus({ preventScroll: true });
+        return false;
+      }
       this.cancelDrag();
       this.close();
       this.forwarding = true;

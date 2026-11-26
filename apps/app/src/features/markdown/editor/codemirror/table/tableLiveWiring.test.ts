@@ -739,7 +739,7 @@ describe('engine original table handles (M9b candidate)', () => {
     expect(notify).not.toHaveBeenCalled();
     pointer('pointerup', document);
     const selection = { kind: 'column' as const, tableFrom: 0, columnIndex: 0 };
-    expect(notify).toHaveBeenCalledWith({ selection });
+    expect(notify).toHaveBeenCalledWith({ selection, engine: true });
     expect(resolveTableHandleMenuAnchor(view, selection)).toBe(view.dom.querySelector('th .cm-table-column-handle'));
     expect(view.state.field(tableSelectionField, false) ?? null).toBeNull();
     expect(view.dom.querySelectorAll('.cm-table-engine-selected')).toHaveLength(2);
