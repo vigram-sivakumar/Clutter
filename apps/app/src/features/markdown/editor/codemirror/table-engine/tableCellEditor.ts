@@ -380,7 +380,7 @@ export class TableCellEditor {
   openHandleMenu(selection: TableHandleMenuSelection, notify: OnTableHandleMenuChange): void {
     if (!this.matchesAxis(selection)) return;
     this.handleMenu = { selection, notify };
-    notify({ selection, engine: true });
+    notify({ selection });
   }
 
   dismissHandleMenu(): void {
