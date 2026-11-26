@@ -82,7 +82,7 @@
 .cm-editor .cm-table-layout {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 0;
   width: calc(100% + 30px);
   min-width: calc(100% + 30px);
 }
@@ -90,7 +90,7 @@
   display: flex;
   flex: 0 0 calc(100% - 30px);
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
   width: calc(100% - 30px);
 }
@@ -115,11 +115,26 @@
   background: var(--surface-tertiary);
   opacity: 1;
 }
-/* Reveal the relevant control at its corresponding edge, without moving
- * either control or the table. Direct hover and keyboard focus are retained. */
-.cm-editor .cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-row,
-.cm-editor .cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-row,
-.cm-editor .cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-column {
+/* The track owns the 6px gap as transparent padding. It is hoverable
+ * but not clickable, so moving from an edge to its button never hides it. */
+.cm-editor .cm-table-quick-add-track {
+  display: flex;
+  box-sizing: border-box;
+}
+.cm-editor .cm-table-quick-add-track-row {
+  align-self: stretch;
+  padding-block-start: 6px;
+}
+.cm-editor .cm-table-quick-add-track-column {
+  align-self: flex-start;
+  flex: 0 0 calc(var(--height-sm) + 6px);
+  padding-inline-start: 6px;
+}
+/* Reveal only the corresponding control, including its own gap. */
+.cm-editor .cm-table-inner:has(> table > tbody > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row,
+.cm-editor .cm-table-inner:has(> table > tbody:empty):has(> table > thead > tr:last-child:hover) > .cm-table-quick-add-track-row > .cm-table-quick-add-row,
+.cm-editor .cm-table-layout:has(> .cm-table-inner > table > :is(thead, tbody) > tr > :is(th, td):last-child:hover) > .cm-table-quick-add-track-column > .cm-table-quick-add-column,
+.cm-editor .cm-table-quick-add-track:hover > .cm-table-quick-add {
   opacity: 1;
 }
 .cm-editor .cm-table-quick-add-row {
