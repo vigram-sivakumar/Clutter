@@ -138,6 +138,37 @@ Standing rules for evaluating work over time, not just at the moment of one impl
 
 ---
 
+## 7. Mandatory architecture and regression gate (all contributors and AI agents)
+
+This is a hard, repository-wide rule for every implementation milestone, including bug fixes, refactors, dependency/configuration changes and presentation/CSS changes. It applies to ChatGPT, Codex, Claude, Cursor, Copilot, other agents and human contributors equally. Small diffs, direct-to-development-branch work and urgent requests are not exemptions. Documentation-only changes still require a scope/diff and consistency review, but do not require unrelated runtime tests.
+
+Follow this sequence; do not skip or reorder steps:
+
+1. **Identify the root cause and baseline.** Inspect the current branch, actual implementation, relevant decisions and tests. Reproduce the reported failure where possible. Record the current test baseline and distinguish observed evidence from hypotheses. Do not treat a symptom, CSS workaround or speculative rewrite as a root-cause fix.
+2. **Check architectural and behavioural contracts.** Identify the owning subsystem, source of truth, dependent components, invariants, and existing accepted behaviour. State what must remain unchanged. CSS, DOM geometry, focus, event handling and keyboard interaction can share a behavioural contract; a styling-only label is not proof of isolation. Escalate conflicts before editing under §5.
+3. **Implement the smallest correct fix.** Extend the existing owner. Do not introduce a parallel state, write path, wrapper, event handler, or abstraction merely to bypass the root cause. Add a regression test for the defect, covering both logical state and visible behaviour where applicable. Do not delete, weaken, skip or rewrite acceptance tests merely to make a change pass; an intentional behaviour change must be explicitly authorised and reflected in the relevant contract.
+4. **Verify the whole affected system, not just the changed file.** Review the final diff against §§1–4 and the compliance checklist. Run type checking/build validation, relevant targeted tests and the complete affected subsystem regression suite. For runtime changes to the Markdown editor or tables, also run the full app suite (`npm run test:run` from the repository root). Record exact commands, results, and any pre-existing failures. A failing baseline is a blocker, not a green result or permission to bypass the gate. Resolve or explicitly escalate it before proceeding; do not silently redefine acceptance.
+5. **Verify real runtime behaviour where required.** DOM-only tests and stylesheet assertions cannot establish browser layout, native focus, pointer capture, IME, clipboard, selection painting, or actual keyboard delivery. For changes touching these behaviours, run relevant end-to-end tests and native Tauri/WebKit smoke tests on the changed revision. Test combinations and reversals, not only isolated happy paths. If an agent cannot access that environment, stop at an explicitly unverified candidate and request the required local verification; never substitute source inspection or a promise to test later.
+6. **Approve, commit, then proceed.** Only verified implementation milestones may be committed/pushed to the shared development branch or merged/released. If a required test fails, cannot run, or native evidence is missing, report the blocker and stop; keep the candidate uncommitted locally or provide a reviewable patch without publishing it to the shared branch. Remote-only editing tools that automatically commit are not a workaround: do not use them for unverified runtime changes. Report the checks and actual outcomes, any deviations/decisions, and the verified commit hash. Respect the owner's separate approval requirement for merging to main or releasing.
+
+### Required table and editor regression contract
+
+Before any further table enhancement, establish a verified stability checkpoint on the active development branch. Audit the changes since the last accepted table-engine baseline using `docs/table-rewrite-progress.md` and actual Git history; do not assume historical acceptance applies to newer commits.
+
+Preserve these invariants:
+- Markdown is the sole document source of truth; root CodeMirror owns the only document transaction stream and undo/redo history (ADR-034).
+- At most one active nested cell editor per root editor; inactive cells render static HTML; read-only embeds never mount editable cell editors.
+- The table engine owns validated parsing, commands and exact-source serialization. The interaction controller owns logical table selection, navigation and editing; document selection belongs to root CodeMirror. Rendered highlights are derived state, not another selection owner.
+- The projection owns stable cell DOM/address mapping. Pointer ownership must remain stable through cross-cell dragging, reversal and horizontal scrolling. Geometry changes must not invalidate cell addresses, focus or logical selection.
+- CSS owns presentation; it must not substitute for logical interaction fixes. Preserve automatic bounded column sizing, centred breakout, scrolling and independent control gutters. No manual column resizing unless explicitly approved.
+- A selection visual update must not mutate Markdown or add a history event. Copy, cut, delete, paste, typing and history must operate on the correct owner and source range.
+
+For every table/editor runtime change, verify the applicable automated cases and native smoke scenarios together: parsing/serialization and structural commands; typing and empty cells; Enter/Shift+Enter (edit destination with caret), Tab/Shift+Tab and arrows; Cmd/Ctrl+A from root and cells, Escape and selection transfer; forward/reverse rectangular drag, cell padding, full-range selection, edge auto-scroll, pointer release/cancel and reordering; clipboard/paste; undo/redo after mixed operations; add row/column, handles and drop indicators; centred table expansion and narrow/overflowing panes; document-range highlights for tables/images/PDFs/notes/placeholders versus cell/axis/object selections; light/dark rendering; read-only nested embeds and IME. Existing accepted behaviours must remain intact unless the owner explicitly changes them.
+
+Record the result in the progress ledger for each verified table milestone. CI should enforce the automated regression checks as a required merge gate; native verification remains a separate acceptance gate. A repository instruction is not proof that CI or branch protection is configured.
+
+---
+
 ## Operational Contract
 
 For every future implementation task:
@@ -146,5 +177,5 @@ For every future implementation task:
 2. Read the specific sections of `architecture-specification.md` (and, if rationale is unclear, `architecture-target.md` and `architecture-assessment.md`) relevant to the task.
 3. State explicitly, before writing code, which items in §1 apply and what they resolve to for this task.
 4. Implement only within the rules in §2, treating any needed exception as a trigger for §5, not a judgment call to make silently.
-5. Perform every step in §4 before considering the task done.
+5. Perform every step in §4 and the mandatory regression gate in §7 before considering the task done; the stricter requirement governs.
 6. Report — in the PR description or task summary, not buried in a comment — any point where implementation diverged from the specification, why, and whether it was resolved by fixing the code or by proposing a specification amendment. A clean report with nothing to disclose is the expected common case, not a formality to skip because nothing seemed to happen.
