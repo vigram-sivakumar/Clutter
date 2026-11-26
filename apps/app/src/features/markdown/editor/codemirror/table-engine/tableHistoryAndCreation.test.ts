@@ -66,7 +66,7 @@ describe('table engine history bookmarks and creation', () => {
     expect(restoredSelection(t.last!)).toBeNull();
     expect(redo(t)).toBe(true);
     expect(t.state.doc.toString()).toBe(after);
-    expect(restoredSelection(t.last!)).toEqual(bookmark(doc.length + 2, { kind: 'cell', cell: { row: 0, col: 0 } }));
+    expect(restoredSelection(t.last!)).toEqual(bookmark(doc.length + 2, { kind: 'table', cell: { row: 0, col: 0 } }));
   });
   it('preserves text on both sides of an insertion', () => {
     const t = target('BeforeAfter', 6);
