@@ -168,7 +168,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
   const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
     .map(cell => (cell as HTMLElement).dataset.cell);
 
-  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, Enter reuses the nested editor', () => {
+  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, Enter mounts a fresh editor', () => {
     const view = mount(doc, false, undefined, true);
     clickCell(findCell(view, 'Role'));
     const nested = view.plugin(tableCellEditor)!.nested!;
@@ -179,8 +179,8 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     key(host(view, 1, 0), 'Tab', true);
     expect(selected(view)).toEqual(['0,1']);
     key(host(view, 0, 1), 'Enter');
-    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
-    expect(nested.state.doc.toString()).toBe('Role');
+    expect(view.plugin(tableCellEditor)!.nested).not.toBe(nested);
+    expect(view.plugin(tableCellEditor)!.nested!.state.doc.toString()).toBe('Role');
     expect(selected(view)).toEqual([]);
     expect(view.state.doc.toString()).toBe(doc);
   });
@@ -206,7 +206,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     clickCell(findCell(view, 'Designer'));
     host(view, 0, 0).dispatchEvent(new MouseEvent('mousedown', { shiftKey: true, bubbles: true, cancelable: true }));
     expect(selected(view)).toEqual(['0,0','0,1','1,0','1,1']);
-    expect(view.plugin(tableCellEditor)!.nested!.dom.isConnected).toBe(false);
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     key(host(view, 0, 0), 'x');
     expect(view.state.doc.toString()).toBe(doc);
     document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
@@ -228,9 +228,11 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     const nested = view.plugin(tableCellEditor)!.nested!;
     key(nested.contentDOM, 'Escape');
     key(host(view, 1, 0), 'x');
-    expect(nested.state.doc.toString()).toBe('x');
+    const replacement = view.plugin(tableCellEditor)!.nested!;
+    expect(replacement).not.toBe(nested);
+    expect(replacement.state.doc.toString()).toBe('x');
     expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'x'));
-    key(nested.contentDOM, 'Escape');
+    key(replacement.contentDOM, 'Escape');
     key(host(view, 1, 0), 'ArrowRight', true);
     key(host(view, 1, 1), 'Delete');
     expect(selected(view)).toEqual(['1,0','1,1']);
@@ -522,6 +524,34 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(redo(view)).toBe(true);
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(cols);
+  });
+  it('exposes the supported table as an atomic range and restores exact source through multiple cell activations', () => {
+    const view = mountHistory();
+    const atomic = view.state.facet(EditorView.atomicRanges).flatMap(provider => {
+      const result: Array<[number, number]> = [];
+      provider(view).between(0, view.state.doc.length, (from, to) => { result.push([from, to]); });
+      return result;
+    });
+    expect(atomic).toContainEqual([8, 8 + TABLE.length]);
+    const revisions = [doc];
+    let previous: EditorView | null = null;
+    for (const name of ['Vik', 'Designer', 'Role']) {
+      clickCell(findCell(view, name));
+      const nested = view.plugin(tableCellEditor)!.nested!;
+      expect(nested).not.toBe(previous);
+      nested.dispatch({ changes: { from: name.length, insert: '!' }, userEvent: 'input.type' });
+      revisions.push(view.state.doc.toString());
+      previous = nested;
+    }
+    expect(undoDepth(view.state)).toBe(3);
+    for (let i = 2; i >= 0; i--) {
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(revisions[i]);
+    }
+    for (let i = 1; i <= 3; i++) {
+      expect(redo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(revisions[i]);
+    }
   });
   it('undoes and redoes mixed cell and structural history using consecutive keyboard events', () => {
     const view = mountHistory();
@@ -918,25 +948,33 @@ describe('engine visual and formatting parity (M10a candidate)', () => {
 describe('engine active-cell arrow and source padding regressions', () => {
   const press = (nested: EditorView, key: string) => nested.contentDOM.dispatchEvent(
     new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
-  it('navigates active editing by arrows, retaining the nested view and exact source', () => {
+  it('navigates active editing by arrows, remounting the nested view and retaining exact source', () => {
     const source = 'Before\n\n' + TABLE + '\n\nAfter';
     const view = mount(source, false, undefined, true);
     clickCell(findCell(view, 'Vik'));
-    const nested = view.plugin(tableCellEditor)!.nested!;
+    let nested = view.plugin(tableCellEditor)!.nested!;
     nested.dispatch({ selection: { anchor: 1 } });
     press(nested, 'ArrowRight');
     expect(nested.state.doc.toString()).toBe('Vik');
     nested.dispatch({ selection: { anchor: 3 } });
     press(nested, 'ArrowRight');
+    expect(nested.dom.isConnected).toBe(false);
+    nested = view.plugin(tableCellEditor)!.nested!;
     expect(nested.state.doc.toString()).toBe('Designer');
     expect(nested.state.selection.main.head).toBe(0);
     press(nested, 'ArrowLeft');
+    expect(nested.dom.isConnected).toBe(false);
+    nested = view.plugin(tableCellEditor)!.nested!;
     expect(nested.state.doc.toString()).toBe('Vik');
     expect(nested.state.selection.main.head).toBe(3);
     press(nested, 'ArrowUp');
+    expect(nested.dom.isConnected).toBe(false);
+    nested = view.plugin(tableCellEditor)!.nested!;
     expect(nested.state.doc.toString()).toBe('Name');
     expect(nested.state.selection.main.head).toBe(0);
     press(nested, 'ArrowDown');
+    expect(nested.dom.isConnected).toBe(false);
+    nested = view.plugin(tableCellEditor)!.nested!;
     expect(nested.state.doc.toString()).toBe('Vik');
     expect(nested.state.selection.main.head).toBe(0);
     expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
@@ -962,10 +1000,12 @@ describe('engine active-cell arrow and source padding regressions', () => {
     expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  '));
     const blank = view.dom.querySelector<HTMLElement>('[data-cell="2,0"]')!;
     blank.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
-    expect(nested.state.doc.toString()).toBe('');
+    const empty = view.plugin(tableCellEditor)!.nested!;
+    expect(empty).not.toBe(nested);
+    expect(empty.state.doc.toString()).toBe('');
     expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  '));
-    nested.dispatch({ changes: { from: 0, insert: 'x' } });
-    expect(nested.state.doc.toString()).toBe('x');
+    empty.dispatch({ changes: { from: 0, insert: 'x' } });
+    expect(empty.state.doc.toString()).toBe('x');
     expect(view.state.doc.toString()).toBe(source.replace('Vik  ', 'Vik more  ').replace('|      |', '| x     |'));
   });
 });
@@ -992,12 +1032,14 @@ describe('engine editable cell projection', () => {
     expect(document.activeElement).toBe(nested.contentDOM);
     expect(nested.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
     clickCell(findCell(view, 'Designer'));
-    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
-    expect(document.activeElement).toBe(nested.contentDOM);
-    expect(nested.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
+    const next = view.plugin(tableCellEditor)!.nested!;
+    expect(next).not.toBe(nested);
+    expect(nested.dom.isConnected).toBe(false);
+    expect(document.activeElement).toBe(next.contentDOM);
+    expect(next.scrollDOM.querySelector(':scope > .cm-cursorLayer')).not.toBeNull();
   });
 
-  it('reuses one nested editor across imported cells and preserves exact root history', () => {
+  it('creates a fresh nested editor across imported cells and preserves exact root history', () => {
     const doc = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n\nAfter';
     const view = mount(doc, false, undefined, true);
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
@@ -1007,7 +1049,8 @@ describe('engine editable cell projection', () => {
     nested.dispatch({ changes: { from: 3, insert: '!' } });
     expect(view.state.doc.toString()).toBe(doc.replace('one', 'one!'));
     clickCell(findCell(view, 'two'));
-    expect(controller.nested).toBe(nested);
+    expect(controller.nested).not.toBe(nested);
+    expect(nested.dom.isConnected).toBe(false);
     controller.close();
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);

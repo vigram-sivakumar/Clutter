@@ -3,7 +3,7 @@ import { tableActiveCellChanged, type TableActiveCellController } from '../table
 import { tableSelectionChanged, tableSelectionField } from '../table/tableSelection';
 import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, ViewPlugin } from '@codemirror/view';
-import { defaultKeymap, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
@@ -28,7 +28,7 @@ export const tableEngineIntegration = Facet.define<{
   readonly getPasteAssets?: () => PasteAssets | undefined;
 }>();
 
-/** One nested view per root, with root transactions accepted before nested state. */
+/** At most one live nested view per root, scoped to a single cell activation. */
 export class TableCellEditor {
   nested: EditorView | null = null;
   private active: { tableFrom: number; cell: CellAddress; from: number; to: number } | null = null;
@@ -619,6 +619,9 @@ export class TableCellEditor {
     }
     const source = this.root.state.doc.toString();
     const range = editableCell(source, snapshot, cell);
+    // Match the prototype: history never groups typing across two cell
+    // activations, and no detached nested view can retain native state.
+    this.root.dispatch({ annotations: isolateHistory.of('full') });
     this.active = { tableFrom, cell, from: range.from, to: range.to };
     this.interactionTable = tableFrom;
     this.interaction = { kind: 'editing', cell };
@@ -648,12 +651,9 @@ export class TableCellEditor {
       ],
     });
     host.replaceChildren();
-    if (!this.nested) {
-      this.nested = new EditorView({ state, parent: host, dispatchTransactions: transactions => this.dispatch(transactions) });
-    } else {
-      host.appendChild(this.nested.dom);
-      this.nested.setState(state);
-    }
+    this.nested = new EditorView({ state, parent: host, dispatchTransactions: (transactions, view) => {
+      if (view === this.nested) this.dispatch(transactions);
+    } });
     this.nested.focus();
     if (event) this.nested.contentDOM.dispatchEvent(new MouseEvent('mousedown', {
       clientX: event.clientX, clientY: event.clientY, button: 0, detail: event.detail, bubbles: false,
@@ -675,7 +675,8 @@ export class TableCellEditor {
         if (!rootTr) continue;
         this.forwarding = true;
         try { this.root.dispatch(rootTr); } finally { this.forwarding = false; }
-        this.nested.update([tr]);
+        // A synchronous external reconciliation may have closed the cell.
+        if (this.active === active && this.nested) this.nested.update([tr]);
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
         // Both views retain the last accepted revision.
@@ -745,9 +746,11 @@ export class TableCellEditor {
     this.handleMenu = null;
     menu?.notify(null);
     this.historyFocus = null;
-    const host = this.nested?.dom.parentElement;
-    this.nested?.dom.remove();
+    const nested = this.nested;
+    const host = nested?.dom.parentElement;
+    this.nested = null;
     this.active = null;
+    nested?.destroy();
     this.interaction = noInteraction;
     this.interactionTable = null;
     this.paintSelection();

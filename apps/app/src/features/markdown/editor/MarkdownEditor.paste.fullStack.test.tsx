@@ -1752,7 +1752,7 @@ describe('M10b — flagged table engine integration in MarkdownEditor', () => {
     expect(root.state.doc.toString()).toBe(DOC_TABLE);
   });
 
-  it('reuses one nested engine editor across two tables and reports exact root source through onEdit', () => {
+  it('mounts a fresh nested engine editor across two tables and reports exact root source through onEdit', () => {
     const markdown = DOC_TABLE + '\n\n| C | D |\n| --- | --- |\n| c1 | d1 |';
     const onEdit = vi.fn();
     const { container } = render(<MarkdownEditor pageId="engine-two" markdown={markdown} onEdit={onEdit} />);
@@ -1763,8 +1763,10 @@ describe('M10b — flagged table engine integration in MarkdownEditor', () => {
     const nested = nestedOf(container)!;
     act(() => nested.dispatch({ changes: { from: 2, insert: '!' }, userEvent: 'input.type' }));
     activateCell(root, 'd1');
-    expect(nestedOf(container)).toBe(nested);
-    act(() => nested.dispatch({ changes: { from: 2, insert: '?' }, userEvent: 'input.type' }));
+    const next = nestedOf(container)!;
+    expect(next).not.toBe(nested);
+    expect(nested.dom.isConnected).toBe(false);
+    act(() => next.dispatch({ changes: { from: 2, insert: '?' }, userEvent: 'input.type' }));
     const edited = markdown.replace('a1', 'a1!').replace('d1', 'd1?');
     expect(root.state.doc.toString()).toBe(edited);
     expect(onEdit).toHaveBeenLastCalledWith(edited);

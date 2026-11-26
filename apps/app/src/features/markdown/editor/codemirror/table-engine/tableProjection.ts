@@ -234,11 +234,11 @@ export class TableProjection extends WidgetType {
     if (this.cellEditing) view.plugin(tableCellEditor)?.paintWidget(root);
   }
 
-  // The editable projection owns its pointer, keyboard and clipboard
-  // events; the root must not interpret nested native input as Markdown.
-  // Read-only widgets retain the original root event behaviour.
-  override ignoreEvent(event: Event): boolean {
-    return this.cellEditing && /^(?:key(?:down|up|press)|beforeinput|input|composition(?:start|update|end)|copy|cut|paste)$/.test(event.type);
+  // Match the isolated prototype: the editable widget owns every event
+  // in its subtree. CM6's root must not infer text edits or a selection
+  // from pointer/focus/native events inside this separate editor.
+  override ignoreEvent(): boolean {
+    return this.cellEditing;
   }
 
   override destroy(root: HTMLElement): void {

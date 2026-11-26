@@ -384,6 +384,18 @@ export function tableWidgetDecoration(
       }
       return value;
     },
-    provide: (field) => EditorView.decorations.from(field),
+    provide: (field) => [
+      EditorView.decorations.from(field),
+      ...(editableProjection ? [EditorView.atomicRanges.of(view => {
+        // Match the lab: the supported table is one indivisible root
+        // cursor range, including any recognised legacy source suffix.
+        // Do not change compatibility-renderer navigation.
+        const ranges: Range<Decoration>[] = [];
+        view.state.field(field).between(0, view.state.doc.length, (from, to, value) => {
+          if (value.spec.widget instanceof TableProjection) ranges.push(value.range(from, to));
+        });
+        return Decoration.set(ranges, true);
+      })] : []),
+    ],
   });
 }
