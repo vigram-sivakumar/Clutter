@@ -3,7 +3,7 @@ import {
   type Alignment, type ParseMarkdown, type TableModel, type TableSnapshot,
 } from './tableModel';
 
-import { DEFAULT_TABLE_COLUMN_WIDTH, MIN_TABLE_COLUMN_WIDTH } from '../table/tableColumnWidthMetadata';
+import { DEFAULT_TABLE_COLUMN_WIDTH, MIN_TABLE_COLUMN_WIDTH, serializeTableColumnWidthsAttribute } from '../table/tableColumnWidthMetadata';
 
 /** Row 0 is the structural header. Inserting at 0 promotes a blank header and demotes the old header to a body row. */
 export type TableCommand =
@@ -17,7 +17,7 @@ export type TableCommand =
   | { readonly kind: 'moveColumn'; readonly from: number; readonly to: number }
   | { readonly kind: 'setCell'; readonly row: number; readonly col: number; readonly markdown: string }
   | { readonly kind: 'setAlignment'; readonly col: number; readonly alignment: Alignment }
-  | { readonly kind: 'resizeColumn'; readonly col: number; readonly width: number }
+  | { readonly kind: 'resizeColumn'; readonly col: number; readonly width: number; readonly initialWidths?: readonly number[] }
   | { readonly kind: 'paste'; readonly row: number; readonly col: number; readonly grid: readonly (readonly string[])[] }
   | { readonly kind: 'format' };
 
@@ -98,7 +98,8 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
     case 'resizeColumn':
       requireIndex(command.col, 0, cols() - 1);
       if (!Number.isSafeInteger(command.width) || command.width < MIN_TABLE_COLUMN_WIDTH) throw new TableEngineError('Invalid resize width');
-      widths ??= Array<number>(cols()).fill(DEFAULT_TABLE_COLUMN_WIDTH);
+      widths ??= command.initialWidths?.slice() ?? Array<number>(cols()).fill(DEFAULT_TABLE_COLUMN_WIDTH);
+      if (widths.length !== cols() || widths.some(w => !Number.isSafeInteger(w) || w <= 0)) throw new TableEngineError('Invalid measured widths');
       widths[command.col] = command.width;
       break;
     case 'paste': {
@@ -136,12 +137,16 @@ export function planTableEdit(source: string, tableFrom: number, command: TableC
   const before = readTable(source, tableFrom, parse);
   const next = applyTableCommand(before.model, command);
   if (command.kind !== 'format' && modelsEqual(before.model, next)) return null;
-  const insert = serializeTable(next);
-  if (insert === before.source) return null;
-  const expectedDocument = source.slice(0, before.from) + insert + source.slice(before.to);
+  // Resize changes metadata only, never normalizes imported cell padding,
+  // optional pipes, delimiter spelling or ragged rows.
+  const resize = command.kind === 'resizeColumn';
+  const from = resize ? (before.model.columnWidths ? before.from + before.source.lastIndexOf('\n') + 1 : before.to) : before.from;
+  const insert = resize ? (before.model.columnWidths ? '' : '\n') + serializeTableColumnWidthsAttribute(next.columnWidths!) : serializeTable(next);
+  if (insert === source.slice(from, before.to)) return null;
+  const expectedDocument = source.slice(0, from) + insert + source.slice(before.to);
   const after = readTable(expectedDocument, before.from, parse);
-  if (after.to !== before.from + insert.length || !modelsEqual(next, after.model)) {
+  if (after.to !== from + insert.length || !modelsEqual(next, after.model)) {
     throw new TableEngineError('Serialized table failed round-trip validation');
   }
-  return { before, after, change: { from: before.from, to: before.to, insert }, expectedDocument };
+  return { before, after, change: { from, to: before.to, insert }, expectedDocument };
 }

@@ -641,6 +641,71 @@ describe('engine staged structural commands (M8 candidate)', () => {
   });
 });
 
+describe('engine staged column resizing (M9a candidate)', () => {
+  const pointer = (type: string, target: EventTarget, x: number) =>
+    target.dispatchEvent(new MouseEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true }));
+  const mountHistory = (source: string) => {
+    const view = mount(source, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    return view;
+  };
+  const hits = (view: EditorView) => view.dom.querySelectorAll<HTMLElement>('.cm-table-column-resize-hit');
+  it('commits the measured first resize as width metadata only and reverses it through root history', () => {
+    const source = 'Before\n\n|A|B|\n|---|---|\n|one|two|\n\nAfter';
+    const view = mountHistory(source);
+    const widget = view.dom.querySelector('[data-table-engine-cells="true"]');
+    const headers = widget!.querySelectorAll('th');
+    const measure = (width: number) => ({ width } as DOMRect);
+    vi.spyOn(headers[0]!, 'getBoundingClientRect').mockReturnValue(measure(120));
+    vi.spyOn(headers[1]!, 'getBoundingClientRect').mockReturnValue(measure(260));
+    expect(hits(view)).toHaveLength(2);
+    pointer('pointerdown', hits(view)[0]!, 100);
+    pointer('pointermove', document, 150);
+    expect(widget!.querySelector<HTMLElement>('col')!.style.width).toBe('170px');
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
+    pointer('pointerup', document, 150);
+    const sized = source.replace('\n\nAfter', '\n{table-col-widths="170,260"}\n\nAfter');
+    expect(view.state.doc.toString()).toBe(sized);
+    expect(view.dom.querySelector('[data-table-engine-cells="true"]')).toBe(widget);
+    expect(hits(view)).toHaveLength(2);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(sized);
+    expect(hits(view)).toHaveLength(2);
+  });
+  it('supports successive resizes and cancellation without committing preview widths', () => {
+    const source = TABLE + '\n{table-col-widths="120,260"}';
+    const view = mountHistory(source);
+    pointer('pointerdown', hits(view)[1]!, 100);
+    pointer('pointermove', document, 20);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(view.state.doc.toString()).toBe(source);
+    expect(view.dom.querySelectorAll<HTMLTableColElement>('col')[1]!.style.width).toBe('260px');
+    expect(undoDepth(view.state)).toBe(0);
+    pointer('pointerdown', hits(view)[1]!, 100);
+    pointer('pointerup', document, 150);
+    expect(view.state.doc.toString()).toBe(source.replace('120,260', '120,310'));
+    pointer('pointerdown', hits(view)[0]!, 100);
+    pointer('pointerup', document, -100);
+    expect(view.state.doc.toString()).toBe(source.replace('120,260', '60,310'));
+    expect(undoDepth(view.state)).toBe(2);
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+  it('reconciles resize hit targets after adding and undoing a column; read-only tables have none', () => {
+    const view = mountHistory(TABLE);
+    view.dom.querySelector<HTMLButtonElement>('[aria-label="Add column"]')!.click();
+    expect(hits(view)).toHaveLength(3);
+    expect(undo(view)).toBe(true);
+    expect(hits(view)).toHaveLength(2);
+    expect(hits(mount(TABLE, true))).toHaveLength(0);
+  });
+});
+
 describe('engine editable cell projection', () => {
   it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
     const view = mount(TABLE, false, undefined, true);

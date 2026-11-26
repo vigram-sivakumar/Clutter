@@ -158,8 +158,9 @@ export function attachTableColumnResizeHandles(
   columnCount: number,
   columnWidths: readonly number[] | null,
   restoreScrollLeftAfterPositioning?: number,
-  scrollToEndAfterPositioning = false
-): void {
+  scrollToEndAfterPositioning = false,
+  engineCommit?: (columnIndex: number, width: number, measuredWidths: readonly number[]) => boolean,
+): (() => void) | undefined {
   if (columnCount < 1) {
     return;
   }
@@ -451,6 +452,7 @@ export function attachTableColumnResizeHandles(
    * table's first explicit resize.
    */
   function commitResize(finalWidth: number, activeSession: ResizeSession): boolean {
+    if (engineCommit) return engineCommit(activeSession.columnIndex, finalWidth, activeSession.startWidths);
     const table = findAllTables(view.state).find((t) => t.from === tableFrom);
     if (!table) {
       return false;
@@ -578,7 +580,10 @@ export function attachTableColumnResizeHandles(
     // default `scrollLeft` of 0.
     const finalScrollLeft = tableScroll!.scrollLeft;
     if (commitResize(finalWidth, activeSession)) {
-      restoreScrollPositionAfterCommit(finalScrollLeft);
+      if (!engineCommit) restoreScrollPositionAfterCommit(finalScrollLeft);
+      // The engine keeps its scrollport alive. Its new resize attachment
+      // will measure the committed columns; preserve the valid scroll offset.
+      else tableScroll!.scrollLeft = finalScrollLeft;
     } else if (wasDragged) {
       revertDom(activeSession);
     }
@@ -596,7 +601,7 @@ export function attachTableColumnResizeHandles(
   }
 
   function handlePointerDown(columnIndex: number, event: PointerEvent): void {
-    if (event.button > 0) {
+    if (event.button > 0 || disposed) {
       return;
     }
     event.preventDefault();
@@ -663,8 +668,19 @@ export function attachTableColumnResizeHandles(
   // scroll position made a column resize *feel* like the whole table shifts
   // left as much as it grows right, rather than the table simply extending
   // rightward the way dragging a column wider should read.
+  let disposed = false;
+  // The stable engine projection can change height/width without a widget
+  // rebuild. Re-measure its hit strips at rest; never move them mid-drag.
+  const observer = engineCommit && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
+    if (!disposed && !session && wrapper.isConnected) positionBoundaries();
+  }) : null;
+  if (observer) {
+    const table = resolveTableElement();
+    if (table) observer.observe(table);
+    observer.observe(wrapper);
+  }
   queueMicrotask(() => {
-    if (wrapper.isConnected) {
+    if (!disposed && wrapper.isConnected) {
       positionBoundaries();
       if (scrollToEndAfterPositioning) {
         const table = tableScroll.querySelector<HTMLTableElement>('table');
@@ -695,5 +711,11 @@ export function attachTableColumnResizeHandles(
         });
       }
     }
-  });
+  }  });
+  return () => {
+    disposed = true;
+    if (session) handlePointerCancel();
+    observer?.disconnect();
+    for (const boundary of boundaries) boundary.remove();
+  };
 }
