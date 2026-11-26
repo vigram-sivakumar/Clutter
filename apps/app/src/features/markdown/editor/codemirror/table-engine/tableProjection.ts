@@ -7,12 +7,114 @@ import type { TableSnapshot } from './tableModel';
 // The mounted DOM can outlive an individual WidgetType during reconciliation.
 const widthObservers = new WeakMap<HTMLElement, BreakoutWidthHandle>();
 const dragDisposers = new WeakMap<HTMLElement, () => void>();
+const structuralDisposers = new WeakMap<HTMLElement, () => void>();
 
 function container(parent: HTMLElement, className: string): HTMLDivElement {
   const child = parent.ownerDocument.createElement('div');
   child.className = className;
   parent.appendChild(child);
   return child;
+}
+
+/** Stage M8 with the established quick-add bars. A small context-action
+ * surface exposes the same structural API for browser acceptance until
+ * M9 replaces it with the product's row/column handle menu. */
+function attachStructuralControls(root: HTMLElement, view: EditorView, table: HTMLTableElement, inner: HTMLElement, layout: HTMLElement): () => void {
+  const doc = root.ownerDocument;
+  const controller = () => view.plugin(tableCellEditor);
+  const from = () => Number(root.dataset.tableFrom);
+  const button = (label: string, axis: 'row' | 'column', run: () => void) => {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.className = 'cm-table-quick-add cm-table-quick-add-' + axis;
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" /></svg>';
+    b.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
+    b.onclick = event => { event.preventDefault(); event.stopPropagation(); run(); };
+    return b;
+  };
+  const addRow = button('Add row', 'row', () => {
+    controller()?.structural(from(), { kind: 'insertRow', index: table.rows.length }, true);
+  });
+  const addColumn = button('Add column', 'column', () => {
+    const scroll = root.querySelector<HTMLElement>('.cm-table-scroll');
+    if (controller()?.structural(from(), { kind: 'insertColumn', index: table.rows[0]!.cells.length }, true) && scroll) {
+      scroll.scrollLeft = scroll.scrollWidth;
+      doc.defaultView?.requestAnimationFrame(() => { if (scroll.isConnected) scroll.scrollLeft = scroll.scrollWidth; });
+    }
+  });
+  inner.append(addRow);
+  layout.append(addColumn);
+  const size = () => {
+    const rect = table.getBoundingClientRect();
+    if (rect.width) addRow.style.width = rect.width + 'px';
+    if (rect.height) addColumn.style.height = rect.height + 'px';
+  };
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(size);
+  observer?.observe(table);
+  size();
+
+  let menu: HTMLElement | null = null;
+  const close = () => {
+    menu?.remove(); menu = null;
+    doc.removeEventListener('mousedown', outside, true);
+    doc.removeEventListener('keydown', escape, true);
+  };
+  const outside = (event: MouseEvent) => { if (!menu?.contains(event.target as Node)) close(); };
+  const escape = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && menu) { event.preventDefault(); event.stopPropagation(); close(); }
+  };
+  const open = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const host = target.closest<HTMLElement>('[data-cell]');
+    if (!host || host.closest('[data-table-engine-cells="true"]') !== root) return;
+    const [row, col] = host.dataset.cell!.split(',').map(Number);
+    if (row === undefined || col === undefined) return;
+    event.preventDefault(); event.stopPropagation(); close();
+    menu = doc.createElement('div');
+    menu.className = 'cm-table-engine-structural-actions';
+    menu.setAttribute('role', 'group');
+    menu.setAttribute('aria-label', 'Table structural actions');
+    const actions = [
+      ['Insert row above', { kind: 'insertRow', index: row }, 'row'],
+      ['Insert row below', { kind: 'insertRow', index: row + 1 }, 'row'],
+      ['Duplicate row', { kind: 'duplicateRow', index: row }, 'row'],
+      ['Delete row', { kind: 'deleteRow', index: row }, 'row'],
+      ['Insert column left', { kind: 'insertColumn', index: col }, 'column'],
+      ['Insert column right', { kind: 'insertColumn', index: col + 1 }, 'column'],
+      ['Duplicate column', { kind: 'duplicateColumn', index: col }, 'column'],
+      ['Delete column', { kind: 'deleteColumn', index: col }, 'column'],
+    ] as const;
+    for (const [label, command, axis] of actions) {
+      const action = doc.createElement('button');
+      action.type = 'button';
+      action.textContent = label;
+      action.dataset.tableAction = label;
+      action.onmousedown = e => { e.preventDefault(); e.stopPropagation(); };
+      action.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        close();
+        const c = controller();
+        if (c?.selectAxis(from(), { row, col }, axis)) c.structural(from(), command);
+      };
+      menu.append(action);
+    }
+    root.append(menu);
+    const win = doc.defaultView;
+    const rect = menu.getBoundingClientRect();
+    menu.style.left = Math.max(4, Math.min(event.clientX, (win?.innerWidth ?? 1024) - rect.width - 4)) + 'px';
+    menu.style.top = Math.max(4, Math.min(event.clientY, (win?.innerHeight ?? 768) - rect.height - 4)) + 'px';
+    doc.addEventListener('mousedown', outside, true);
+    doc.addEventListener('keydown', escape, true);
+  };
+  root.addEventListener('contextmenu', open);
+  return () => {
+    observer?.disconnect();
+    root.removeEventListener('contextmenu', open);
+    close();
+  };
 }
 
 /** A read-only projection of root Markdown. Reconcile by logical cell address so
@@ -43,6 +145,7 @@ export class TableProjection extends WidgetType {
     table.createTBody();
     this.paint(root, view);
     if (this.cellEditing) {
+      structuralDisposers.set(root, attachStructuralControls(root, view, table, inner, layout));
       const pointerDown = (event: PointerEvent) => view.plugin(tableCellEditor)?.beginDrag(event, root);
       const click = (event: MouseEvent) => view.plugin(tableCellEditor)?.consumeDragClick(root, event);
       const clipboard = (event: ClipboardEvent) => view.plugin(tableCellEditor)?.clipboard(root, event);
@@ -129,6 +232,8 @@ export class TableProjection extends WidgetType {
   override ignoreEvent(): boolean { return false; }
 
   override destroy(root: HTMLElement): void {
+    structuralDisposers.get(root)?.();
+    structuralDisposers.delete(root);
     dragDisposers.get(root)?.();
     dragDisposers.delete(root);
     widthObservers.get(root)?.disconnect();

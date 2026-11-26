@@ -472,6 +472,103 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
   });
 });
 
+describe('engine staged structural commands (M8 candidate)', () => {
+  const doc = 'Before\n\n' + TABLE + '\n\nAfter';
+  const mountHistory = (source = doc) => {
+    const view = mount(source, false, undefined, true);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    return view;
+  };
+  const widget = (view: EditorView) => view.dom.querySelector<HTMLElement>('[data-table-engine-cells="true"]')!;
+  const host = (view: EditorView, row: number, col: number) =>
+    widget(view).querySelector<HTMLElement>(`[data-cell="${row},${col}"]`)!;
+  const action = (view: EditorView, row: number, col: number, label: string) => {
+    host(view, row, col).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    const b = widget(view).querySelector<HTMLButtonElement>(`[data-table-action="${label}"]`)!;
+    expect(b).not.toBeNull();
+    b.click();
+  };
+  const select = (view: EditorView) => Array.from(widget(view).querySelectorAll('.cm-table-engine-selected [data-cell]')).map(h => (h as HTMLElement).dataset.cell);
+  it('quick-adds rows and columns with one history entry each and retains the widget', () => {
+    const view = mountHistory();
+    const root = widget(view);
+    root.querySelector<HTMLButtonElement>('[aria-label="Add row"]')!.click();
+    expect(widget(view)).toBe(root);
+    expect(root.querySelectorAll('tr')).toHaveLength(3);
+    const rows = view.state.doc.toString();
+    root.querySelector<HTMLButtonElement>('[aria-label="Add column"]')!.click();
+    expect(root.querySelectorAll('th')).toHaveLength(3);
+    const cols = view.state.doc.toString();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(rows);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(redo(view)).toBe(true);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(cols);
+  });
+  it('inserts above the header, promotes a blank header and restores row selection on undo', () => {
+    const view = mountHistory();
+    action(view, 0, 0, 'Insert row above');
+    expect(view.state.doc.toString()).toBe(doc.replace('| Name | Role |\n| --- | --- |', '|  |  |\n| --- | --- |\n| Name | Role |'));
+    expect(select(view)).toEqual(['0,0','0,1']);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(select(view)).toEqual(['0,0','0,1']);
+  });
+  it('inserts, duplicates and deletes body rows, restoring the exact document by undo', () => {
+    const view = mountHistory();
+    action(view, 1, 0, 'Duplicate row');
+    expect(view.state.doc.toString()).toContain('| Vik | Designer |\n| Vik | Designer |');
+    expect(select(view)).toEqual(['2,0','2,1']);
+    action(view, 1, 0, 'Insert row below');
+    expect(select(view)).toEqual(['2,0','2,1']);
+    action(view, 2, 0, 'Delete row');
+    expect(view.state.doc.toString()).toContain('| Vik | Designer |\n| Vik | Designer |');
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+  it('duplicates and deletes a column with its alignment and explicit width', () => {
+    const source = doc.replace('| --- | --- |', '| --- | :---: |').replace('\n\nAfter', '\n{table-col-widths="120,300"}\n\nAfter');
+    const view = mountHistory(source);
+    action(view, 1, 1, 'Duplicate column');
+    const duplicated = view.state.doc.toString();
+    expect(duplicated).toContain('| Name | Role | Role |');
+    expect(duplicated).toContain('| --- | :---: | :---: |');
+    expect(duplicated).toContain('{table-col-widths="120,300,300"}');
+    expect(select(view)).toEqual(['0,2','1,2']);
+    action(view, 0, 2, 'Delete column');
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(duplicated);
+  });
+  it('inserts columns left and right without disturbing the other cells', () => {
+    const view = mountHistory();
+    action(view, 0, 0, 'Insert column left');
+    expect(view.state.doc.toString()).toContain('|  | Name | Role |');
+    action(view, 0, 2, 'Insert column right');
+    expect(view.state.doc.toString()).toContain('|  | Name | Role |  |');
+    expect(select(view)).toEqual(['0,3','1,3']);
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+  it('promotes the body row when deleting the header and removes the table on the final row', () => {
+    const view = mountHistory();
+    action(view, 0, 0, 'Delete row');
+    expect(view.state.doc.toString()).toBe(doc.replace(TABLE, '| Vik | Designer |\n| --- | --- |'));
+    action(view, 0, 0, 'Delete row');
+    expect(view.state.doc.toString()).toBe('Before\n\n\n\nAfter');
+    expect(view.dom.querySelector('[data-table-engine-cells="true"]')).toBeNull();
+    expect(undo(view)).toBe(true);
+    expect(select(view)).toEqual(['0,0','0,1']);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+});
+
 describe('engine editable cell projection', () => {
   it('owns a drawn caret and selection layer while the root native caret is suppressed', () => {
     const view = mount(TABLE, false, undefined, true);

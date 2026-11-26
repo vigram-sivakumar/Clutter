@@ -5,7 +5,7 @@ import {
 
 import { DEFAULT_TABLE_COLUMN_WIDTH, MIN_TABLE_COLUMN_WIDTH } from '../table/tableColumnWidthMetadata';
 
-/** Row 0 is the structural header. Insert-row indices start at 1. */
+/** Row 0 is the structural header. Inserting at 0 promotes a blank header and demotes the old header to a body row. */
 export type TableCommand =
   | { readonly kind: 'insertRow'; readonly index: number }
   | { readonly kind: 'deleteRow'; readonly index: number }
@@ -51,7 +51,7 @@ export function applyTableCommand(model: TableModel, command: TableCommand): Tab
   }
   switch (command.kind) {
     case 'insertRow':
-      requireIndex(command.index, 1, rows.length);
+      requireIndex(command.index, 0, rows.length);
       rows.splice(command.index, 0, blank());
       break;
     case 'deleteRow':

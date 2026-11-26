@@ -713,3 +713,30 @@
 .cm-editor [data-table-engine-cells="true"] .cm-table-engine-left { --engine-left: 2px; }
 .cm-editor [data-table-engine-cells="true"] .cm-table-engine-right { --engine-right: -2px; }
 .cm-editor [data-table-engine-cells="true"] [data-cell]:focus { outline: none; }
+
+/* Staged M8 context actions. M9 replaces this test surface with the product handle menu. */
+.cm-editor .cm-table-engine-structural-actions {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 156px;
+  padding: 4px;
+  border: 1px solid var(--border-primary, currentColor);
+  border-radius: var(--radius-md, 6px);
+  background: var(--surface-primary);
+  box-shadow: 0 4px 16px #0002;
+}
+.cm-editor .cm-table-engine-structural-actions button {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--foreground-primary);
+  font: inherit;
+  text-align: left;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.cm-editor .cm-table-engine-structural-actions button:hover,
+.cm-editor .cm-table-engine-structural-actions button:focus-visible { background: var(--surface-tertiary); }

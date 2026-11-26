@@ -6,6 +6,7 @@ import { renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction } from './tableTransaction';
+import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
@@ -154,6 +155,50 @@ export class TableCellEditor {
       }
     } catch (error) {
       if (!(error instanceof TableEngineError)) throw error;
+    }
+  }
+
+  /** Structural actions use the same model validation and root history as
+   * cell/clipboard edits. The projection supplies an explicit table/index,
+   * never a stale root text caret or a legacy selection field. */
+  structural(tableFrom: number, command: Extract<TableCommand, { kind: 'insertRow' | 'deleteRow' | 'duplicateRow' | 'insertColumn' | 'deleteColumn' | 'duplicateColumn' }>, quick = false): boolean {
+    if (this.root.state.readOnly) return false;
+    try {
+      const shape = this.shape(tableFrom);
+      const row = command.kind === 'insertRow' || command.kind === 'deleteRow' || command.kind === 'duplicateRow';
+      const count = row ? shape.rows : shape.cols;
+      const index = command.index;
+      const insert = command.kind === 'insertRow' || command.kind === 'insertColumn';
+      const remove = command.kind === 'deleteRow' || command.kind === 'deleteColumn';
+      if (!Number.isInteger(index) || index < 0 || index > (insert ? count : count - 1)) return false;
+      const whole = remove && count === 1;
+      const nextIndex = insert ? index : remove ? Math.min(index, count - 2) : index + 1;
+      const next: TableInteraction = quick || whole ? noInteraction :
+        { kind: row ? 'row' : 'column', cell: row ? { row: nextIndex, col: 0 } : { row: 0, col: nextIndex } };
+      const before = this.interactionTable === tableFrom ? bookmark(tableFrom, this.interaction) : null;
+      const effect = tableSelectionTransition.of({ before, after: bookmark(tableFrom, next) });
+      const tr = createTableTransaction(this.root.state, tableFrom, whole ? { kind: 'deleteTable' } : command, parse, effect);
+      if (!tr) return false;
+      this.cancelDrag();
+      this.close();
+      this.forwarding = true;
+      try { this.root.dispatch(tr); } finally { this.forwarding = false; }
+      if (next.kind !== 'none') this.select(tableFrom, next);
+      else this.root.focus();
+      return true;
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
+    }
+  }
+
+  selectAxis(tableFrom: number, cell: CellAddress, axis: 'row' | 'column'): boolean {
+    try {
+      this.cancelDrag();
+      return this.select(tableFrom, { kind: axis, cell });
+    } catch (error) {
+      if (!(error instanceof TableEngineError)) throw error;
+      return false;
     }
   }
 
