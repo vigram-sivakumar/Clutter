@@ -70,12 +70,15 @@ describe('automatic table sizing stylesheet', () => {
     expect(table).toContain('width: 100%');
   });
 
-  it('extends the scrollport only when minimum column widths exceed the prose width, capped by the page pane', () => {
+  it('centres wider tables within the page pane, excluding asymmetric control padding', () => {
     const query = css.indexOf('@container clutter-page (min-width: 0px) {');
     expect(query).toBeGreaterThanOrEqual(0);
     const responsiveRule = css.slice(query, css.indexOf('}', query));
-    expect(responsiveRule).toContain('width: calc(max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) + var(--cm-table-inline-clearance))');
-    expect(responsiveRule).toContain('max-width: max(var(--cm-table-scroll-width), calc((100cqw + 100%) / 2))');
+    expect(responsiveRule).toContain('--cm-table-page-cap: max(var(--cm-table-scroll-width), calc(100cqw - 2 * var(--cm-table-handle-gutter) - var(--cm-table-add-column-space)))');
+    expect(responsiveRule).toContain('--cm-table-visible-scroll-width: min(calc(max(100%, var(--cm-table-column-count) * var(--cm-table-column-min)) + var(--cm-table-inline-clearance)), var(--cm-table-page-cap))');
+    expect(responsiveRule).toContain('width: var(--cm-table-visible-scroll-width)');
+    expect(responsiveRule).toContain('max-width: var(--cm-table-page-cap)');
+    expect(responsiveRule).toContain('margin-inline-start: calc((var(--cm-table-scroll-width) - var(--cm-table-visible-scroll-width)) / 2 - var(--cm-table-handle-gutter))');
     const pageCss = readFileSync(join(__dirname, '../../../../../app/layouts/page/Page.css'), 'utf8');
     expect(pageCss).toContain('container: clutter-page / inline-size');
     expect(pageCss).toContain('overflow-x: hidden');
