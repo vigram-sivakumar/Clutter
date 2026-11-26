@@ -5,11 +5,13 @@ import { EditorView } from '@codemirror/view';
 import { history, undo } from '@codemirror/commands';
 import { ensureSyntaxTree } from '@codemirror/language';
 
-import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { normalizeExternalPaste } from '../paste/externalPaste';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
-import { TableActiveCellController } from './tableActiveCellController';
+import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
+import { tableWidgetDecoration } from './tableWidgetField';
+import { tableSelectionHistory } from '../table-engine/tableSelectionHistory';
+import { findAllTables, getNavigableRows, getRowCellBounds } from './tableGeometry';
 
 const mounted: EditorView[] = [];
 
@@ -24,7 +26,7 @@ const TABLE = '| Name | Note |\n| --- | --- |\n| alpha | beta |\n| gamma | delta
 
 function mountRoot(doc: string): EditorView {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [markdownLanguageExtension(), history()] }),
+    state: EditorState.create({ doc, extensions: [markdownLanguageExtension(), tableCellEditor, tableWidgetDecoration(true), tableSelectionHistory, history()] }),
     parent: document.body.appendChild(document.createElement('div')),
   });
   mounted.push(view);
@@ -33,11 +35,13 @@ function mountRoot(doc: string): EditorView {
 
 /** Activates the cell whose text is `cell` (first occurrence) with the real format keymap on the nested editor. */
 function activate(root: EditorView, cell: string) {
-  const controller = new TableActiveCellController();
-  controller.setNestedExtensions([formatShortcutsKeymap()]);
+  const controller = root.plugin(tableCellEditor)!;
+  const table = findAllTables(root.state)[0]!;
+  const rows = getNavigableRows(table.node);
   const from = root.state.doc.toString().indexOf(cell);
-  controller.activate(root, document.body.appendChild(document.createElement('div')), from, from + cell.length, from);
-  mounted.push(controller.nestedView!);
+  const row = rows.findIndex(r => r.from <= from && r.to >= from);
+  const col = getRowCellBounds(rows[row]!).findIndex(bounds => bounds.from <= from && bounds.to >= from);
+  expect(controller.enterCell(table.from, { row, col }, 'start')).toBe(true);
   return controller;
 }
 
@@ -48,8 +52,8 @@ function press(view: EditorView, key: string) {
   view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true }));
 }
 
-function select(controller: TableActiveCellController, from: number, to: number) {
-  controller.nestedView!.dispatch({ selection: { anchor: from, head: to } });
+function select(controller: TableCellEditor, from: number, to: number) {
+  controller.nested!.dispatch({ selection: { anchor: from, head: to } });
 }
 
 describe('formatting commands inside a table cell', () => {
@@ -62,7 +66,7 @@ describe('formatting commands inside a table cell', () => {
     const controller = activate(root, 'alpha');
 
     select(controller, 0, 5);
-    press(controller.nestedView!, key);
+    press(controller.nested!, key);
 
     expect(root.state.doc.toString()).toBe(TABLE.replace('alpha', `${marker}alpha${marker}`));
   });
@@ -72,13 +76,13 @@ describe('formatting commands inside a table cell', () => {
 
     let controller = activate(root, 'Name');
     select(controller, 0, 4);
-    press(controller.nestedView!, 'b');
+    press(controller.nested!, 'b');
     expect(root.state.doc.toString()).toBe(TABLE.replace('Name', '**Name**'));
 
-    controller.nestedView!.destroy();
+    controller.close();
     controller = activate(root, '**Name**');
     select(controller, 2, 6);
-    press(controller.nestedView!, 'b');
+    press(controller.nested!, 'b');
     expect(squash(root.state.doc.toString())).toBe(TABLE);
   });
 
@@ -87,12 +91,12 @@ describe('formatting commands inside a table cell', () => {
 
     let controller = activate(root, 'alpha');
     select(controller, 0, 5);
-    press(controller.nestedView!, 'b');
-    controller.nestedView!.destroy();
+    press(controller.nested!, 'b');
+    controller.close();
 
     controller = activate(root, '**alpha**');
     select(controller, 0, 9);
-    press(controller.nestedView!, 'i');
+    press(controller.nested!, 'i');
     expect(root.state.doc.toString()).toContain('| ***alpha*** |');
 
     undo(root);
@@ -105,12 +109,12 @@ describe('formatting commands inside a table cell', () => {
 
     let controller = activate(root, 'alpha');
     select(controller, 0, 5);
-    press(controller.nestedView!, 'b');
-    controller.nestedView!.destroy();
+    press(controller.nested!, 'b');
+    controller.close();
 
     controller = activate(root, 'delta');
     select(controller, 0, 5);
-    press(controller.nestedView!, 'e');
+    press(controller.nested!, 'e');
 
     expect(squash(root.state.doc.toString())).toBe(TABLE.replace('alpha', '**alpha**').replace('delta', '`delta`'));
   });
