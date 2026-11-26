@@ -7,6 +7,7 @@ import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedLivePreview } from './embedLivePreview';
+import { blockRangeSelection } from '../blockRangeSelection';
 import { embedCompletionSource } from './embedCompletionSource';
 import { embedAutocomplete } from './embedAutocomplete';
 import { pasteRouting } from '../paste/pasteRouting';
@@ -80,6 +81,7 @@ function mountView(
     extensions: [
       history(),
       markdownLanguageExtension(),
+      blockRangeSelection(),
       embedLivePreview({
         hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
@@ -1005,6 +1007,28 @@ describe('imported media selection', () => {
     expect(view.state.doc.toString()).toBe('');
     redo(view);
     expect(view.state.doc.toString()).toBe(expected);
+    view.destroy();
+  });
+});
+
+describe('document range selection of rendered images', () => {
+  it('highlights only intersecting embeds and keeps their rendered DOM stable', () => {
+    const doc = 'Before.\n\n![[hero.png]]\n\nMiddle.\n\n![[other.png]]\n\nAfter.';
+    const resolve = resolverFor({
+      'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png'),
+      'other.png': imageResolution('app://vault/other.png', 'other.png', 'other.png'),
+    });
+    const view = mountView(doc, resolve);
+    const blocks = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-media-block'));
+    expect(blocks).toHaveLength(2);
+    view.dispatch({ selection: { anchor: 0, head: doc.indexOf('Middle.') } });
+    expect(blocks.map(block => block.classList.contains('cm-block-range-selected'))).toEqual([true, false]);
+    view.dispatch({ selection: { anchor: doc.length, head: 0 } });
+    expect(blocks.map(block => block.classList.contains('cm-block-range-selected'))).toEqual([true, true]);
+    expect(Array.from(view.dom.querySelectorAll('.cm-media-block'))).toEqual(blocks);
+    view.dispatch({ selection: { anchor: doc.length } });
+    expect(blocks.every(block => !block.classList.contains('cm-block-range-selected'))).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
   });
 });
