@@ -325,6 +325,11 @@ describe('static table link context menu', () => {
     const content = container.querySelector<HTMLElement>('.cm-content')!;
     const view = EditorView.findFromDOM(content)!;
     const host = container.querySelector<HTMLElement>('tbody [data-cell]')!;
+    const widget = host.closest('.cm-table-widget');
+    expect(widget).not.toBeNull();
+    // Verify the actual projection mode: the interactive engine marker
+    // is absent in read-only, but the same widget owns the painted links.
+    expect(widget!.hasAttribute('data-table-engine-cells')).toBe(!readOnly);
     const rightClick = (target: Element) => {
       const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 40, clientY: 50 });
       act(() => { target.dispatchEvent(event); });

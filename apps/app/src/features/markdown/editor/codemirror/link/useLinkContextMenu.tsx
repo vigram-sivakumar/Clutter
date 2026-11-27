@@ -53,7 +53,9 @@ export function useLinkContextMenu(): {
       // Static table cells have no independent CM coordinates. Their
       // painted occurrence supplies the same payload as a live editor.
       // A nested active editor's enclosing table is outside its contentDOM.
-      const table = target.closest<HTMLElement>('[data-table-engine-cells="true"]');
+      // The engine-cells attribute is deliberately editable-only. Both
+      // editable and read-only projections share the table widget class.
+      const table = target.closest<HTMLElement>('.cm-table-widget');
       if (table && view.contentDOM.contains(table)) {
         const host = target.closest<HTMLElement>('.cm-table-cell-wrapper[data-cell]');
         if (!host || !table.contains(host)) return;
