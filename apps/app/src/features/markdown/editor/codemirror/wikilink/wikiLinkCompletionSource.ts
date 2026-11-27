@@ -37,7 +37,7 @@ type InsertText = (path: string, alias: string | null) => string;
  * Writes `insert` over `[from, to)` and puts the cursor after the whole construct — the one insert both a
  * note suggestion and a heading suggestion (`[[Page#Heading]]`, completionPopup/headingCompletion.ts) use.
  */
-function applyWikiLinkInsert(view: EditorView, insert: string, from: number, to: number): void {
+function applyWikiLinkInsert(view: EditorView, insert: string, from: number, to: number): boolean {
   // Reactivating completion inside an ALREADY-CLOSED reference (see
   // `referenceZoneAt`) replaces only the bare reference text —
   // whatever already follows it (a bare closing `]]`, or `|alias]]`)
@@ -57,11 +57,17 @@ function applyWikiLinkInsert(view: EditorView, insert: string, from: number, to:
   const anchor = existing ? existing.to + (insert.length - (to - from)) : from + insert.length;
 
   // After the whole link, in the same transaction (one undo), unless a space already follows.
-  const space = trailingSpaceChange(view.state, existing ? existing.to : to);
+  const before = view.state;
+  const space = trailingSpaceChange(before, existing ? existing.to : to);
+  const changes = before.changes([{ from, to, insert }, ...(space ? [space] : [])]);
+  const expected = changes.apply(before.doc);
   view.dispatch({
-    changes: [{ from, to, insert }, ...(space ? [space] : [])],
+    changes,
     selection: { anchor: anchor + 1 },
   });
+  // A host may refuse the dispatch, even when the proposed transaction
+  // passed the state filters. Only create a target after actual insertion.
+  return view.state !== before && view.state.doc.eq(expected);
 }
 
 function toCompletion(
@@ -83,9 +89,9 @@ function toCompletion(
     ...wikiLinkRow(suggestion, layout),
     ...(group && { section: group, limitKey: undefined }),
     apply(view, _completion, from, to) {
-      applyWikiLinkInsert(view, insertText(suggestion.path, alias), from, to);
+      const accepted = applyWikiLinkInsert(view, insertText(suggestion.path, alias), from, to);
 
-      if (suggestion.kind === 'create') {
+      if (accepted && suggestion.kind === 'create') {
         suggestion.create();
       }
     },
