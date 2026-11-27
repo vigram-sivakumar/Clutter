@@ -41,8 +41,7 @@ export function pageLinkTarget(path: string, root: string): string {
 /**
  * Whether `target` can be written as `[[target]]` / `![[target]]` and still be read back, identically,
  * by both the editor's scanner and the ingest extractors. `\` `|` `]` are the grammar's escape and
- * delimiter characters — the editor can escape them, but the extractors (and so the index and
- * References) cannot read an escape — and `#` / `^` would turn the tail into a heading or block
+ * delimiter characters — the editor can escape them, but the legacy embed extractor cannot read an escape — and `#` / `^` would turn the tail into a heading or block
  * reference. There is no escape for `#`, and none of these is invented here.
  */
 export function isRepresentableLinkTarget(target: string): boolean {
@@ -55,7 +54,7 @@ interface ReferenceSpan {
   readonly target: string;
   /** Length of the `[[` / `![[` opener inside the span. */
   readonly openerLength: number;
-  readonly source?: { readonly targetRange: { readonly from: number; readonly to: number } | null; readonly headingRange: { readonly from: number; readonly to: number } | null };
+  readonly source?: { readonly heading: string | undefined; readonly targetRange: { readonly from: number; readonly to: number } | null; readonly headingRange: { readonly from: number; readonly to: number } | null };
 }
 
 /** Every genuine `[[…]]` link and `![[…]]` embed in `markdown` (code is already excluded by the extractors). */
@@ -63,7 +62,7 @@ function findReferenceSpans(markdown: string): ReferenceSpan[] {
   return [
     ...linkExtractor.extractWithSource(markdown).map(({ link, targetRange, headingRange }) => ({
       start: link.startOffset, end: link.endOffset, target: link.target, openerLength: 2,
-      source: { targetRange, headingRange },
+      source: { heading: link.heading, targetRange, headingRange },
     })),
     ...embedExtractor.extract(markdown).map((ref) => ({
       start: ref.startOffset, end: ref.endOffset, target: ref.target, openerLength: 3,
@@ -237,7 +236,7 @@ export function rewriteHeadingReferences(
   for (const span of spans) {
     if (span.source) {
       const range = span.source.headingRange;
-      if (range && targetsPage(span.target) && next.slice(range.from, range.to) === from) {
+      if (range && targetsPage(span.target) && span.source.heading === from) {
         next = next.slice(0, range.from) + to + next.slice(range.to);
       }
       continue;
