@@ -39,7 +39,7 @@ import { renderDate } from '../date/dateDecorations';
  */
 export function renderInlineMarkdown(text: string, options: { readonly styled?: boolean } = {}): string {
   const tree = sharedMarkdownParser.parse(text);
-  const spans = tokenizeInline(tree.topNode, text, undefined, { preserveDestinationlessLinks: true });
+  const spans = tokenizeInline(tree.topNode, text, undefined, { preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
   return renderSpans(spans, options.styled === true);
 }
 
@@ -56,12 +56,12 @@ function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?:
 export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
-  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true, preserveDestinationlessLinks: true });
+  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
     let widget: WidgetType | null = null;
     if (span.kind === 'wikilink' && span.source !== undefined) {
-      widget = renderWikiLink(span.source, resolvers.resolveWikiLink ?? (() => undefined));
+      widget = renderWikiLink(span.source, resolvers.resolveWikiLink ?? (() => undefined), [], 'table');
     } else if (span.kind === 'tag' && span.source !== undefined) {
       widget = renderTag(span.source, resolvers.resolveTag ?? (() => undefined));
     } else if (span.kind === 'date' && span.source !== undefined) {
@@ -111,7 +111,7 @@ function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf):
     case 'code':
       return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {
-      const resolution = fallbackWikiLinkResolution(span.path);
+      const resolution = fallbackWikiLinkResolution(span.path, span.alias);
       return `<span class="cm-table-cell-wikilink">${escapeHtml(resolution.displayLabel)}</span>`;
     }
     case 'tag':
