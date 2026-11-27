@@ -883,8 +883,18 @@ export class TableCellEditor {
         if (!rootTr) continue;
         this.forwarding = true;
         try { this.root.dispatch(rootTr); } finally { this.forwarding = false; }
-        // A synchronous external reconciliation may have closed the cell.
-        if (this.active === active && this.nested) this.nested.update([tr]);
+        // The host's live canEdit gate may drop the root transaction at
+        // dispatch (after state filters ran). The child must not get ahead
+        // of the authoritative document, or run a completion side effect
+        // on an insertion that never reached the root.
+        if (this.root.state === rootTr.startState) return;
+        if (this.active !== active || !this.nested) return;
+        if (this.root.state.sliceDoc(active.from, active.to) !== tr.newDoc.toString()) {
+          // A synchronous reconciliation superseded the proposed cell text.
+          this.close();
+          return;
+        }
+        this.nested.update([tr]);
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
         // Both views retain the last accepted revision.
