@@ -12,6 +12,8 @@ import { collectActiveInlineClasses } from '../highlight/inlineLivePreviewPartic
 import { isConstructEngaged } from '../semanticToken/tokenEngagement';
 import { getWikiLinkMarkerRanges, renderWikiLink } from './wikiLinkDecorations';
 import type { ResolveWikiLink } from './wikiLinkResolution';
+import type { WikiLinkSourceContext } from '@core/vault/ingest/grammar/wikiLinkScanner';
+import { wikiLinkSourceContextForNode } from '@core/vault/ingest/grammar/wikiLinkSyntax';
 
 /**
  * WikiLink's own, standalone visibility mechanism — deliberately outside
@@ -75,7 +77,8 @@ import type { ResolveWikiLink } from './wikiLinkResolution';
  */
 function buildDecorations(
   view: EditorView,
-  getResolver: () => ResolveWikiLink | undefined
+  getResolver: () => ResolveWikiLink | undefined,
+  sourceContext?: WikiLinkSourceContext
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
@@ -98,6 +101,7 @@ function buildDecorations(
           return;
         }
 
+        const context = sourceContext ?? wikiLinkSourceContextForNode(node.node);
         if (isConstructEngaged(view.state, node.node)) {
           // Engaged: the raw source stays ordinary, undecorated document
           // text — see this function's own doc comment above — except for
@@ -107,7 +111,7 @@ function buildDecorations(
           // get. This is additive only: no widget, no atomic range, no
           // change to which text is real vs. concealed.
           const raw = view.state.sliceDoc(node.from, node.to);
-          for (const { from, to } of getWikiLinkMarkerRanges(raw)) {
+          for (const { from, to } of getWikiLinkMarkerRanges(raw, context)) {
             ranges.push(
               Decoration.mark({ class: 'cm-marker cm-wikilink-marker' }).range(node.from + from, node.from + to)
             );
@@ -117,7 +121,7 @@ function buildDecorations(
 
         const raw = view.state.sliceDoc(node.from, node.to);
         const extraClasses = [...collectActiveInlineClasses(node, view.state)];
-        const widget = renderWikiLink(raw, getResolver, extraClasses);
+        const widget = renderWikiLink(raw, getResolver, extraClasses, context);
         if (!widget) {
           return;
         }
@@ -136,19 +140,19 @@ interface WikiLinkLivePreviewPlugin extends PluginValue {
   atomic: DecorationSet;
 }
 
-export function wikiLinkLivePreview(getResolver: () => ResolveWikiLink | undefined): Extension {
+export function wikiLinkLivePreview(getResolver: () => ResolveWikiLink | undefined, context?: WikiLinkSourceContext): Extension {
   const plugin = ViewPlugin.fromClass<WikiLinkLivePreviewPlugin>(
     class implements WikiLinkLivePreviewPlugin {
       decorations: DecorationSet;
       atomic: DecorationSet;
 
       constructor(view: EditorView) {
-        ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(view, getResolver));
+        ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(view, getResolver, context));
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged || update.selectionSet) {
-          ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, getResolver));
+          ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, getResolver, context));
         }
       }
     },
