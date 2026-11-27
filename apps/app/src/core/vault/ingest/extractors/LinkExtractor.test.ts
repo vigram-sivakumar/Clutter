@@ -85,3 +85,24 @@ describe('EmbedExtractor', () => {
     });
   });
 });
+
+describe('contextual table link extraction', () => {
+  const extractor = new LinkExtractor();
+  it('indexes a table alias and preserves its source range, unlike identical prose spelling', () => {
+    const raw = '[[Folder/Note#Heading\\|Display]]';
+    const content = raw + '\n\n| A | B |\n|---|---|\n| ' + raw + ' | other |';
+    const links = extractor.extractWithSource(content);
+    expect(links).toHaveLength(2);
+    expect(links[0]!.link).toMatchObject({ target: 'Folder/Note', heading: 'Heading|Display', alias: undefined });
+    const table = links[1]!;
+    expect(table.link).toMatchObject({ target: 'Folder/Note', heading: 'Heading', alias: 'Display' });
+    expect(content.slice(table.link.startOffset, table.link.endOffset)).toBe(raw);
+    expect(content.slice(table.targetRange!.from, table.targetRange!.to)).toBe('Folder/Note');
+    expect(content.slice(table.headingRange!.from, table.headingRange!.to)).toBe('Heading');
+  });
+
+  it('does not index incomplete, code, embedded or Markdown-link continuation syntax as WikiLinks', () => {
+    const content = '| A | B |\n|---|---|\n| [[Incomplete] | \x60[[Code\\|Alias]]\x60 |\n| ![[Embed]] | [[A]](https://example.com) |';
+    expect(extractor.extract(content)).toEqual([]);
+  });
+});
