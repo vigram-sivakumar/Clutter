@@ -55,6 +55,8 @@ export interface TokenizeInlineOptions {
   readonly includeSemanticSource?: boolean;
   /** Retain the parser’s link destination for an interactive rendering surface. */
   readonly includeLinkDestination?: boolean;
+  /** Match editor Live Preview: a Link without a URL child stays literal, including its brackets. */
+  readonly preserveDestinationlessLinks?: boolean;
   /** Also record each Image's raw destination as `src` — see `InlineSpan`'s image variant. */
   readonly includeImageSrc?: boolean;
 }
@@ -169,7 +171,13 @@ function linkUrlText(node: SyntaxNode, text: string): string | null {
  * empty/absent there's nothing addressable at all — `null` tells the
  * caller to contribute nothing, never a raw `[]()`.
  */
-export function readLink(node: SyntaxNode, text: string, includeDestination = false): InlineSpan | null {
+export function readLink(node: SyntaxNode, text: string, includeDestination = false, preserveDestinationless = false): InlineSpan | null {
+  // Lezer emits Link nodes for shortcut/reference syntax even without a
+  // definition. The editor only presents explicit URL-bearing links.
+  // Keep this opt-in so compact previews retain their established policy.
+  if (preserveDestinationless && !node.getChild('URL')) {
+    return { kind: 'text', value: text.slice(node.from, node.to) };
+  }
   const label = bracketedLabelText(node, text);
   if (label === null) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
@@ -360,7 +368,7 @@ function tokenizeChildren(
 
     if (n.name === 'Link' || n.name === 'Image') {
       pushText(cursor, n.from);
-      const span = n.name === 'Link' ? readLink(n, text, options.includeLinkDestination) : readImage(n, text, options.includeImageSrc);
+      const span = n.name === 'Link' ? readLink(n, text, options.includeLinkDestination, options.preserveDestinationlessLinks) : readImage(n, text, options.includeImageSrc);
       if (span) {
         spans.push(span);
       }
