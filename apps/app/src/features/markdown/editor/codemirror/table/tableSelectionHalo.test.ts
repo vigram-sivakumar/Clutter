@@ -450,11 +450,32 @@ describe('tableWidget.css — native ::selection suppression', () => {
     expect(match![1]).toMatch(/background\s*:\s*transparent\s*;/);
   });
 
-  it('is NOT !important — required so CM6\'s own !important .cm-line rule (drawSelection()\'s hideNativeSelection) always wins inside the active cell\'s nested editor, which owns its own real .cm-line elements and its own selection rendering entirely', () => {
+  it('keeps the general static-widget suppression non-important', () => {
     const match = css.match(/\.cm-editor\s+\.cm-table-widget\s+::selection\s*\{([^}]*)\}/);
 
     expect(match, '.cm-editor .cm-table-widget ::selection rule not found').not.toBeNull();
     expect(match![1]).not.toMatch(/!important/);
+  });
+
+  it('explicitly suppresses native selection on active cell lines and their inline descendants without targeting prose', () => {
+    const match = css.match(/\.cm-editor\s+\.cm-table-widget\s+\.cm-line::selection,\s*\.cm-editor\s+\.cm-table-widget\s+\.cm-line\s+\*::selection\s*\{([^}]*)\}/);
+    expect(match, 'nested line and descendant suppression rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/background-color\s*:\s*transparent\s*!important\s*;/);
+    const view = mount("Above.\n\n" + BASIC_TABLE + "\n\nBelow.");
+    const table = findAllTables(view.state)[0]!;
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(table.from, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    const line = nested.contentDOM.querySelector('.cm-line')!;
+    const prose = view.contentDOM.querySelector(':scope > .cm-line')!;
+    expect(line.matches('.cm-editor .cm-table-widget .cm-line')).toBe(true);
+    expect(prose.matches('.cm-editor .cm-table-widget .cm-line')).toBe(false);
+    const before = view.state.doc.toString();
+    nested.dispatch({ selection: { anchor: 0, head: nested.state.doc.length } });
+    expect(nested.state.selection.main.empty).toBe(false);
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(view.state.doc.toString()).toBe(before);
+    expect(view.dom.querySelector('.cm-table-widget.cm-block-range-selected')).toBeNull();
   });
 });
 
