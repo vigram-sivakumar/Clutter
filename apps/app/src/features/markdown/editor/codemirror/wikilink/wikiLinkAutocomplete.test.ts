@@ -18,7 +18,7 @@ import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
  * listener) together, matching the real production extension list
  * (`MarkdownEditor.tsx`).
  */
-function mountView(doc: string, getSuggestions: GetWikiLinkSuggestions): EditorView {
+function mountView(doc: string, getSuggestions: GetWikiLinkSuggestions, canEdit?: () => boolean): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
@@ -29,7 +29,11 @@ function mountView(doc: string, getSuggestions: GetWikiLinkSuggestions): EditorV
       wikiLinkAutocomplete(),
     ],
   });
-  return new EditorView({ state, parent });
+  return new EditorView({ state, parent, dispatchTransactions: canEdit
+    ? (transactions, view) => {
+        if (!transactions.some(tr => tr.docChanged) || canEdit()) view.update(transactions);
+      }
+    : undefined });
 }
 
 /** Inserts `text` at `pos`, tagged the same way real keyboard typing is, so CM6's own completion machinery activates exactly as it would for a user. */
@@ -106,6 +110,36 @@ describe('acceptReferenceForDisplayName ("|" key command)', () => {
 
     expect(handled).toBe(false);
     expect(view.state.doc.toString()).toBe('x [[News|My news]] y');
+  });
+
+  it('consumes a refused pipe acceptance without creating a page or changing source', async () => {
+    const create = vi.fn();
+    let allowed = true;
+    const view = mountView('x [[Brand New', query => [{ kind: 'create', path: query, create }], () => allowed);
+    try {
+      type(view, 13, ' Page');
+      await waitForQuery();
+      expect(completionStatus(view.state)).toBe('active');
+      allowed = false;
+      const before = view.state;
+      expect(acceptReferenceForDisplayName(view)).toBe(true);
+      expect(view.state).toBe(before);
+      expect(create).not.toHaveBeenCalled();
+    } finally { view.destroy(); }
+  });
+
+  it('serializes literal delimiters in a selected target before opening its alias zone', async () => {
+    const view = mountView('x [[N', () => [
+      { kind: 'page', path: 'A|B', title: 'A|B', breadcrumb: null },
+    ]);
+    try {
+      type(view, 5, 'e');
+      await waitForQuery();
+      expect(completionStatus(view.state)).toBe('active');
+      expect(acceptReferenceForDisplayName(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('x [[A\\|B|]]');
+      expect(view.state.selection.main.head).toBe('x [[A\\|B|'.length);
+    } finally { view.destroy(); }
   });
 
   it('fires the create() side effect for a create suggestion', async () => {
