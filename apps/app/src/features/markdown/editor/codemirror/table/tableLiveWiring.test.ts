@@ -2307,11 +2307,14 @@ describe('table tag and date activation parity', () => {
       const fixture = tokenOptions();
       const activate = kind === 'tag' ? fixture.activateTag : fixture.activateDate;
       const resolve = kind === 'tag' ? fixture.resolveTag : fixture.resolveDate;
-      const source = TABLE.replace('Vik', 'Before **' + raw + '** after');
+      // Match the shared prose grammar: a tag/date needs whitespace before
+      // its trigger, and the opening bold marker must be left-flanking.
+      const source = TABLE.replace('Vik', 'Before **x ' + raw + '** after');
       const view = mount(source, readOnly, undefined, fixture.options);
       view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
-      const token = view.dom.querySelector('[data-cell="1,0"] .tok-' + kind)!;
-      expect(press(token, readOnly ? modifier() : {}).defaultPrevented).toBe(true);
+      const token = view.dom.querySelector('[data-cell="1,0"] .tok-strong .tok-' + kind);
+      expect(token).not.toBeNull();
+      expect(press(token!, readOnly ? modifier() : {}).defaultPrevented).toBe(true);
       expect(resolve).toHaveBeenLastCalledWith(target);
       expect(activate).toHaveBeenCalledTimes(1);
       expect(view.plugin(tableCellEditor)?.nested ?? null).toBeNull();
