@@ -1,6 +1,15 @@
 import type { InlineContext, MarkdownConfig } from '@lezer/markdown';
 
-import { scanWikiLink } from './wikiLinkScanner';
+import { scanWikiLink, type WikiLinkSourceContext } from './wikiLinkScanner';
+import type { SyntaxNode } from '@lezer/common';
+
+/** Full-document readers share the grammar's actual table-cell ancestry. */
+export function wikiLinkSourceContextForNode(node: SyntaxNode): WikiLinkSourceContext {
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.name === 'TableCell') return 'table';
+  }
+  return 'prose';
+}
 
 const OPEN_BRACKET = '['.charCodeAt(0);
 
