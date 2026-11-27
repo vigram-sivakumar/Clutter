@@ -39,7 +39,7 @@ import { renderDate } from '../date/dateDecorations';
  */
 export function renderInlineMarkdown(text: string, options: { readonly styled?: boolean } = {}): string {
   const tree = sharedMarkdownParser.parse(text);
-  const spans = tokenizeInline(tree.topNode, text);
+  const spans = tokenizeInline(tree.topNode, text, undefined, { preserveDestinationlessLinks: true });
   return renderSpans(spans, options.styled === true);
 }
 
@@ -56,7 +56,7 @@ function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?:
 export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
-  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true });
+  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true, preserveDestinationlessLinks: true });
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
     let widget: WidgetType | null = null;
@@ -105,7 +105,9 @@ function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf):
     case 'strikethrough':
       return `<s${tok('tok-strike')}>${renderSpans(span.children, styled, renderLeaf)}</s>`;
     case 'highlight':
-      return `<mark ${tokWith('tok-highlight', 'cm-table-cell-highlight')}>${renderSpans(span.children, styled, renderLeaf)}</mark>`;
+      return styled
+        ? `<span class="tok-highlight">${renderSpans(span.children, styled, renderLeaf)}</span>`
+        : `<mark class="cm-table-cell-highlight">${renderSpans(span.children, styled, renderLeaf)}</mark>`;
     case 'code':
       return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {
