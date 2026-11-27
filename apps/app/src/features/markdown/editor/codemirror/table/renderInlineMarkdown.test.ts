@@ -27,6 +27,21 @@ describe('renderInlineMarkdown', () => {
     expect(renderInlineMarkdown('[label](https://example.com)')).toBe('label');
   });
 
+  it.each([
+    '[[Autodesker/Things to get to]',
+    '[[unfinished',
+    '[ordinary text]',
+    '[label][reference]',
+    '[label][]',
+  ])('keeps destinationless syntax literal: %s', (source) => {
+    expect(renderInlineMarkdown(source, { styled: true })).toBe(source);
+    expect(renderInlineMarkdown(source)).toBe(source);
+  });
+
+  it('keeps an adjacent explicit link renderable', () => {
+    expect(renderInlineMarkdown('[[Incomplete] and [valid](https://example.com)')).toBe('[[Incomplete] and valid');
+  });
+
   it('renders a WikiLink as its raw path (no resolver injected)', () => {
     expect(renderInlineMarkdown('[[Page]]')).toBe('<span class="cm-table-cell-wikilink">Page</span>');
   });
@@ -59,7 +74,7 @@ describe('renderInlineMarkdown', () => {
 
   it('adds the editor tok-* classes only when styled, so cells match paragraphs', () => {
     expect(renderInlineMarkdown('**b** *i* ~~s~~ ==h== `c`', { styled: true })).toBe(
-      '<strong class="tok-strong">b</strong> <em class="tok-emphasis">i</em> <s class="tok-strike">s</s> <mark class="tok-highlight cm-table-cell-highlight">h</mark> <code class="tok-code cm-table-cell-code">c</code>'
+      '<strong class="tok-strong">b</strong> <em class="tok-emphasis">i</em> <s class="tok-strike">s</s> <span class="tok-highlight">h</span> <code class="tok-code cm-table-cell-code">c</code>'
     );
     expect(renderInlineMarkdown('**b**')).toBe('<strong>b</strong>');
   });
