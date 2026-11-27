@@ -2,11 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import { parser } from '@lezer/markdown';
 import { EditorState, type Transaction } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { history, undo, redo, undoDepth } from '@codemirror/commands';
 import { markdownGrammarFor } from '@core/vault/ingest/grammar/markdownGrammarExtensions';
 import { clearSelectedCommand, externalCell, parseTsv, pasteSelectedCommand, readGrid, readScalarCell, selectedGrid, TABLE_MIME, toTsv, writeGrid } from './tableClipboard';
 import { createTableTransaction } from './tableTransaction';
 import { readTable } from './tableModel';
+import { externalPasteNormalization, normalizeExternalPaste } from '../paste/externalPaste';
 import type { TableInteraction } from './tableInteraction';
 
 const grammar = parser.configure(markdownGrammarFor(false));
@@ -29,6 +31,16 @@ describe('table engine clipboard', () => {
     expect(readGrid(data, false)).toEqual(grid);
     expect(data.getData('text/plain')).toBe('**one**\ttwo\nfour\t');
     expect(data.getData('text/html')).toContain('<td></td>');
+  });
+  it('records the exact TSV written by a grid copy for shared paste provenance', () => {
+    const data = clipboard();
+    writeGrid(data, [['A'], [''], ['B']], text => text);
+    const pasted = data.getData('text/plain');
+    expect(pasted).toBe('A\n\nB');
+    expect(normalizeExternalPaste(pasted)).toBe('A\nB');
+    const state = EditorState.create({ extensions: [externalPasteNormalization()] });
+    const input = state.facet(EditorView.clipboardInputFilter).reduce((text, filter) => filter(text, state), pasted);
+    expect(input).toBe(pasted);
   });
   it('handles quoted TSV, empty cells and embedded delimiters', () => {
     const grid = [['', 'a\tb', 'a"b'], ['x', 'y\nz', '']];

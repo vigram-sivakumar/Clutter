@@ -1,6 +1,7 @@
 import { ChangeSet, EditorSelection, EditorState, StateField, Text, type ChangeSpec, type Extension, type Transaction, type TransactionSpec } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import { encodeWikiLinkTableSource } from '@core/vault/ingest/grammar/wikiLinkScanner';
+import { recordInternalClipboardText } from '../paste/externalPaste';
 
 /** Derived offsets only: the nested document remains exact raw table source.
  * Each odd run of 2n+1 backslashes + pipe is n logical slashes + pipe.
@@ -181,9 +182,13 @@ export function tableCellTransport(): Extension {
       // A copied logical slash can be only part of a transported run.
       // Decode against the entire cell, not an isolated raw substring.
       if (p.canonical && !range.empty && text === state.sliceDoc(range.from, range.to)) {
-        return p.logical.slice(floor(p, range.from), ceil(p, range.to));
+        const logical = p.logical.slice(floor(p, range.from), ceil(p, range.to));
+        recordInternalClipboardText(logical);
+        return logical;
       }
-      return logicalCellText(text);
+      const logical = logicalCellText(text);
+      recordInternalClipboardText(logical);
+      return logical;
     }),
   ];
 }
