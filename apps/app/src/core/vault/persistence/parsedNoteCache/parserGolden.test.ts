@@ -40,3 +40,11 @@ describe('parser golden corpus', () => {
     }
   });
 });
+
+it('ingests a table alias under its real target with the current cache version', () => {
+  const raw = '[[Folder/Note\\|Display]]';
+  const parsed = new FrontmatterParser().parse('| A | B |\n|---|---|\n| ' + raw + ' | other |');
+  expect(PARSER_VERSION).toBe(7);
+  expect(parsed.analysis.links).toHaveLength(1);
+  expect(parsed.analysis.links[0]).toMatchObject({ target: 'Folder/Note', alias: 'Display' });
+});
