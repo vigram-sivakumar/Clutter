@@ -55,14 +55,20 @@ interface ReferenceSpan {
   readonly target: string;
   /** Length of the `[[` / `![[` opener inside the span. */
   readonly openerLength: number;
+  readonly source?: { readonly targetRange: { readonly from: number; readonly to: number } | null; readonly headingRange: { readonly from: number; readonly to: number } | null };
 }
 
 /** Every genuine `[[…]]` link and `![[…]]` embed in `markdown` (code is already excluded by the extractors). */
 function findReferenceSpans(markdown: string): ReferenceSpan[] {
   return [
-    ...linkExtractor.extract(markdown).map((ref) => ({ ...ref, openerLength: 2 })),
-    ...embedExtractor.extract(markdown).map((ref) => ({ ...ref, openerLength: 3 })),
-  ].map((ref) => ({ start: ref.startOffset, end: ref.endOffset, target: ref.target, openerLength: ref.openerLength }));
+    ...linkExtractor.extractWithSource(markdown).map(({ link, targetRange, headingRange }) => ({
+      start: link.startOffset, end: link.endOffset, target: link.target, openerLength: 2,
+      source: { targetRange, headingRange },
+    })),
+    ...embedExtractor.extract(markdown).map((ref) => ({
+      start: ref.startOffset, end: ref.endOffset, target: ref.target, openerLength: 3,
+    })),
+  ];
 }
 
 /** Whether `markdown` holds at least one link or embed whose target is exactly `target`. */
@@ -97,7 +103,12 @@ export function rewriteReferenceTargetMap(markdown: string, mapping: ReadonlyMap
   for (const span of spans) {
     const from = span.target;
     const to = mapping.get(from)!;
-    // Only whitespace can precede the target inside the brackets, so its first occurrence after the opener is it.
+    if (span.source) {
+      const range = span.source.targetRange;
+      if (range) next = next.slice(0, range.from) + to + next.slice(range.to);
+      continue;
+    }
+    // Embeds retain their established literal-target contract.
     const targetStart = next.indexOf(from, span.start + span.openerLength);
 
     if (targetStart === -1 || targetStart >= span.end) {
@@ -224,6 +235,13 @@ export function rewriteHeadingReferences(
   let next = markdown;
 
   for (const span of spans) {
+    if (span.source) {
+      const range = span.source.headingRange;
+      if (range && targetsPage(span.target) && next.slice(range.from, range.to) === from) {
+        next = next.slice(0, range.from) + to + next.slice(range.to);
+      }
+      continue;
+    }
     const text = next.slice(span.start, span.end);
     const hash = text.indexOf('#', span.openerLength);
     const pipe = text.indexOf('|', span.openerLength);
