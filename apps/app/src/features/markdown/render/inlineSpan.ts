@@ -367,7 +367,7 @@ function tokenizeChildren(
       pushText(cursor, n.from);
       const span = n.name === 'WikiLink' ? readWikiLink(n, text, options.wikiLinkContext) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text);
       spans.push({ ...span, ...(options.includeSemanticSource ? { source: text.slice(n.from, n.to) } : {}),
-        ...(options.includeActivationSource && span.kind === 'wikilink' ? { activationSource: n } : {}) });
+        ...(options.includeActivationSource && span.kind !== 'text' ? { activationSource: n } : {}) });
       cursor = n.to;
       return;
     }

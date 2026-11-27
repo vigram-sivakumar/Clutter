@@ -20,9 +20,11 @@ import type { ParticipantResolvers } from '../highlight/inlineLivePreviewPartici
 import { inlinePreviewExtensions, refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { wikiLinkMouseHandlers } from '../wikilink/wikiLinkMouseHandlers';
+import { tagMouseHandlers } from '../tag/tagMouseHandlers';
+import { dateMouseHandlers } from '../date/dateMouseHandlers';
 import { linkMouseHandlers } from '../link/linkMouseHandlers';
 import { urlMouseHandlers } from '../link/urlMouseHandlers';
-import { handleProjectedLinkPress, paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
+import { handleProjectedTokenPress, paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { logicalCellText, tableCellTransport } from './tableCellTransport';
 import { readTable, TableEngineError } from './tableModel';
@@ -442,7 +444,7 @@ export class TableCellEditor {
         event.preventDefault();
         event.stopPropagation();
         this.select(tableFrom, extendInteraction(this.interaction, this.shape(tableFrom), cell));
-      } else if (!handleProjectedLinkPress(host, event, caret => {
+      } else if (!handleProjectedTokenPress(host, event, caret => {
         this.cancelDrag();
         this.activate(tableFrom, cell, host);
         if (!this.nested) return false;
@@ -857,6 +859,8 @@ export class TableCellEditor {
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
         wikiLinkMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveWikiLink ?? (() => undefined), 'table', tokenMouseOptions),
+        tagMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveTag ?? (() => undefined), tokenMouseOptions),
+        dateMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveDate ?? (() => undefined), tokenMouseOptions),
         linkMouseHandlers(tokenMouseOptions),
         urlMouseHandlers(tokenMouseOptions),
         formatShortcutsKeymap(),

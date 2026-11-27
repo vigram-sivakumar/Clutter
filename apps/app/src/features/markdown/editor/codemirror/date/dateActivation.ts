@@ -37,7 +37,14 @@ export function getDateActivation(
   node: DateNodeRange,
   getResolver: () => ResolveDate | undefined
 ): (() => void) | null {
-  const raw = view.state.sliceDoc(node.from, node.to);
+  return getDateSourceActivation(view.state.sliceDoc(node.from, node.to), getResolver);
+}
+
+/** Same resolution for a parser-derived static occurrence, without an editable view. */
+export function getDateSourceActivation(
+  raw: string,
+  getResolver: () => ResolveDate | undefined
+): (() => void) | null {
   const match = scanDate(raw, 0);
   // Only the calendar date selects the daily note: the time (if any) is checked for validity, then ignored.
   if (!match || !isValidDateReference(match)) {

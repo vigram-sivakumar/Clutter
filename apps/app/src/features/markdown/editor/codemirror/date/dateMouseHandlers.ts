@@ -1,7 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { handleTokenClick, tokenMouseHandlers } from '../semanticToken/tokenMouseHandlers';
+import { handleTokenClick, tokenMouseHandlers, type TokenMouseOptions } from '../semanticToken/tokenMouseHandlers';
 import { getDateActivation } from './dateActivation';
 import { isDateNode } from './dateEngagement';
 import type { ResolveDate } from './dateResolution';
@@ -28,7 +28,7 @@ export function handleDateClick(
  * `tokenMouseHandlers` mechanism, shared by every semantic inline
  * construct kind.
  */
-export function dateMouseHandlers(getResolver: () => ResolveDate | undefined): Extension {
+export function dateMouseHandlers(getResolver: () => ResolveDate | undefined, options: TokenMouseOptions = {}): Extension {
   // ⌘-click reveals the raw `@…` and puts the caret at its end, where the date's own editing and completion take over.
-  return tokenMouseHandlers(isDateNode, (view, node) => getDateActivation(view, node, getResolver), (_view, node) => node.to);
+  return tokenMouseHandlers(isDateNode, (view, node) => getDateActivation(view, node, getResolver), (_view, node) => node.to, options);
 }

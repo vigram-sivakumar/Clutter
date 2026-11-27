@@ -2281,3 +2281,111 @@ describe('table link activation parity', () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 });
+
+
+describe('table tag and date activation parity', () => {
+  function press(target: Element, init: MouseEventInit = {}): MouseEvent {
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, ...init });
+    target.dispatchEvent(event);
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    return event;
+  }
+  const modifier = () => /Mac|iPhone|iPad/i.test(navigator.platform || '') ? { metaKey: true } : { ctrlKey: true };
+  function tokenOptions() {
+    const activateTag = vi.fn();
+    const activateDate = vi.fn();
+    const resolveTag = vi.fn((_name: string) => ({ status: 'resolved' as const, displayLabel: 'Product design', activate: activateTag }));
+    const resolveDate = vi.fn((_date: string) => ({ activate: activateDate }));
+    return { activateTag, activateDate, resolveTag, resolveDate,
+      options: { resolveTag: () => resolveTag, resolveDate: () => resolveDate } };
+  }
+  describe.each([
+    { kind: 'tag', raw: '#product-design', target: 'product-design' },
+    { kind: 'date', raw: '@2026-12-01T10:30', target: '2026-12-01' },
+  ] as const)('$kind', ({ kind, raw, target }) => {
+    it.each([false, true])('activates a static token on its real hit (readOnly=%s)', readOnly => {
+      const fixture = tokenOptions();
+      const activate = kind === 'tag' ? fixture.activateTag : fixture.activateDate;
+      const resolve = kind === 'tag' ? fixture.resolveTag : fixture.resolveDate;
+      const source = TABLE.replace('Vik', 'Before **' + raw + '** after');
+      const view = mount(source, readOnly, undefined, fixture.options);
+      view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+      const token = view.dom.querySelector('[data-cell="1,0"] .tok-' + kind)!;
+      expect(press(token, readOnly ? modifier() : {}).defaultPrevented).toBe(true);
+      expect(resolve).toHaveBeenLastCalledWith(target);
+      expect(activate).toHaveBeenCalledTimes(1);
+      expect(view.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undoDepth(view.state)).toBe(0);
+    });
+
+    it('modifier-click reveals the exact repeated occurrence without navigation or history', () => {
+      const fixture = tokenOptions();
+      const text = 'Before ' + raw + ' after ' + raw;
+      const source = TABLE.replace('Vik', text);
+      const view = mount(source, false, undefined, fixture.options);
+      view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+      const tokens = view.dom.querySelectorAll('[data-cell="1,0"] .tok-' + kind);
+      expect(tokens).toHaveLength(2);
+      expect(press(tokens[1]!, modifier()).defaultPrevented).toBe(true);
+      const nested = view.plugin(tableCellEditor)!.nested!;
+      expect(nested.state.selection.main.head).toBe(text.length);
+      expect(nested.contentDOM.textContent).toContain(raw);
+      expect(fixture.activateTag).not.toHaveBeenCalled();
+      expect(fixture.activateDate).not.toHaveBeenCalled();
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undoDepth(view.state)).toBe(0);
+    });
+
+    it('uses live activation and modifier editing in an active cell and declines while engaged', () => {
+      const fixture = tokenOptions();
+      const activate = kind === 'tag' ? fixture.activateTag : fixture.activateDate;
+      const resolve = kind === 'tag' ? fixture.resolveTag : fixture.resolveDate;
+      const text = 'Before ' + raw + ' after';
+      const source = TABLE.replace('Vik', text);
+      const view = mount(source, false, undefined, fixture.options);
+      view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+      const controller = view.plugin(tableCellEditor)!;
+      expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+      const nested = controller.nested!;
+      vi.spyOn(nested, 'posAtCoords').mockReturnValue('Before '.length + 2);
+      vi.spyOn(nested, 'coordsAtPos').mockReturnValue(null);
+      expect(press(nested.contentDOM.querySelector('.tok-' + kind)!).defaultPrevented).toBe(true);
+      expect(resolve).toHaveBeenLastCalledWith(target);
+      expect(activate).toHaveBeenCalledTimes(1);
+      expect(press(nested.contentDOM.querySelector('.tok-' + kind)!, modifier()).defaultPrevented).toBe(true);
+      expect(nested.state.selection.main.head).toBe('Before '.length + raw.length);
+      expect(nested.contentDOM.textContent).toContain(raw);
+      press(nested.contentDOM);
+      expect(activate).toHaveBeenCalledTimes(1);
+      expect(view.state.doc.toString()).toBe(source);
+      expect(undoDepth(view.state)).toBe(0);
+    });
+
+    it('preserves cell padding editing and Shift range selection', () => {
+      const fixture = tokenOptions();
+      const source = TABLE.replace('Vik', raw).replace('Designer', raw);
+      const view = mount(source, false, undefined, fixture.options);
+      const controller = view.plugin(tableCellEditor)!;
+      press(view.dom.querySelector('[data-cell="1,0"]')!);
+      expect(controller.nested).not.toBeNull();
+      press(view.dom.querySelector('[data-cell="1,1"] .tok-' + kind)!, { shiftKey: true });
+      expect(controller.nested).toBeNull();
+      expect(fixture.activateTag).not.toHaveBeenCalled();
+      expect(fixture.activateDate).not.toHaveBeenCalled();
+      expect(view.state.doc.toString()).toBe(source);
+    });
+  });
+
+  it('leaves invalid calendar dates available for ordinary editing instead of activation', () => {
+    const fixture = tokenOptions();
+    const source = TABLE.replace('Vik', '@2026-13-45');
+    const view = mount(source, false, undefined, fixture.options);
+    const token = view.dom.querySelector('[data-cell="1,0"] .tok-date')!;
+    expect(token.getAttribute('data-date-status')).toBe('invalid');
+    press(token);
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    expect(fixture.activateDate).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+});

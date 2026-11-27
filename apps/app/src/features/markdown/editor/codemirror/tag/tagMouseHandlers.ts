@@ -1,7 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { handleTokenClick, tokenMouseHandlers } from '../semanticToken/tokenMouseHandlers';
+import { handleTokenClick, tokenMouseHandlers, type TokenMouseOptions } from '../semanticToken/tokenMouseHandlers';
 import { getTagActivation } from './tagActivation';
 import { isTagNode } from './tagEngagement';
 import type { ResolveTag } from './tagResolution';
@@ -28,7 +28,7 @@ export function handleTagClick(
  * `tokenMouseHandlers` mechanism, shared by every semantic inline
  * construct kind.
  */
-export function tagMouseHandlers(getResolver: () => ResolveTag | undefined): Extension {
+export function tagMouseHandlers(getResolver: () => ResolveTag | undefined, options: TokenMouseOptions = {}): Extension {
   // ⌘-click reveals the raw `#tag` and puts the caret at its end, where tag completion picks up.
-  return tokenMouseHandlers(isTagNode, (view, node) => getTagActivation(view, node, getResolver), (_view, node) => node.to);
+  return tokenMouseHandlers(isTagNode, (view, node) => getTagActivation(view, node, getResolver), (_view, node) => node.to, options);
 }

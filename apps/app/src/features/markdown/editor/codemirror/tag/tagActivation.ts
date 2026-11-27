@@ -19,7 +19,14 @@ export function getTagActivation(
   node: TagNodeRange,
   getResolver: () => ResolveTag | undefined
 ): (() => void) | null {
-  const raw = view.state.sliceDoc(node.from, node.to);
+  return getTagSourceActivation(view.state.sliceDoc(node.from, node.to), getResolver);
+}
+
+/** Same resolution for a parser-derived static occurrence, without an editable view. */
+export function getTagSourceActivation(
+  raw: string,
+  getResolver: () => ResolveTag | undefined
+): (() => void) | null {
   const match = scanTag(raw, 0);
   if (!match) {
     return null;

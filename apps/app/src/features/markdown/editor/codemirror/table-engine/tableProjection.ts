@@ -3,7 +3,7 @@ import '../table/tableWidget.css';
 import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import { tableCellEditor, tableEngineIntegration } from './tableCellEditor';
 import { WidgetType, type EditorView } from '@codemirror/view';
-import { handleProjectedLinkPress, paintInlineMarkdown } from '../table/renderInlineMarkdown';
+import { handleProjectedTokenPress, paintInlineMarkdown } from '../table/renderInlineMarkdown';
 import type { TableSnapshot } from './tableModel';
 import { attachTableHandleOverlay } from '../table/tableHandleOverlay';
 import { createTableSelectionOverlay, positionRangeSelectionOverlay, VISIBLE_CLASS } from '../table/tableSelectionOverlay';
@@ -289,9 +289,9 @@ export class TableProjection extends WidgetType {
           (host as HTMLElement).onkeydown = event => view.plugin(tableCellEditor)?.selectedKey(
             Number(root.dataset.tableFrom), { row: index, col: column }, host as HTMLElement, event);
         } else {
-          // Read-only cells stay static. Only an actual rendered link hit
+          // Read-only cells stay static. Only an actual rendered token hit
           // is consumed; leave padding and ordinary selection alone.
-          (host as HTMLElement).onmousedown = event => { handleProjectedLinkPress(host as HTMLElement, event); };
+          (host as HTMLElement).onmousedown = event => { handleProjectedTokenPress(host as HTMLElement, event); };
         }
         const alignment = model.alignments[column];
         cell.className = alignment === 'none' ? '' : 'cm-table-widget-align-' + alignment;

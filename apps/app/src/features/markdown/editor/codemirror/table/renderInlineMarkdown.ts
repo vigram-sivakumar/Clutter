@@ -10,22 +10,24 @@ import { getWikiLinkSourceActivation } from '../wikilink/wikiLinkActivation';
 import { wikiLinkEditCaret } from '../wikilink/wikiLinkMouseHandlers';
 import { getLinkSourceActivation } from '../link/linkActivation';
 import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
+import { getTagSourceActivation } from '../tag/tagActivation';
+import { getDateSourceActivation } from '../date/dateActivation';
 
-interface ProjectedLink {
+interface ProjectedToken {
   readonly activation: () => (() => void) | null;
   readonly editCaret?: number;
 }
 
 // Occurrence metadata belongs to the painted leaf, not the cell's label or
 // a second editable document. Removed/repainted elements cannot be hits.
-const projectedLinks = new WeakMap<Element, ProjectedLink>();
+const projectedTokens = new WeakMap<Element, ProjectedToken>();
 
-export function handleProjectedLinkPress(
+export function handleProjectedTokenPress(
   host: HTMLElement, event: MouseEvent, edit?: (caret: number) => boolean, beforeActivate?: () => void
 ): boolean {
   let target = event.target instanceof Element ? event.target : null;
   while (target && target !== host && host.contains(target)) {
-    const link = projectedLinks.get(target);
+    const link = projectedTokens.get(target);
     if (link) {
       const handled = handleRenderedTokenPress(event, () => {
         const activate = link.activation();
@@ -109,7 +111,7 @@ export function paintInlineMarkdown(
       title.className = 'tok-link-title';
       title.textContent = span.label;
       const occurrence = span.activationSource;
-      if (occurrence) projectedLinks.set(element, {
+      if (occurrence) projectedTokens.set(element, {
         activation: () => getLinkSourceActivation(tree, (from, to) => text.slice(from, to), occurrence),
       });
       const index = nodes.push(element) - 1;
@@ -121,9 +123,22 @@ export function paintInlineMarkdown(
     const element = widget.toDOM(view);
     if (span.kind === 'wikilink' && span.source !== undefined && span.activationSource) {
       const raw = span.source;
-      projectedLinks.set(element, {
+      projectedTokens.set(element, {
         activation: () => getWikiLinkSourceActivation(raw, resolvers.resolveWikiLink ?? (() => undefined), 'table'),
         editCaret: wikiLinkEditCaret(raw, span.activationSource.to),
+      });
+    }
+    if (span.kind === 'tag' && span.source !== undefined && span.activationSource) {
+      const raw = span.source;
+      projectedTokens.set(element, {
+        activation: () => getTagSourceActivation(raw, resolvers.resolveTag ?? (() => undefined)),
+        editCaret: span.activationSource.to,
+      });
+    } else if (span.kind === 'date' && span.source !== undefined && span.activationSource) {
+      const raw = span.source;
+      projectedTokens.set(element, {
+        activation: () => getDateSourceActivation(raw, resolvers.resolveDate ?? (() => undefined)),
+        editCaret: span.activationSource.to,
       });
     }
     const index = nodes.push(element) - 1;
