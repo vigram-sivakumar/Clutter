@@ -237,7 +237,7 @@ function delimitedInlineRenderer(
  * ancestor `tok-strike` gap mark remains its *only* source of strike,
  * exactly as before.
  */
-const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
+export const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
   'Link',
   'Autolink',
   'URL',
@@ -480,7 +480,7 @@ const strikethroughRenderer: ParticipantRenderer = (node, state) => {
       closeMark.from,
       protectedRanges
     );
-    const classes = ['tok-strike', ...collectActiveStrikeClass(node, state)].join(' ');
+    const classes = [INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Strikethrough')!, ...collectActiveStrikeClass(node, state)].join(' ');
     for (const gap of gaps) {
       // inclusiveStart/inclusiveEnd are per-gap, not blanket true — see
       // computeStrikethroughGaps's own doc comment for why: true only on
@@ -512,7 +512,7 @@ const strikethroughRenderer: ParticipantRenderer = (node, state) => {
  * `collectActiveInlineClasses` can answer "what class does this ancestor
  * contribute" without executing or inspecting a renderer.
  */
-const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
+export const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
   ['Emphasis', 'tok-emphasis'],
   ['StrongEmphasis', 'tok-strong'],
   ['Strikethrough', 'tok-strike'],
@@ -569,6 +569,8 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  * (Strong/Emphasis/Highlight/Strikethrough/Link) — nothing here names a
  * specific construct.
  *
+ * Omit `state` only for an intrinsically at-rest static projection: no
+ * editable view or synthetic selection is needed there.
  * Takes `state` for exactly this one purpose (engagement is state-
  * dependent) — still no other state source is read (e.g. completed-task
  * line state, which is a *different*, independently-solved concern — see
@@ -579,13 +581,13 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  */
 export function collectActiveInlineClasses(
   node: SyntaxNodeRef,
-  state: EditorState
+  state?: EditorState
 ): readonly string[] {
   const classes: string[] = [];
   let ancestor = node.node.parent;
   while (ancestor && isDelimitedMarkConstruct(ancestor)) {
     const contentClass = INLINE_CONTENT_CLASS_BY_NODE_NAME.get(ancestor.name);
-    if (contentClass && !isConstructEngaged(state, ancestor)) {
+    if (contentClass && (!state || !isConstructEngaged(state, ancestor))) {
       classes.push(contentClass);
     }
     ancestor = ancestor.parent;
@@ -609,8 +611,8 @@ export function collectActiveInlineClasses(
  * classes at all. Takes `state` only to forward it — see
  * `collectActiveInlineClasses`'s own doc comment for what it's used for.
  */
-function collectActiveStrikeClass(node: SyntaxNodeRef, state: EditorState): readonly string[] {
-  return collectActiveInlineClasses(node, state).filter((cls) => cls === 'tok-strike');
+export function collectActiveStrikeClass(node: SyntaxNodeRef, state?: EditorState): readonly string[] {
+  return collectActiveInlineClasses(node, state).filter((cls) => cls === INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Strikethrough'));
 }
 
 /**
@@ -664,11 +666,16 @@ function linkContentDecorations(
   to: number,
   strikeClasses: readonly string[]
 ): Range<Decoration>[] {
-  const outerClass = ['tok-link', ...strikeClasses].join(' ');
+  const [outerClass, titleClass] = linkContentClasses(strikeClasses);
   return [
     Decoration.mark({ class: outerClass, inclusiveStart: true, inclusiveEnd: true }).range(from, to),
-    Decoration.mark({ class: 'tok-link-title' }).range(from, to),
+    Decoration.mark({ class: titleClass }).range(from, to),
   ];
+}
+
+/** Shared outer foreground/strike and inner underline classes for rendered links. */
+export function linkContentClasses(strikeClasses: readonly string[] = []): readonly [string, string] {
+  return [[INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Link')!, ...strikeClasses].join(' '), 'tok-link-title'];
 }
 
 /**
@@ -1056,13 +1063,13 @@ export function createInlineLivePreviewParticipants(
       'Emphasis',
       delimitedInlineRenderer(
         'EmphasisMark',
-        'tok-emphasis',
+        INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Emphasis')!,
         'cm-emphasis-marker'
       ),
     ],
     [
       'StrongEmphasis',
-      delimitedInlineRenderer('EmphasisMark', 'tok-strong', 'cm-strong-marker'),
+      delimitedInlineRenderer('EmphasisMark', INLINE_CONTENT_CLASS_BY_NODE_NAME.get('StrongEmphasis')!, 'cm-strong-marker'),
     ],
     // Not delimitedInlineRenderer (unlike every sibling entry here) —
     // Strikethrough needs its own tok-strike decoration split around any
@@ -1073,13 +1080,13 @@ export function createInlineLivePreviewParticipants(
       'Highlight',
       delimitedInlineRenderer(
         'HighlightMark',
-        'tok-highlight',
+        INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Highlight')!,
         'cm-highlight-marker'
       ),
     ],
     [
       'InlineCode',
-      delimitedInlineRenderer('CodeMark', 'tok-code', 'cm-code-marker'),
+      delimitedInlineRenderer('CodeMark', INLINE_CONTENT_CLASS_BY_NODE_NAME.get('InlineCode')!, 'cm-code-marker'),
     ],
     ['Link', linkRenderer],
     // Not delimitedInlineRenderer — see autolinkRenderer's own doc comment

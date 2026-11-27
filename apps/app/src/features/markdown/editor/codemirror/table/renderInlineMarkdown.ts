@@ -2,7 +2,7 @@ import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { tokenizeInline, type InlineSpan } from '../../../render/inlineSpan';
 import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
 import type { EditorView, WidgetType } from '@codemirror/view';
-import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
+import { INLINE_CONTENT_CLASS_BY_NODE_NAME, STRIKETHROUGH_PROTECTED_NODE_NAMES, collectActiveInlineClasses, collectActiveStrikeClass, linkContentClasses, type ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
 import { renderWikiLink } from '../wikilink/wikiLinkDecorations';
 import { renderTag } from '../tag/tagDecorations';
 import { renderDate } from '../date/dateDecorations';
@@ -82,8 +82,8 @@ export function renderInlineMarkdown(text: string, options: { readonly styled?: 
 
 type RenderLeaf = (span: InlineSpan) => string | undefined;
 
-function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?: RenderLeaf): string {
-  return spans.map((span) => renderSpan(span, styled, renderLeaf)).join('');
+function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?: RenderLeaf, struck = false): string {
+  return spans.map((span) => renderSpan(span, styled, renderLeaf, struck)).join('');
 }
 
 /** On-screen projection only. Actual token DOM comes from the same widget
@@ -94,21 +94,23 @@ export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
   const tree = sharedMarkdownParser.parse(text);
-  const spans = tokenizeInline(tree.topNode, text, undefined, { includeSemanticSource: true, includeActivationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
+  const spans = tokenizeInline(tree.topNode, text, undefined, { includeSemanticSource: true, includeActivationSource: true, includePresentationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
     let widget: WidgetType | null = null;
+    const classes = span.activationSource ? collectActiveInlineClasses(span.activationSource) : [];
     if (span.kind === 'wikilink' && span.source !== undefined) {
-      widget = renderWikiLink(span.source, resolvers.resolveWikiLink ?? (() => undefined), [], 'table');
+      widget = renderWikiLink(span.source, resolvers.resolveWikiLink ?? (() => undefined), classes, 'table');
     } else if (span.kind === 'tag' && span.source !== undefined) {
-      widget = renderTag(span.source, resolvers.resolveTag ?? (() => undefined));
+      widget = renderTag(span.source, resolvers.resolveTag ?? (() => undefined), classes);
     } else if (span.kind === 'date' && span.source !== undefined) {
-      widget = renderDate(span.source, resolvers.resolveDate ?? (() => undefined));
+      widget = renderDate(span.source, resolvers.resolveDate ?? (() => undefined), classes);
     } else if (span.kind === 'link') {
       const element = host.ownerDocument.createElement('span');
-      element.className = 'tok-link';
+      const [outerClass, titleClass] = linkContentClasses(span.activationSource ? collectActiveStrikeClass(span.activationSource) : []);
+      element.className = outerClass;
       const title = element.appendChild(host.ownerDocument.createElement('span'));
-      title.className = 'tok-link-title';
+      title.className = titleClass;
       title.textContent = span.label;
       const occurrence = span.activationSource;
       if (occurrence) projectedTokens.set(element, {
@@ -119,7 +121,7 @@ export function paintInlineMarkdown(
     } else {
       return undefined;
     }
-    if (!widget) return span.source === undefined ? undefined : escapeHtml(span.source);
+    if (!widget) return undefined;
     const element = widget.toDOM(view);
     if (span.kind === 'wikilink' && span.source !== undefined && span.activationSource) {
       const raw = span.source;
@@ -159,26 +161,49 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf): string {
+/** HTML projection of the existing protected-range ownership rule. A
+ * styled container may own the strike itself only when no descendant
+ * claims it; otherwise render its children with the same strike intent.
+ * Unlike CM6 ranges, nested HTML can express this directly. */
+function containsProtectedSpan(spans: readonly InlineSpan[]): boolean {
+  return spans.some(span => {
+    const source = span.presentationSource ?? span.activationSource;
+    return (source !== undefined && STRIKETHROUGH_PROTECTED_NODE_NAMES.has(source.name)) ||
+      ('children' in span && containsProtectedSpan(span.children));
+  });
+}
+
+const strikeClass = INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Strikethrough')!;
+
+function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf, struck = false): string {
   const leaf = renderLeaf?.(span);
   if (leaf !== undefined) return leaf;
-  const tok = (name: string): string => (styled ? ` class="${name}"` : '');
-  const tokWith = (name: string, own: string): string => `class="${styled ? `${name} ` : ''}${own}"`;
+  const classFor = (name: string) => INLINE_CONTENT_CLASS_BY_NODE_NAME.get(name)!;
+  const wrapStrike = (html: string) => struck && renderLeaf && html ? `<span class="${strikeClass}">${html}</span>` : html;
+  const tok = (name: string): string => (styled ? ` class="${classFor(name)}"` : '');
+  const tokWith = (name: string, own: string): string => `class="${styled ? `${classFor(name)}${struck && renderLeaf ? ` ${strikeClass}` : ''} ` : ''}${own}"`;
+  const container = (tag: string, name: string, children: readonly InlineSpan[]) => {
+    const splitStrike = !!renderLeaf && struck && containsProtectedSpan(children);
+    const classes = styled ? ` class="${classFor(name)}${struck && renderLeaf && !splitStrike ? ` ${strikeClass}` : ''}"` : '';
+    return `<${tag}${classes}>${renderSpans(children, styled, renderLeaf, splitStrike)}</${tag}>`;
+  };
   switch (span.kind) {
     case 'text':
-      return escapeHtml(span.value);
+      return wrapStrike(escapeHtml(span.value));
     case 'bold':
-      return `<strong${tok('tok-strong')}>${renderSpans(span.children, styled, renderLeaf)}</strong>`;
+      return container('strong', 'StrongEmphasis', span.children);
     case 'italic':
-      return `<em${tok('tok-emphasis')}>${renderSpans(span.children, styled, renderLeaf)}</em>`;
+      return container('em', 'Emphasis', span.children);
     case 'strikethrough':
-      return `<s${tok('tok-strike')}>${renderSpans(span.children, styled, renderLeaf)}</s>`;
+      return renderLeaf
+        ? renderSpans(span.children, styled, renderLeaf, true)
+        : `<s${tok('Strikethrough')}>${renderSpans(span.children, styled, renderLeaf)}</s>`;
     case 'highlight':
       return styled
-        ? `<span class="tok-highlight">${renderSpans(span.children, styled, renderLeaf)}</span>`
+        ? container('span', 'Highlight', span.children)
         : `<mark class="cm-table-cell-highlight">${renderSpans(span.children, styled, renderLeaf)}</mark>`;
     case 'code':
-      return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
+      return `<code ${tokWith('InlineCode', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {
       const resolution = fallbackWikiLinkResolution(span.path, span.alias);
       return `<span class="cm-table-cell-wikilink">${escapeHtml(resolution.displayLabel)}</span>`;
@@ -190,8 +215,8 @@ function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf):
     case 'link':
       return escapeHtml(span.label);
     case 'image':
-      return escapeHtml(span.alt);
+      return wrapStrike(escapeHtml(span.alt));
     case 'embed':
-      return escapeHtml(span.path);
+      return wrapStrike(escapeHtml(span.path));
   }
 }

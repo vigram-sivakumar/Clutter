@@ -49,12 +49,14 @@ export type InlineSpan = (
    */
   | { readonly kind: 'image'; readonly alt: string; readonly src?: string }
   | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null }
-) & { readonly source?: string; readonly activationSource?: SyntaxNode };
+) & { readonly source?: string; readonly activationSource?: SyntaxNode; readonly presentationSource?: SyntaxNode };
 
 export interface TokenizeInlineOptions {
   /** Retain exact semantic-token source for the editor's static widget projection. */
   readonly includeSemanticSource?: boolean;
-  /** Preserve parsed link occurrence only for interactive static projection. */
+  /** Preserve parsed formatting nodes only for the editor's static projection. */
+  readonly includePresentationSource?: boolean;
+  /** Preserve parsed semantic occurrence only for interactive static projection. */
   readonly includeActivationSource?: boolean;
   /** Isolated cell text has no TableCell ancestor. */
   readonly wikiLinkContext?: WikiLinkSourceContext;
@@ -351,14 +353,16 @@ function tokenizeChildren(
       // Recurse into this container's own children — a nested Link,
       // WikiLink, InlineCode, or another styled container inside it is
       // found and typed by this same walk, not flattened to raw text.
-      spans.push({ kind: container.kind, children: tokenizeChildren(n, text, undefined, options) });
+      spans.push({ kind: container.kind, children: tokenizeChildren(n, text, undefined, options),
+        ...(options.includePresentationSource ? { presentationSource: n } : {}) });
       cursor = n.to;
       return;
     }
 
     if (n.name === 'InlineCode') {
       pushText(cursor, n.from);
-      spans.push({ kind: 'code', value: markedInnerText(n, text, 'CodeMark') });
+      spans.push({ kind: 'code', value: markedInnerText(n, text, 'CodeMark'),
+        ...(options.includePresentationSource ? { presentationSource: n } : {}) });
       cursor = n.to;
       return;
     }

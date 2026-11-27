@@ -2392,3 +2392,69 @@ describe('table tag and date activation parity', () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 });
+
+
+describe('static table formatting uses shared inline presentation ownership', () => {
+  it.each([
+    ['`code`', 'tok-code'],
+    ['#product-design', 'tok-tag'],
+    ['@2026-12-01', 'tok-date'],
+    ['[[Page]]', 'tok-wikilink'],
+    ['[Label](https://example.com)', 'tok-link'],
+    ['https://example.com', 'tok-link'],
+    ['<https://example.com>', 'tok-link'],
+    ['*italic*', 'tok-emphasis'],
+    ['**bold**', 'tok-strong'],
+    ['==highlight==', 'tok-highlight'],
+  ])('gives %s a single strike owner across prose and cell surfaces', (raw, cls) => {
+    const text = 'Before ~~plain ' + raw + ' text~~ after';
+    const source = TABLE.replace('Vik', text);
+    const prose = mount(text, false);
+    const view = mount(source, false);
+    const readonly = mount(source, true);
+    const assertPresentation = (host: Element) => {
+      const token = host.querySelector('.' + cls + '.tok-strike');
+      expect(token).not.toBeNull();
+      expect(host.querySelector('.tok-strike .tok-strike')).toBeNull();
+      if (cls === 'tok-link') expect(token!.querySelector('.tok-link-title')).not.toBeNull();
+      expect(Array.from(host.querySelectorAll('.tok-strike')).some(el => el.textContent?.includes('plain '))).toBe(true);
+    };
+    assertPresentation(prose.contentDOM);
+    assertPresentation(view.dom.querySelector('[data-cell="1,0"]')!);
+    assertPresentation(readonly.dom.querySelector('[data-cell="1,0"]')!);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    assertPresentation(controller.nested!.contentDOM);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
+    expect(readonly.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+  });
+
+  it('composes shared bold and highlight classes on the rendered WikiLink itself', () => {
+    const text = 'Before ==**[[Page]]**== after';
+    const source = TABLE.replace('Vik', text);
+    const prose = mount(text, false);
+    const view = mount(source, false);
+    const readonly = mount(source, true);
+    const selector = '.tok-wikilink.tok-strong.tok-highlight';
+    expect(prose.contentDOM.querySelector(selector)).not.toBeNull();
+    expect(view.dom.querySelector('[data-cell="1,0"] ' + selector)).not.toBeNull();
+    expect(readonly.dom.querySelector('[data-cell="1,0"] ' + selector)).not.toBeNull();
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    expect(controller.nested!.contentDOM.querySelector(selector)).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('splits deeply nested static strike around the semantic leaf instead of painting two lines', () => {
+    const source = TABLE.replace('Vik', 'Before ~~plain **bold #product-design** after~~ end');
+    for (const readOnly of [false, true]) {
+      const view = mount(source, readOnly);
+      const host = view.dom.querySelector('[data-cell="1,0"]')!;
+      expect(host.querySelector('.tok-strong .tok-tag.tok-strong.tok-strike')).not.toBeNull();
+      expect(host.querySelector('.tok-strike .tok-strike')).toBeNull();
+      expect(Array.from(host.querySelectorAll('.tok-strike')).some(el => el.textContent?.includes('bold '))).toBe(true);
+      expect(view.state.doc.toString()).toBe(source);
+    }
+  });
+});
