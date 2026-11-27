@@ -207,7 +207,16 @@ export function lastUnescapedSlashOffset(referenceText: string): number | null {
  *   if `(` or `[` immediately follows the close, so a genuine CommonMark
  *   link/image whose text happens to be a doubled bracket is never stolen.
  */
-export function scanWikiLink(text: string, startIndex: number, context: WikiLinkSourceContext = 'prose'): WikiLinkMatch | null {
+export interface WikiLinkSourceMatch extends WikiLinkMatch {
+  readonly referenceFrom: number;
+  readonly referenceTo: number;
+  readonly separatorFrom: number | null;
+  readonly aliasFrom: number | null;
+  readonly aliasTo: number | null;
+}
+
+/** Raw source ranges, including the transport escape in the separator. */
+export function scanWikiLinkSource(text: string, startIndex: number, context: WikiLinkSourceContext = 'prose'): WikiLinkSourceMatch | null {
   if (text[startIndex] !== '[' || text[startIndex + 1] !== '[') {
     return null;
   }
@@ -239,6 +248,20 @@ export function scanWikiLink(text: string, startIndex: number, context: WikiLink
     return null;
   }
 
+  const separatorFrom = pipeIndex === null ? null : pipeIndex - (context === 'table' ? 1 : 0);
+  return {
+    path, alias, end, pipeIndex, referenceFrom: startIndex + 2,
+    referenceTo: separatorFrom ?? closeStart, separatorFrom,
+    aliasFrom: pipeIndex === null ? null : pipeIndex + 1,
+    aliasTo: pipeIndex === null ? null : closeStart,
+  };
+}
+
+/** Existing semantic callers retain the original result shape. */
+export function scanWikiLink(text: string, startIndex: number, context: WikiLinkSourceContext = 'prose'): WikiLinkMatch | null {
+  const match = scanWikiLinkSource(text, startIndex, context);
+  if (!match) return null;
+  const { path, alias, end, pipeIndex } = match;
   return { path, alias, end, pipeIndex };
 }
 
