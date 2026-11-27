@@ -6,7 +6,8 @@ import { scanDate } from '../../../core/vault/ingest/grammar/dateScanner';
 import { scanEmbed } from '../../../core/vault/ingest/grammar/embedScanner';
 import { scanImage } from '../editor/codemirror/image/imageScanner';
 import { scanTag } from '@core/vault/ingest/tag/tagScanner';
-import { scanWikiLink } from '../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { scanWikiLink, type WikiLinkSourceContext } from '../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { wikiLinkSourceContextForNode } from '../../../core/vault/ingest/grammar/wikiLinkSyntax';
 
 /**
  * Inline span vocabulary for a read-only Markdown rendering surface —
@@ -53,6 +54,8 @@ export type InlineSpan = (
 export interface TokenizeInlineOptions {
   /** Retain exact semantic-token source for the editor's static widget projection. */
   readonly includeSemanticSource?: boolean;
+  /** Isolated cell text has no TableCell ancestor. */
+  readonly wikiLinkContext?: WikiLinkSourceContext;
   /** Retain the parser’s link destination for an interactive rendering surface. */
   readonly includeLinkDestination?: boolean;
   /** Match editor Live Preview: a Link without a URL child stays literal, including its brackets. */
@@ -99,8 +102,8 @@ export function markedInnerText(node: SyntaxNode, text: string, markName: string
  * in the first place, so it's the correct, already-proven way to recover
  * the same fields here, not a parallel re-implementation.
  */
-export function readWikiLink(node: SyntaxNode, text: string): InlineSpan {
-  const match = scanWikiLink(text, node.from);
+export function readWikiLink(node: SyntaxNode, text: string, context = wikiLinkSourceContextForNode(node)): InlineSpan {
+  const match = scanWikiLink(text, node.from, context);
   if (!match) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
   }
@@ -360,7 +363,7 @@ function tokenizeChildren(
 
     if (n.name === 'WikiLink' || n.name === 'Tag' || n.name === 'Date') {
       pushText(cursor, n.from);
-      const span = n.name === 'WikiLink' ? readWikiLink(n, text) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text);
+      const span = n.name === 'WikiLink' ? readWikiLink(n, text, options.wikiLinkContext) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text);
       spans.push(options.includeSemanticSource ? { ...span, source: text.slice(n.from, n.to) } : span);
       cursor = n.to;
       return;
