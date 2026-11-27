@@ -11,6 +11,8 @@ import { drawSelection, EditorView, keymap, tooltips, ViewPlugin } from '@codemi
 import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 import { isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
 import { editorDefaultKeymap } from '../editorDefaultKeymap';
+import { cspNonceExtension } from '../cspNonce';
+import { editorTheme } from '../editorTheme';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
@@ -839,9 +841,14 @@ export class TableCellEditor {
       doc: range.text,
       selection: { anchor: range.text.length },
       extensions: [
-        // The root's drawSelection theme hides native descendant carets.
-        // Each nested view must own its cursor and selection layers as well.
-        drawSelection(),
+        // Every EditorView injects its own theme modules, including the
+        // portaled completion popup. Use the same packaged CSP nonce and
+        // cached selection theme as the root, without installing block UI.
+        cspNonceExtension(),
+        editorTheme(),
+        // Each nested view owns its drawn layers. Like the root, a range
+        // displays a highlight rather than a separate range-end caret.
+        drawSelection({ drawRangeCursor: false }),
         EditorView.lineWrapping,
         tableCellTransport(),
         // Same CM6 inline pair insertion and type-over as the main editor.

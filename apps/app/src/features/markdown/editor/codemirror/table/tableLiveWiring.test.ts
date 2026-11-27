@@ -13,6 +13,9 @@ import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
+import { cspNonceExtension } from '../cspNonce';
+import { editorTheme } from '../editorTheme';
+import { readDateFormatChoice, writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 
 vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: vi.fn() }));
 
@@ -2561,5 +2564,76 @@ describe('shared production inline extension composition', () => {
     expect(suggestions).not.toHaveBeenCalled();
     expect(view.state.doc.toString()).toBe(source);
     expect(undoDepth(view.state)).toBe(0);
+  });
+});
+
+describe('table cell presentation foundation', () => {
+  it('mounts the same cached theme and page CSP nonce in each active cell', () => {
+    const firstPaint = document.createElement('style');
+    firstPaint.nonce = 'table-cell-test-nonce';
+    document.head.prepend(firstPaint);
+    // Use a reference view with only the common theme to identify its
+    // generated scope classes without depending on CM6's class names.
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const reference = new EditorView({ parent, extensions: [cspNonceExtension(), editorTheme()] });
+    try {
+      const view = mount(TABLE, false);
+      view.dispatch({ effects: StateEffect.appendConfig.of([cspNonceExtension(), editorTheme()]) });
+      const controller = view.plugin(tableCellEditor)!;
+      const scope = reference.themeClasses.split(/\s+/).filter(Boolean);
+      expect(view.state.facet(EditorView.cspNonce)).toBe(firstPaint.nonce);
+      const before = view.state.doc.toString();
+      const depth = undoDepth(view.state);
+      for (const col of [0, 1]) {
+        expect(controller.enterCell(0, { row: 1, col }, 'end')).toBe(true);
+        const nested = controller.nested!;
+        expect(nested.state.facet(EditorView.cspNonce)).toBe(view.state.facet(EditorView.cspNonce));
+        for (const cls of scope) expect(nested.dom.classList.contains(cls)).toBe(true);
+        expect(nested.scrollDOM.querySelector(':scope > .cm-selectionLayer')).not.toBeNull();
+      }
+      expect(view.state.doc.toString()).toBe(before);
+      expect(undoDepth(view.state)).toBe(depth);
+    } finally {
+      reference.destroy();
+      parent.remove();
+      firstPaint.remove();
+    }
+  });
+
+  it('refreshes the shared date preference in prose, active, inactive and read-only cells', () => {
+    const previous = readDateFormatChoice();
+    try {
+      writeDateFormatChoice('ymd');
+      const date = '@2025-03-05';
+      const text = 'Before ' + date + ' after';
+      const source = TABLE.replace('Vik', text).replace('Designer', text);
+      const prose = mount(text, false);
+      const view = mount(source, false);
+      const readonly = mount(source, true);
+      const controller = view.plugin(tableCellEditor)!;
+      expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+      const nested = controller.nested!;
+      const inactive = view.dom.querySelector('[data-cell="1,1"]')!;
+      const readOnlyCell = readonly.dom.querySelector('[data-cell="1,0"]')!;
+      const surfaces = [prose.contentDOM, nested.contentDOM, inactive, readOnlyCell];
+      const labels = () => surfaces.map(host => host.querySelector('.tok-date')?.textContent);
+      expect(labels()).toEqual(Array(4).fill('@2025/03/05'));
+      const depth = undoDepth(view.state);
+      const selection = nested.state.selection;
+      writeDateFormatChoice('dmy');
+      for (const root of [prose, view, readonly]) root.dispatch({ effects: refreshInlinePresentation.of(null) });
+      expect(labels()).toEqual(Array(4).fill('@05/03/2025'));
+      expect(controller.nested).toBe(nested);
+      expect(view.dom.querySelector('[data-cell="1,1"]')).toBe(inactive);
+      expect(readonly.dom.querySelector('[data-cell="1,0"]')).toBe(readOnlyCell);
+      expect(nested.state.selection.eq(selection)).toBe(true);
+      expect(view.state.doc.toString()).toBe(source);
+      expect(readonly.state.doc.toString()).toBe(source);
+      expect(undoDepth(view.state)).toBe(depth);
+      expect(readonly.plugin(tableCellEditor) ?? null).toBeNull();
+    } finally {
+      writeDateFormatChoice(previous);
+    }
   });
 });
