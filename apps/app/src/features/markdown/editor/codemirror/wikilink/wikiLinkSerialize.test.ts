@@ -62,3 +62,27 @@ describe('round-trip invariants', () => {
     expect(twice).toBe(once);
   });
 });
+
+describe('canonical table WikiLink transport', () => {
+  it('writes an escaped table separator without changing default prose serialization', () => {
+    expect(serializeWikiLink('Folder/Note', 'Label', 'table')).toBe('[[Folder/Note\\|Label]]');
+    expect(serializeWikiLink('Folder/Note', 'Label')).toBe('[[Folder/Note|Label]]');
+  });
+
+  it.each([
+    ['A|B', null],
+    ['A|B', 'C|D'],
+    ['A\\', 'B'],
+    ['A\\|B]', ' C\\|D] '],
+    ['A', ''],
+  ])('round-trips path %s and alias %s in table storage', (path, alias) => {
+    const raw = serializeWikiLink(path, alias, 'table');
+    const parsed = scanWikiLink(raw, 0, 'table')!;
+    expect(parsed.path).toBe(path.trim());
+    expect(parsed.alias).toBe(alias === null ? null : alias.trim());
+    expect(parsed.end).toBe(raw.length);
+    expect(serializeWikiLink(parsed.path, parsed.alias, 'table')).toBe(raw);
+    if (alias === null) expect(parsed.pipeIndex).toBeNull();
+    else expect(raw[parsed.pipeIndex!]).toBe('|');
+  });
+});
