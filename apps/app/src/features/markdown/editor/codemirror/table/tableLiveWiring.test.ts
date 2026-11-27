@@ -1306,6 +1306,7 @@ describe('rich inline cell presentation', () => {
   };
 
   it.each([
+    ['==Highlighted==', 'tok-highlight'],
     ['[[Page]]', 'tok-wikilink'],
     ['#product-design', 'tok-tag'],
     ['@2026-12-01', 'tok-date'],
@@ -1349,6 +1350,33 @@ describe('rich inline cell presentation', () => {
     expect(readOnly.dom.querySelector('[data-cell="1,0"] .' + className)?.textContent).toBe(expectedText);
     expect(readOnly.dom.querySelector('[data-cell="1,0"] .cm-editor')).toBeNull();
     expect(readOnly.plugin(tableCellEditor)).toBeNull();
+    expect(readOnly.state.doc.toString()).toBe(source);
+  });
+
+  it('keeps an incomplete WikiLink literal in prose, static, active and read-only cells', () => {
+    const text = 'Before [[Autodesker/Things to get to] after';
+    const source = text + '\n\n' + TABLE.replace('Vik', text);
+    const view = mount(source, false, undefined, resolverOptions);
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    const prose = view.dom.querySelector('.cm-line')!;
+    expect(prose.textContent).toBe(text);
+    expect(prose.querySelector('.tok-link, .tok-wikilink')).toBeNull();
+    expect(cell.textContent).toBe(text);
+    expect(cell.querySelector('.tok-link, .tok-wikilink')).toBeNull();
+    const controller = view.plugin(tableCellEditor)!;
+    clickCell(cell.parentElement!);
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: text.length } });
+    expect(nested.contentDOM.textContent).toBe(text);
+    expect(nested.contentDOM.querySelector('.tok-link, .tok-wikilink')).toBeNull();
+    controller.close();
+    expect(cell.textContent).toBe(text);
+    expect(cell.querySelector('.tok-link, .tok-wikilink')).toBeNull();
+    const readOnly = mount(source, true, undefined, resolverOptions);
+    const staticCell = readOnly.dom.querySelector('[data-cell="1,0"]')!;
+    expect(staticCell.textContent).toBe(text);
+    expect(staticCell.querySelector('.tok-link, .tok-wikilink')).toBeNull();
+    expect(view.state.doc.toString()).toBe(source);
     expect(readOnly.state.doc.toString()).toBe(source);
   });
 
