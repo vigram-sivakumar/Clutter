@@ -12,7 +12,8 @@ import { tableAtCaret } from '../table/tableRootSelectionSnap';
 import type { PasteAssets } from '../paste/assetPaste';
 import { drawSelection, EditorView, keymap, tooltips, ViewPlugin } from '@codemirror/view';
 import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
-import { defaultKeymap, isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/commands';
+import { editorDefaultKeymap } from '../editorDefaultKeymap';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
@@ -920,7 +921,7 @@ export class TableCellEditor {
           { key: 'ArrowUp', run: () => this.navigateEditingArrow('up') },
           { key: 'ArrowDown', run: () => this.navigateEditingArrow('down') },
           ...closeBracketsKeymap,
-          ...defaultKeymap,
+          ...editorDefaultKeymap,
         ])),
       ],
     });

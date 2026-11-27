@@ -1857,6 +1857,39 @@ describe('engine visual and formatting parity (M10a candidate)', () => {
   });
 });
 
+describe('table editor shares application shortcut ownership', () => {
+  it.each([
+    { key: '[', code: 'BracketLeft', keyCode: 219 },
+    { key: ']', code: 'BracketRight', keyCode: 221 },
+  ])('leaves Mod-$key unhandled in an active cell without changing source or history', init => {
+    const view = mount(TABLE, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: 2 } });
+    const rootSelection = view.state.selection;
+    const cellSelection = nested.state.selection;
+    const depth = undoDepth(view.state);
+    // Pin the installed keymap as well as event behavior so the regression
+    // catches a configuration drift even if a particular indent command declines.
+    expect(nested.state.facet(keymap).flat().map(binding => binding.key))
+      .not.toContain('Mod-' + init.key);
+    const mac = /Mac|iPhone|iPad/i.test(navigator.platform || '');
+    const event = new KeyboardEvent('keydown', {
+      ...init, metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true,
+    });
+    nested.contentDOM.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(nested.state.selection.eq(cellSelection)).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(view.state.selection.eq(rootSelection)).toBe(true);
+    expect(undoDepth(view.state)).toBe(depth);
+  });
+});
+
 describe('engine active-cell arrow and source padding regressions', () => {
   const press = (nested: EditorView, key: string) => nested.contentDOM.dispatchEvent(
     new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
