@@ -22,7 +22,8 @@
  * version number did not change; that is managed by lockfile-controlled
  * installs, the golden-corpus test and `PARSER_VERSION`.
  */
-export const PARSER_VERSION = 6;
+// 7 = shared syntax-tree WikiLink extraction and table transport.
+export const PARSER_VERSION = 7;
 
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string> | undefined;
 
