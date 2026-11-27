@@ -834,6 +834,18 @@ export class TableCellEditor {
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
         formatShortcutsKeymap(),
+        // Own the physical pipe key before native contenteditable input.
+        // Route it through the same nested transaction filter and root
+        // preflight as ordinary text; never allow a default insertion after
+        // a refused edit. IME input stays on CM6's composition path.
+        Prec.highest(keymap.of([{
+          key: '|',
+          run: view => {
+            if (view.composing) return false;
+            view.dispatch({ ...view.state.replaceSelection('|'), userEvent: 'input.type' });
+            return true;
+          },
+        }])),
         // Escape belongs to a visible completion popup, not to an
         // invisible pending query after ordinary cell typing. Cancel
         // that query and exit the cell in the same gesture. Register

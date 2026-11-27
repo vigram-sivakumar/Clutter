@@ -81,6 +81,23 @@ describe('table engine minimal cell changes', () => {
     expect(cell(target.state).text).toBe(next);
   });
 
+  it('refuses the reported unescaped pipe in a completed three-column header WikiLink', () => {
+    const text = '[[Test note]]';
+    const source = '| ' + text + ' |   |   |\n| ---- | - | - |\n|      |   |   |';
+    const state = EditorState.create({ doc: source });
+    const address = { row: 0, col: 0 };
+    const active = editableCell(source, readTable(source, 0, parse), address);
+    expect(active.text).toBe(text);
+    expect(() => createCellTransaction(state, 0, address, text,
+      diffCellText(text, '[[Test note|]]'), parse)).toThrow(TableEngineError);
+    const escaped = '[[Test note\\|]]';
+    const tr = createCellTransaction(state, 0, address, text, diffCellText(text, escaped), parse)!;
+    expect(tr.newDoc.toString()).toBe(source.replace(text, escaped));
+    const after = readTable(tr.newDoc.toString(), 0, parse);
+    expect(after.model.header).toEqual([escaped, '', '']);
+    expect(after.model.rows).toEqual([['', '', '']]);
+  });
+
   // Characterise the installed table grammar's raw transport, without
   // changing the meaning of WikiLink escapes or enabling alias input yet.
   it.each([1, 3, 5])('preserves an escaped WikiLink pipe with %i backslashes in one cell and root history', (slashes) => {

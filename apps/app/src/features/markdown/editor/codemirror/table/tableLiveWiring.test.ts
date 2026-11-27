@@ -1383,6 +1383,38 @@ describe('rich inline cell presentation', () => {
     expect(view.state.doc.toString()).toBe(expected);
   });
 
+  it.each([false, true])('routes the physical pipe key in an existing header WikiLink (shift=%s)', shiftKey => {
+    const text = '[[Test note]]';
+    const source = '| ' + text + ' |   |   |\n| ---- | - | - |\n|      |   |   |';
+    const expectedCell = '[[Test note\\|]]';
+    const expected = source.replace(text, expectedCell);
+    const view = mount(source, false, undefined, resolverOptions);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="0,0"]')!;
+    clickCell(cell.parentElement!);
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: text.length - 2 } });
+    const depth = undoDepth(view.state);
+    const event = new KeyboardEvent('keydown', { key: '|', code: 'Backslash', shiftKey, bubbles: true, cancelable: true });
+    nested.contentDOM.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toBe(expectedCell);
+    expect(nested.state.selection.main.head).toBe(text.length);
+    expect(view.dom.querySelectorAll('table thead th')).toHaveLength(3);
+    expect(view.dom.querySelectorAll('table tbody td')).toHaveLength(3);
+    expect(view.dom.querySelector('[data-cell="0,1"]')?.textContent).toBe('');
+    expect(view.dom.querySelector('[data-cell="0,2"]')?.textContent).toBe('');
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(view.dom.querySelectorAll('table thead th')).toHaveLength(3);
+  });
+
   it('resolves a stored table alias consistently across static, active and read-only presentation', () => {
     const text = 'Before [[Folder/Note\\|Display]] after';
     const source = TABLE.replace('Vik', text);
