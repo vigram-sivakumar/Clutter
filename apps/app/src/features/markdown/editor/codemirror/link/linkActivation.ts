@@ -1,5 +1,6 @@
 import type { EditorView } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
+import type { Tree } from '@lezer/common';
 
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 
@@ -20,23 +21,26 @@ import type { LinkNodeRange } from './linkEngagement';
  * click-to-position-cursor.
  */
 export function getLinkActivation(view: EditorView, node: LinkNodeRange): (() => void) | null {
+  return getLinkSourceActivation(syntaxTree(view.state), (from, to) => view.state.sliceDoc(from, to), node);
+}
+
+/** Same URL-child extraction for the parser-backed static cell projection. */
+export function getLinkSourceActivation(tree: Tree, slice: (from: number, to: number) => string, node: LinkNodeRange): (() => void) | null {
   let url: string | null = null;
-  syntaxTree(view.state).iterate({
+  tree.iterate({
     from: node.from,
     to: node.to,
     enter: (n) => {
       if (n.name === 'URL') {
-        url = view.state.sliceDoc(n.from, n.to);
+        url = slice(n.from, n.to);
       }
     },
   });
 
-  if (!url) {
-    return null;
-  }
+  return getExternalLinkActivation(url);
+}
 
-  const destination = url;
-  return () => {
-    void openExternalUrl(destination);
-  };
+export function getExternalLinkActivation(destination: string | null): (() => void) | null {
+  if (!destination) return null;
+  return () => { void openExternalUrl(destination); };
 }

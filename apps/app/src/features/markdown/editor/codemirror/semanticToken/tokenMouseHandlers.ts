@@ -195,6 +195,22 @@ export function handleTokenEditClick(
   return true;
 }
 
+/** Shared primary-press decision for live and static rendered tokens.
+ * Static callers already have a rendered DOM hit instead of CM6 geometry.
+ */
+export function handleRenderedTokenPress(event: MouseEvent, activate: () => boolean, edit?: () => boolean): boolean {
+  if (event.button !== 0 || event.defaultPrevented) return false;
+  const handled = (isTokenEditPress(event) && edit?.()) || activate();
+  if (handled) event.preventDefault();
+  return handled;
+}
+
+/** Host gesture coordination, not a second token activation policy. */
+export interface TokenMouseOptions {
+  readonly shouldHandle?: () => boolean;
+  readonly onHandled?: () => void;
+}
+
 /**
  * Mouse interaction, built on `EditorView.domEventHandlers` — the actual
  * CM6 mechanism for DOM-event-level interaction. Deliberately not the
@@ -206,11 +222,12 @@ export function handleTokenEditClick(
 export function tokenMouseHandlers(
   isTokenNode: TokenNodePredicate,
   getActivation: GetTokenActivation,
-  editCaret?: TokenEditCaret
+  editCaret?: TokenEditCaret,
+  options: TokenMouseOptions = {}
 ): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
-      if (event.button !== 0) {
+      if (event.button !== 0 || options.shouldHandle?.() === false) {
         return false;
       }
 
@@ -227,15 +244,10 @@ export function tokenMouseHandlers(
         return false;
       }
 
-      if (editCaret && isTokenEditPress(event) && handleTokenEditClick(view, pos, isTokenNode, editCaret)) {
-        event.preventDefault();
-        return true;
-      }
-
-      const handled = handleTokenClick(view, pos, event.altKey, isTokenNode, getActivation);
-      if (handled) {
-        event.preventDefault();
-      }
+      const handled = handleRenderedTokenPress(event,
+        () => handleTokenClick(view, pos, event.altKey, isTokenNode, getActivation),
+        editCaret ? () => handleTokenEditClick(view, pos, isTokenNode, editCaret) : undefined);
+      if (handled) options.onHandled?.();
       return handled;
     },
   });

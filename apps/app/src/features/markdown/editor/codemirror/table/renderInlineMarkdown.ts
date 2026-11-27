@@ -6,6 +6,41 @@ import type { ParticipantResolvers } from '../highlight/inlineLivePreviewPartici
 import { renderWikiLink } from '../wikilink/wikiLinkDecorations';
 import { renderTag } from '../tag/tagDecorations';
 import { renderDate } from '../date/dateDecorations';
+import { getWikiLinkSourceActivation } from '../wikilink/wikiLinkActivation';
+import { wikiLinkEditCaret } from '../wikilink/wikiLinkMouseHandlers';
+import { getLinkSourceActivation } from '../link/linkActivation';
+import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
+
+interface ProjectedLink {
+  readonly activation: () => (() => void) | null;
+  readonly editCaret?: number;
+}
+
+// Occurrence metadata belongs to the painted leaf, not the cell's label or
+// a second editable document. Removed/repainted elements cannot be hits.
+const projectedLinks = new WeakMap<Element, ProjectedLink>();
+
+export function handleProjectedLinkPress(
+  host: HTMLElement, event: MouseEvent, edit?: (caret: number) => boolean, beforeActivate?: () => void
+): boolean {
+  let target = event.target instanceof Element ? event.target : null;
+  while (target && target !== host && host.contains(target)) {
+    const link = projectedLinks.get(target);
+    if (link) {
+      const handled = handleRenderedTokenPress(event, () => {
+        const activate = link.activation();
+        if (!activate) return false;
+        beforeActivate?.();
+        activate();
+        return true;
+      }, edit && link.editCaret !== undefined ? () => edit(link.editCaret!) : undefined);
+      if (handled) event.stopPropagation();
+      return handled;
+    }
+    target = target.parentElement;
+  }
+  return false;
+}
 
 /**
  * Renders one inactive table cell's raw Markdown text to sanitized inline
@@ -56,7 +91,8 @@ function renderSpans(spans: readonly InlineSpan[], styled: boolean, renderLeaf?:
 export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
-  const spans = tokenizeInline(sharedMarkdownParser.parse(text).topNode, text, undefined, { includeSemanticSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
+  const tree = sharedMarkdownParser.parse(text);
+  const spans = tokenizeInline(tree.topNode, text, undefined, { includeSemanticSource: true, includeActivationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
     let widget: WidgetType | null = null;
@@ -67,12 +103,30 @@ export function paintInlineMarkdown(
     } else if (span.kind === 'date' && span.source !== undefined) {
       widget = renderDate(span.source, resolvers.resolveDate ?? (() => undefined));
     } else if (span.kind === 'link') {
-      return `<span class="tok-link"><span class="tok-link-title">${escapeHtml(span.label)}</span></span>`;
+      const element = host.ownerDocument.createElement('span');
+      element.className = 'tok-link';
+      const title = element.appendChild(host.ownerDocument.createElement('span'));
+      title.className = 'tok-link-title';
+      title.textContent = span.label;
+      const occurrence = span.activationSource;
+      if (occurrence) projectedLinks.set(element, {
+        activation: () => getLinkSourceActivation(tree, (from, to) => text.slice(from, to), occurrence),
+      });
+      const index = nodes.push(element) - 1;
+      return `<span data-inline-widget="${index}"></span>`;
     } else {
       return undefined;
     }
     if (!widget) return span.source === undefined ? undefined : escapeHtml(span.source);
-    const index = nodes.push(widget.toDOM(view)) - 1;
+    const element = widget.toDOM(view);
+    if (span.kind === 'wikilink' && span.source !== undefined && span.activationSource) {
+      const raw = span.source;
+      projectedLinks.set(element, {
+        activation: () => getWikiLinkSourceActivation(raw, resolvers.resolveWikiLink ?? (() => undefined), 'table'),
+        editCaret: wikiLinkEditCaret(raw, span.activationSource.to),
+      });
+    }
+    const index = nodes.push(element) - 1;
     return `<span data-inline-widget="${index}"></span>`;
   };
   host.innerHTML = renderSpans(spans, true, renderLeaf);

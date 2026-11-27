@@ -49,11 +49,13 @@ export type InlineSpan = (
    */
   | { readonly kind: 'image'; readonly alt: string; readonly src?: string }
   | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null }
-) & { readonly source?: string };
+) & { readonly source?: string; readonly activationSource?: SyntaxNode };
 
 export interface TokenizeInlineOptions {
   /** Retain exact semantic-token source for the editor's static widget projection. */
   readonly includeSemanticSource?: boolean;
+  /** Preserve parsed link occurrence only for interactive static projection. */
+  readonly includeActivationSource?: boolean;
   /** Isolated cell text has no TableCell ancestor. */
   readonly wikiLinkContext?: WikiLinkSourceContext;
   /** Retain the parser’s link destination for an interactive rendering surface. */
@@ -364,7 +366,8 @@ function tokenizeChildren(
     if (n.name === 'WikiLink' || n.name === 'Tag' || n.name === 'Date') {
       pushText(cursor, n.from);
       const span = n.name === 'WikiLink' ? readWikiLink(n, text, options.wikiLinkContext) : n.name === 'Tag' ? readTag(n, text) : readDate(n, text);
-      spans.push(options.includeSemanticSource ? { ...span, source: text.slice(n.from, n.to) } : span);
+      spans.push({ ...span, ...(options.includeSemanticSource ? { source: text.slice(n.from, n.to) } : {}),
+        ...(options.includeActivationSource && span.kind === 'wikilink' ? { activationSource: n } : {}) });
       cursor = n.to;
       return;
     }
@@ -373,7 +376,7 @@ function tokenizeChildren(
       pushText(cursor, n.from);
       const span = n.name === 'Link' ? readLink(n, text, options.includeLinkDestination, options.preserveDestinationlessLinks) : readImage(n, text, options.includeImageSrc);
       if (span) {
-        spans.push(span);
+        spans.push(options.includeActivationSource && span.kind === 'link' ? { ...span, activationSource: n } : span);
       }
       cursor = n.to;
       return;
@@ -389,7 +392,8 @@ function tokenizeChildren(
     if (n.name === 'Autolink') {
       pushText(cursor, n.from);
       const label = markedInnerText(n, text, 'LinkMark');
-      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}) });
+      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}),
+        ...(options.includeActivationSource ? { activationSource: n } : {}) });
       cursor = n.to;
       return;
     }
@@ -397,7 +401,8 @@ function tokenizeChildren(
     if (n.name === 'URL') {
       pushText(cursor, n.from);
       const label = text.slice(n.from, n.to);
-      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}) });
+      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}),
+        ...(options.includeActivationSource ? { activationSource: n } : {}) });
       cursor = n.to;
       return;
     }

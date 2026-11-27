@@ -18,7 +18,10 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
 import { inlinePreviewExtensions, refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
-import { paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
+import { wikiLinkMouseHandlers } from '../wikilink/wikiLinkMouseHandlers';
+import { linkMouseHandlers } from '../link/linkMouseHandlers';
+import { urlMouseHandlers } from '../link/urlMouseHandlers';
+import { handleProjectedLinkPress, paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { logicalCellText, tableCellTransport } from './tableCellTransport';
 import { readTable, TableEngineError } from './tableModel';
@@ -51,6 +54,7 @@ export class TableCellEditor {
   nested: EditorView | null = null;
   private active: ActiveCell | null = null;
   private forwarding = false;
+  private forwardingCellPointer = false;
 
   // The interaction owns logical selection. The active source span above is
   // only the mapped address of the mounted nested document.
@@ -432,12 +436,20 @@ export class TableCellEditor {
   click(tableFrom: number, cell: CellAddress, host: HTMLElement, event: MouseEvent): void {
     if (event.button !== 0) return;
     if (this.owns(host)) return;
-    event.preventDefault();
-    event.stopPropagation();
     try {
       if (event.shiftKey && this.interactionTable === tableFrom && this.interaction.kind !== 'none') {
+        event.preventDefault();
+        event.stopPropagation();
         this.select(tableFrom, extendInteraction(this.interaction, this.shape(tableFrom), cell));
-      } else {
+      } else if (!handleProjectedLinkPress(host, event, caret => {
+        this.cancelDrag();
+        this.activate(tableFrom, cell, host);
+        if (!this.nested) return false;
+        this.nested.dispatch({ selection: { anchor: caret }, userEvent: 'select.pointer', scrollIntoView: true });
+        return true;
+      }, () => { this.cancelDrag(); this.close(); })) {
+        event.preventDefault();
+        event.stopPropagation();
         this.activate(tableFrom, cell, host, event);
       }
     } catch (error) {
@@ -823,6 +835,10 @@ export class TableCellEditor {
     this.interactionTable = tableFrom;
     this.interaction = { kind: 'editing', cell };
     this.paintSelection();
+    const tokenMouseOptions = {
+      shouldHandle: () => !this.forwardingCellPointer,
+      onHandled: () => this.cancelDrag(),
+    };
     const state = EditorState.create({
       doc: range.text,
       selection: { anchor: range.text.length },
@@ -839,6 +855,9 @@ export class TableCellEditor {
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
+        wikiLinkMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveWikiLink ?? (() => undefined), 'table', tokenMouseOptions),
+        linkMouseHandlers(tokenMouseOptions),
+        urlMouseHandlers(tokenMouseOptions),
         formatShortcutsKeymap(),
         // The shared WikiLink pipe-accept command gets first refusal;
         // ordinary pipe typing still follows the mapped input route.
@@ -910,9 +929,17 @@ export class TableCellEditor {
       if (view === this.nested) this.dispatch(transactions);
     } });
     this.nested.focus();
-    if (event) this.nested.contentDOM.dispatchEvent(new MouseEvent('mousedown', {
-      clientX: event.clientX, clientY: event.clientY, button: 0, detail: event.detail, bubbles: false,
-    }));
+    if (event) {
+      // The original projection hit was already adjudicated. Forward
+      // only caret placement, not a second link activation after reflow.
+      this.forwardingCellPointer = true;
+      try {
+        this.nested.contentDOM.dispatchEvent(new MouseEvent('mousedown', {
+          clientX: event.clientX, clientY: event.clientY, button: 0, detail: event.detail, bubbles: false,
+          metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey,
+        }));
+      } finally { this.forwardingCellPointer = false; }
+    }
   }
 
   private dispatch(transactions: readonly Transaction[]): void {

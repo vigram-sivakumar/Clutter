@@ -1,7 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { handleTokenClick, tokenMouseHandlers } from '../semanticToken/tokenMouseHandlers';
+import { handleTokenClick, tokenMouseHandlers, type TokenMouseOptions } from '../semanticToken/tokenMouseHandlers';
 import { getUrlActivation } from './urlActivation';
 import { isUrlNode } from './urlEngagement';
 
@@ -22,6 +22,6 @@ export function handleUrlClick(view: EditorView, pos: number, altKey: boolean): 
  * docs/editor-architecture-decisions.md — only its navigation piece is
  * resolved here.
  */
-export function urlMouseHandlers(): Extension {
-  return tokenMouseHandlers(isUrlNode, getUrlActivation);
+export function urlMouseHandlers(options: TokenMouseOptions = {}): Extension {
+  return tokenMouseHandlers(isUrlNode, getUrlActivation, undefined, options);
 }

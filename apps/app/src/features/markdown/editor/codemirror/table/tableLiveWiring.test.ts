@@ -12,6 +12,9 @@ import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
+import { openExternalUrl } from '@shared/helpers/openExternalUrl';
+
+vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: vi.fn() }));
 
 /** Live editor integration using the production extension set. */
 const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId'> = {
@@ -2108,5 +2111,140 @@ describe('table live wiring — editable top-level table', () => {
     view.dispatch({ changes: { from: 0, insert: 'New ' } });
     expect(view.plugin(tableCellEditor)!.nested).toBeNull();
     expect(view.state.doc.toString()).toBe('New Before\n\n' + TABLE);
+  });
+});
+
+
+describe('table link activation parity', () => {
+  const rawWiki = '[[Folder/Note\\|Alias]]';
+  function press(target: Element, init: MouseEventInit = {}): MouseEvent {
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, ...init });
+    target.dispatchEvent(event);
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    return event;
+  }
+  const modifier = () => /Mac|iPhone|iPad/i.test(navigator.platform || '') ? { metaKey: true } : { ctrlKey: true };
+  function wikiOptions(activate: () => void) {
+    const resolve = vi.fn(() => ({
+      status: 'resolved' as const, pageId: 'page', displayLabel: 'Alias', icon: 'note' as const, activate,
+    }));
+    return { resolve, options: { resolveWikiLink: () => resolve } };
+  }
+  it.each([false, true])('activates static escaped WikiLink on actual rendered hit (readOnly=%s)', readOnly => {
+    const activate = vi.fn();
+    const { resolve, options } = wikiOptions(activate);
+    const source = TABLE.replace('Vik', 'Before **' + rawWiki + '** after');
+    const view = mount(source, readOnly, undefined, options);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const token = view.dom.querySelector('[data-cell="1,0"] .tok-wikilink')!;
+    expect(token.textContent).toContain('Alias');
+    const before = view.state.doc.toString();
+    expect(press(token, readOnly ? modifier() : {}).defaultPrevented).toBe(true);
+    expect(resolve).toHaveBeenLastCalledWith('Folder/Note', 'Alias');
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(view.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+    expect(view.state.doc.toString()).toBe(before);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it('modifier-click edits the exact static WikiLink occurrence, without navigation or history', () => {
+    const activate = vi.fn();
+    const { options } = wikiOptions(activate);
+    const text = 'Before ' + rawWiki + ' after ' + rawWiki;
+    const view = mount(TABLE.replace('Vik', text), false, undefined, options);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const tokens = view.dom.querySelectorAll('[data-cell="1,0"] .tok-wikilink');
+    const before = view.state.doc.toString();
+    expect(press(tokens[1]!, modifier()).defaultPrevented).toBe(true);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    expect(nested.state.selection.main.head).toBe(text.length - 2);
+    expect(nested.contentDOM.textContent).toContain('[[Folder/Note|Alias]]');
+    expect(activate).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(before);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it.each([false, true])('opens explicit, bare and autolink destinations from static cells (readOnly=%s)', readOnly => {
+    const open = vi.mocked(openExternalUrl);
+    open.mockClear();
+    const text = '[Site](https://example.com "Title") https://example.org <https://example.net>';
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, readOnly);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const links = view.dom.querySelectorAll('[data-cell="1,0"] .tok-link');
+    expect(links).toHaveLength(3);
+    for (const element of links) expect(press(element, modifier()).defaultPrevented).toBe(true);
+    expect(open.mock.calls).toEqual([['https://example.com'], ['https://example.org'], ['https://example.net']]);
+    expect(view.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it('clicking cell padding near a rendered link edits the cell rather than navigating', () => {
+    const activate = vi.fn();
+    const { options } = wikiOptions(activate);
+    const source = TABLE.replace('Vik', rawWiki);
+    const view = mount(source, false, undefined, options);
+    const host = view.dom.querySelector('[data-cell="1,0"]')!;
+    press(host);
+    expect(view.plugin(tableCellEditor)!.nested).not.toBeNull();
+    expect(activate).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('preserves Shift-click cell range selection across a rendered WikiLink', () => {
+    const activate = vi.fn();
+    const { options } = wikiOptions(activate);
+    const source = TABLE.replace('Designer', rawWiki);
+    const view = mount(source, false, undefined, options);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    press(view.dom.querySelector('[data-cell="1,1"] .tok-wikilink')!, { shiftKey: true });
+    expect(controller.nested).toBeNull();
+    expect(activate).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('routes an active-at-rest WikiLink through the shared live handler and declines while engaged', () => {
+    const activate = vi.fn();
+    const { resolve, options } = wikiOptions(activate);
+    const text = 'Before ' + rawWiki + ' after';
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, false, undefined, options);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    // jsdom cannot measure CM6 geometry; inject only the hit coordinates.
+    const at = 'Before [['.length + 1;
+    vi.spyOn(nested, 'posAtCoords').mockReturnValue(at);
+    vi.spyOn(nested, 'coordsAtPos').mockReturnValue(null);
+    expect(press(nested.contentDOM.querySelector('.tok-wikilink')!).defaultPrevented).toBe(true);
+    expect(resolve).toHaveBeenLastCalledWith('Folder/Note', 'Alias');
+    expect(activate).toHaveBeenCalledTimes(1);
+    nested.dispatch({ selection: { anchor: at } });
+    press(nested.contentDOM);
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('routes active-at-rest Markdown link and bare URL through the shared live handlers', () => {
+    const open = vi.mocked(openExternalUrl);
+    open.mockClear();
+    const text = 'Before [Site](https://example.com) https://example.org after';
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    const position = vi.spyOn(nested, 'posAtCoords');
+    vi.spyOn(nested, 'coordsAtPos').mockReturnValue(null);
+    const links = nested.contentDOM.querySelectorAll('.tok-link');
+    expect(links).toHaveLength(2);
+    position.mockReturnValue(text.indexOf('Site') + 1);
+    expect(press(links[0]!).defaultPrevented).toBe(true);
+    position.mockReturnValue(text.indexOf('https://example.org') + 5);
+    expect(press(links[1]!).defaultPrevented).toBe(true);
+    expect(open.mock.calls).toEqual([['https://example.com'], ['https://example.org']]);
+    expect(view.state.doc.toString()).toBe(source);
   });
 });

@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
 
-import { openExternalUrl } from '@shared/helpers/openExternalUrl';
+import { getExternalLinkActivation } from './linkActivation';
 
 import type { UrlNodeRange } from './urlEngagement';
 
@@ -46,7 +46,5 @@ export function getUrlActivation(view: EditorView, node: UrlNodeRange): (() => v
     return null;
   }
 
-  return () => {
-    void openExternalUrl(url);
-  };
+  return getExternalLinkActivation(url);
 }

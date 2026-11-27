@@ -1,7 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { handleTokenClick, tokenMouseHandlers } from '../semanticToken/tokenMouseHandlers';
+import { handleTokenClick, tokenMouseHandlers, type TokenMouseOptions } from '../semanticToken/tokenMouseHandlers';
 import { getLinkActivation } from './linkActivation';
 import { isLinkNode } from './linkEngagement';
 
@@ -23,6 +23,6 @@ export function handleLinkClick(view: EditorView, pos: number, altKey: boolean):
  * behave as ordinary text editing rather than navigation — no separate
  * logic needed here for that distinction.
  */
-export function linkMouseHandlers(): Extension {
-  return tokenMouseHandlers(isLinkNode, getLinkActivation);
+export function linkMouseHandlers(options: TokenMouseOptions = {}): Extension {
+  return tokenMouseHandlers(isLinkNode, getLinkActivation, undefined, options);
 }

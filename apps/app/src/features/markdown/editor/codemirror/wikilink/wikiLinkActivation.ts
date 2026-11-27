@@ -1,7 +1,7 @@
 import type { EditorView } from '@codemirror/view';
 
 import type { WikiLinkNodeRange } from './wikiLinkEngagement';
-import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { scanWikiLink, type WikiLinkSourceContext } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkResolution';
 
 /**
@@ -28,10 +28,17 @@ import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkReso
 export function getWikiLinkActivation(
   view: EditorView,
   node: WikiLinkNodeRange,
-  getResolver: () => ResolveWikiLink | undefined
+  getResolver: () => ResolveWikiLink | undefined,
+  context: WikiLinkSourceContext = 'prose'
 ): (() => void) | null {
-  const raw = view.state.sliceDoc(node.from, node.to);
-  const match = scanWikiLink(raw, 0);
+  return getWikiLinkSourceActivation(view.state.sliceDoc(node.from, node.to), getResolver, context);
+}
+
+/** The same resolution policy for live source and static table projection. */
+export function getWikiLinkSourceActivation(
+  raw: string, getResolver: () => ResolveWikiLink | undefined, context: WikiLinkSourceContext = 'prose'
+): (() => void) | null {
+  const match = scanWikiLink(raw, 0, context);
   if (!match || !match.path.trim()) {
     return null;
   }
