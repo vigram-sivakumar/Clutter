@@ -9,11 +9,15 @@ import { wikiLinkCompletionSource } from './wikiLinkCompletionSource';
 import type { CompletionListConfig } from '../completionPopup/completionRow';
 import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
 
-function mountView(doc: string): EditorView {
+function mountView(doc: string, canEdit?: () => boolean): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
-  return new EditorView({ state, parent });
+  return new EditorView({ state, parent, dispatchTransactions: canEdit
+    ? (transactions, view) => {
+        if (!transactions.some(tr => tr.docChanged) || canEdit()) view.update(transactions);
+      }
+    : undefined });
 }
 
 function contextAt(view: EditorView, pos: number): CompletionContext {
@@ -108,6 +112,23 @@ describe('wikiLinkCompletionSource — fresh, not-yet-closed [[query', () => {
 
     expect(view.state.doc.toString()).toBe('x [[Brand New]] ');
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a page when the host refuses completion insertion', () => {
+    const doc = 'x [[Brand New';
+    const view = mountView(doc, () => false);
+    try {
+      const before = view.state;
+      const create = vi.fn();
+      const source = wikiLinkCompletionSource(() => () => [{ kind: 'create', path: 'Brand New', create }]);
+      const result = call(source, contextAt(view, doc.length))!;
+      const option = result.options[0]!;
+      if (typeof option.apply !== 'function') throw new Error('expected applicable option');
+      option.apply(view, option, result.from, result.to ?? doc.length);
+      expect(view.state).toBe(before);
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(create).not.toHaveBeenCalled();
+    } finally { view.destroy(); }
   });
 
   it("apply() places the cursor immediately after the closing ']]' it just inserted", () => {
