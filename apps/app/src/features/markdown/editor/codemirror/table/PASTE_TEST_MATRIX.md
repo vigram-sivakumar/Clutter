@@ -20,6 +20,7 @@ implementation-specific suites were retired during M13.
   HTML and spreadsheet TSV are supported; root tab-indented text/mixed
   prose is not a spreadsheet. Malformed internal grids and merged cells
   are rejected rather than passed to a second table writer.
+- Compatible scalar rich HTML uses the shared prose HTML converter, with single-line/non-block restrictions; actual spreadsheet grids retain their existing representation priority and plain HTML grid cell contract. Active text copy records logical clipboard text after transport decoding; grid copy records exact TSV using the shared provenance recorder. The active cell installs the shared URL Paste as choice field, anchor, and menu lifecycle.
 - All successful table edits use validated root transactions and root
   undo/redo. A grid starts at the top-left of a selected range or at the
   active cell. A scalar in a caret-free range changes its top-left cell,
@@ -34,10 +35,10 @@ implementation-specific suites were retired during M13.
 | Real React editor, range/axis and active-cell paste, input metadata, file skips, selection and history, HTML/TSV priority, reconstructed Excel/Sheets/browser/Word payloads | `MarkdownEditor.paste.fullStack.test.tsx` |
 | Grid priority, exact internal Markdown, quoted TSV, escaping, malformed payload, bounds and history | `table-engine/tableClipboard.test.ts` |
 | Source placement, structural commands, one root transaction and exact history | `table-engine/tableHistoryAndCreation.test.ts`, `table-engine/tableEngine.test.ts` |
-| Native selection/clipboard interaction | `table/tableLiveWiring.test.ts`, `table/tableCellFirstDragSelection.test.ts` |
+| Mounted DOM selection/clipboard integration (jsdom, not actual native input) | `table/tableLiveWiring.test.ts`, `table/tableCellFirstDragSelection.test.ts` |
 | Root context and rich HTML/file priority | `paste/pasteClassification.test.ts`, `paste/htmlPaste.test.ts`, `paste/assetPaste.test.ts` |
 | Handler ownership | `paste/pasteHandlerOwnership.test.ts` |
 
 Clipboard HTML fixtures are reconstructions, not a capture of every
 application's macOS pasteboard. A packaged/sandboxed smoke check with actual
-clipboard content is still part of the final verification gate.
+clipboard content is still part of the final verification gate. See the accepted step 6b and nested URL Paste as entries in docs/table-rewrite-progress.md for actual packaged macOS evidence and remaining IME/CSP limitations.
