@@ -121,7 +121,11 @@ export function paintInlineMarkdown(
     } else {
       return undefined;
     }
-    if (!widget) return undefined;
+    if (!widget) {
+      if (span.source === undefined) return undefined;
+      const raw = escapeHtml(span.source);
+      return classes.includes(strikeClass) ? `<span class="${strikeClass}">${raw}</span>` : raw;
+    }
     const element = widget.toDOM(view);
     if (span.kind === 'wikilink' && span.source !== undefined && span.activationSource) {
       const raw = span.source;
@@ -168,7 +172,8 @@ function escapeHtml(value: string): string {
 function containsProtectedSpan(spans: readonly InlineSpan[]): boolean {
   return spans.some(span => {
     const source = span.presentationSource ?? span.activationSource;
-    return (source !== undefined && STRIKETHROUGH_PROTECTED_NODE_NAMES.has(source.name)) ||
+    return span.kind === 'strikethrough' ||
+      (source !== undefined && STRIKETHROUGH_PROTECTED_NODE_NAMES.has(source.name)) ||
       ('children' in span && containsProtectedSpan(span.children));
   });
 }
