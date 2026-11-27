@@ -1327,6 +1327,83 @@ describe('shared completion inside the active cell', () => {
     expect(view.state.doc.toString()).toMatch(stored);
   });
 
+  it.each(['Enter', '|'])('accepts WikiLink completion via %s with exact root transport and one cell owner', async key => {
+    const source = TABLE.replace('Vik', 'Before');
+    const view = mount(source, false, undefined, { getWikiLinkSuggestions: () => () => [
+      { kind: 'page', path: 'Folder/Note', title: 'Note', breadcrumb: 'Folder', alias: 'Display' },
+    ] });
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, ' [[No');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    expect(currentCompletions(nested.state).map(option => option.label)).toContain('Note (Display)');
+    expect(completionPopupDOM(nested)?.querySelector('.completion-row')).not.toBeNull();
+    await settle();
+    press(nested, key);
+    const accepted = key === '|' ? 'Before [[Folder/Note\\|]]' : 'Before [[Folder/Note\\|Display]] ';
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toBe(accepted);
+    expect(completionStatus(nested.state)).toBeNull();
+    expect(view.state.doc.toString()).toBe(source.replace('Before', accepted));
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+    if (key === '|') {
+      expect(nested.state.selection.main.head).toBe(accepted.length - 2);
+      type(nested, 'Custom');
+      expect(nested.contentDOM.textContent).toBe('Before [[Folder/Note|Custom]]');
+      await vi.waitFor(() => expect(completionStatus(nested.state)).toBeNull());
+    }
+    const final = view.state.doc.toString();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).not.toBe(final);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(final);
+  });
+
+  it('accepts a WikiLink heading in an already closed reference, preserving alias and neighbours', async () => {
+    const raw = '[[Note#S\\|Custom]]';
+    const source = TABLE.replace('Vik', raw);
+    const view = mount(source, false, undefined, {
+      getWikiLinkSuggestions: () => () => [],
+      getHeadingSuggestions: () => () => [{ kind: 'heading', heading: 'Setup', level: 2 }],
+    });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: '[[Note#S'.length } });
+    type(nested, 'e');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    expect(currentCompletions(nested.state).map(option => option.label)).toContain('Setup');
+    await settle();
+    press(nested, 'Enter');
+    expect(nested.state.doc.toString()).toBe('[[Note#Setup\\|Custom]] ');
+    expect(view.state.doc.toString()).toBe(source.replace(raw, '[[Note#Setup\\|Custom]] '));
+    expect(controller.nested).toBe(nested);
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+  });
+
+  it('does not create a page if the root refuses the WikiLink completion insertion', async () => {
+    let allowed = true;
+    const create = vi.fn();
+    const view = mount(TABLE, false, undefined, { getWikiLinkSuggestions: () => () => [
+      { kind: 'create', path: 'New Note', create },
+    ] }, () => allowed);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, ' [[New');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBe('active'));
+    await settle();
+    const before = view.state.doc.toString();
+    const nestedBefore = nested.state.doc.toString();
+    allowed = false;
+    press(nested, 'Enter');
+    expect(create).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(before);
+    expect(nested.state.doc.toString()).toBe(nestedBefore);
+  });
+
   it('keeps the child and root at the same revision when the host refuses a cell edit', () => {
     let allowed = true;
     const view = mount(source, false, undefined, {}, () => allowed);

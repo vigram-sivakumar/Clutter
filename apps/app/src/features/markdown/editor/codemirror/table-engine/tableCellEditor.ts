@@ -1,6 +1,9 @@
 import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
 import { closeBrackets, closeBracketsKeymap, closeCompletion, completionStatus, insertBracket } from '@codemirror/autocomplete';
 import { semanticCompletion } from '../completion';
+import { wikiLinkAutocomplete } from '../wikilink/wikiLinkAutocomplete';
+import type { GetWikiLinkSuggestions } from '../wikilink/wikiLinkSuggestion';
+import type { GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { tagAutocomplete } from '../tag/tagAutocomplete';
 import { dateAutocomplete } from '../date/dateAutocomplete';
 import type { GetTagSuggestions } from '../tag/tagSuggestion';
@@ -37,6 +40,8 @@ export const tableEngineIntegration = Facet.define<{
   readonly getPasteAssets?: () => PasteAssets | undefined;
   readonly resolvers?: ParticipantResolvers;
   readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
+  readonly getWikiLinkSuggestions?: () => GetWikiLinkSuggestions | undefined;
+  readonly getHeadingSuggestions?: () => GetHeadingSuggestions | undefined;
 }>();
 
 interface ActiveCell { tableFrom: number; cell: CellAddress; from: number; to: number }
@@ -835,6 +840,9 @@ export class TableCellEditor {
         markdownLanguageExtension(),
         inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
         formatShortcutsKeymap(),
+        // The shared WikiLink pipe-accept command gets first refusal;
+        // ordinary pipe typing still follows the mapped input route.
+        wikiLinkAutocomplete('table'),
         // Own the physical pipe key before native contenteditable input.
         // Route it through the same nested transaction filter and root
         // preflight as ordinary text; never allow a default insertion after
@@ -860,10 +868,15 @@ export class TableCellEditor {
             return this.exitEdit();
           },
         }])),
-        // Same completion sources, rows, theme and reactivation as prose.
-        // WikiLink suggestions stay disabled until alias writes and indexing
-        // share a validated table-escaping contract; embeds are excluded.
-        semanticCompletion(() => undefined, this.root.state.facet(tableEngineIntegration)[0]?.getTagSuggestions),
+        // Same providers, popup and lifecycle as prose. Only WikiLink's
+        // source context differs; single-line cells still exclude embeds.
+        semanticCompletion(
+          this.root.state.facet(tableEngineIntegration)[0]?.getWikiLinkSuggestions ?? (() => undefined),
+          this.root.state.facet(tableEngineIntegration)[0]?.getTagSuggestions,
+          () => undefined,
+          this.root.state.facet(tableEngineIntegration)[0]?.getHeadingSuggestions,
+          {}, {}, 'table'
+        ),
         // CM6 owns the external tooltip container, theme, positioning and
         // disposal. Preserve table overflow and the shared tooltipSpace.
         tooltips({ parent: this.root.dom.ownerDocument.body }),

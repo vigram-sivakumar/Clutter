@@ -1,5 +1,6 @@
 import { autocompletion } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
+import type { WikiLinkSourceContext } from '@core/vault/ingest/grammar/wikiLinkScanner';
 
 import { completionSectionLimit, limitCompletionSections } from './completionPopup/completionSectionLimit';
 import { completionScrollFade } from './completionPopup/completionScrollFade';
@@ -48,7 +49,8 @@ export function semanticCompletion(
   /** How the `[[` popup is laid out. Default: one continuous list, paths only once something is typed. */
   wikiLinkListConfig: CompletionListConfig = {},
   /** How the `![[` popup is laid out — the same shape, the same defaults. */
-  embedListConfig: CompletionListConfig = {}
+  embedListConfig: CompletionListConfig = {},
+  wikiLinkContext: WikiLinkSourceContext = 'prose'
 ): Extension {
   return [
     autocompletion({
@@ -65,7 +67,7 @@ export function semanticCompletion(
         // The lists that can grow long (`[[` notes, `![[` assets, `#` tags) are capped with "Show N
         // more"; headings and dates have no sections and are short.
         limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getHeadingSuggestions, embedListConfig)),
-        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions, getHeadingSuggestions, wikiLinkListConfig)),
+        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions, getHeadingSuggestions, wikiLinkListConfig, wikiLinkContext)),
         dateCompletionSource(),
         limitCompletionSections(tagCompletionSource(getTagSuggestions)),
       ],

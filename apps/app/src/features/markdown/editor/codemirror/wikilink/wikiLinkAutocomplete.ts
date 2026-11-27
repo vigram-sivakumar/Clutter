@@ -10,6 +10,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { completionReactivation } from '../completionLifecycle';
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import { serializeWikiLink } from './wikiLinkSerialize';
+import type { WikiLinkSourceContext } from '@core/vault/ingest/grammar/wikiLinkScanner';
 import type { HeadingCompletion } from '../completionPopup/headingCompletion';
 import type { WikiLinkCompletion } from './wikiLinkCompletionRow';
 import {
@@ -46,7 +47,7 @@ import {
  * constructor completion sources are built from) rather than a second,
  * differently-derived notion of "the current query range".
  */
-export function acceptReferenceForDisplayName(view: EditorView): boolean {
+export function acceptReferenceForDisplayName(view: EditorView, sourceContext: WikiLinkSourceContext = 'prose'): boolean {
   const pos = view.state.selection.main.head;
   if (findWikiLinkAt(view.state, pos)) {
     return false;
@@ -69,7 +70,7 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
     return false;
   }
 
-  const insertText = serializeWikiLink(reference, '');
+  const insertText = serializeWikiLink(reference, '', sourceContext);
   const cursorPos = match.from + insertText.length - 2;
   const before = view.state;
   const changes = before.changes({ from: match.from, to: pos, insert: insertText });
@@ -110,14 +111,14 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
  * move; only where the `autocompletion()` call and its theme are
  * registered from changed.
  */
-export function wikiLinkAutocomplete(): Extension {
+export function wikiLinkAutocomplete(sourceContext: WikiLinkSourceContext = 'prose'): Extension {
   return [
     // Highest precedence so this wins over any other binding for `|`
     // (there isn't one today, but this must not depend on staying that
     // way) — when it declines (returns false), the key falls through to
     // ordinary character insertion exactly as if this extension didn't
     // exist.
-    Prec.highest(keymap.of([{ key: '|', run: acceptReferenceForDisplayName }])),
-    completionReactivation(referenceZoneAt),
+    Prec.highest(keymap.of([{ key: '|', run: view => acceptReferenceForDisplayName(view, sourceContext) }])),
+    completionReactivation((state, pos) => referenceZoneAt(state, pos, sourceContext)),
   ];
 }

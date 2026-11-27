@@ -9,7 +9,7 @@ import { layoutFor, type CompletionListConfig, type CompletionListLayout } from 
 import { mixedGroupSections } from '../completionPopup/mixedGroups';
 import { wikiLinkFamily, wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
 import { serializeWikiLink } from './wikiLinkSerialize';
-import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { lastUnescapedSlashOffset, scanWikiLinkSource, splitAtFirstUnescapedPipe, type WikiLinkSourceContext } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import type { GetWikiLinkSuggestions, WikiLinkSuggestion } from './wikiLinkSuggestion';
 
 /**
@@ -117,10 +117,18 @@ export interface WikiLinkReferenceZone {
  * needs to know whether `pos` is in-zone at all) — one definition of "the
  * reference zone", not two.
  */
-export function referenceZoneAt(state: EditorState, pos: number): WikiLinkReferenceZone | null {
+export function referenceZoneAt(state: EditorState, pos: number, sourceContext: WikiLinkSourceContext = 'prose'): WikiLinkReferenceZone | null {
   const existing = findWikiLinkAt(state, pos);
   if (!existing) {
     return null;
+  }
+
+  if (sourceContext === 'table') {
+    const match = scanWikiLinkSource(state.sliceDoc(existing.from, existing.to), 0, sourceContext);
+    if (!match) return null;
+    const from = existing.from + match.referenceFrom;
+    const to = existing.from + match.referenceTo;
+    return pos >= from && pos <= to ? { from, to } : null;
   }
 
   const from = existing.from + 2;
@@ -202,7 +210,8 @@ export function wikiLinkCompletionSource(
   getSuggestions: () => GetWikiLinkSuggestions | undefined,
   getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined,
   /** How the popup is laid out. Default: one continuous list, paths only once something is typed. */
-  config: CompletionListConfig = {}
+  config: CompletionListConfig = {},
+  sourceContext: WikiLinkSourceContext = 'prose'
 ): CompletionSource {
   return (context) => {
     const suggestions = getSuggestions();
@@ -210,19 +219,31 @@ export function wikiLinkCompletionSource(
       return null;
     }
 
-    const zone = referenceZoneAt(context.state, context.pos);
+    const zone = referenceZoneAt(context.state, context.pos, sourceContext);
     if (zone) {
       // A `#` in the reference makes it a heading reference (`[[Page#Heading]]`): the SAME heading
       // completion `![[Page#` uses, against the FULL reference (a folder prefix stays part of the page
       // portion — unlike the filename-only narrowing below, which applies only once there is no `#`).
       // Accepting replaces the whole reference zone and leaves any existing `|alias` untouched.
-      const zoneReference = splitAtFirstUnescapedPipe(context.state.sliceDoc(zone.from, zone.to)).reference;
+      const existing = findWikiLinkAt(context.state, zone.from)!;
+      const hasDisplayText = zone.to < existing.to - 2;
+      const tableMatch = sourceContext === 'table'
+        ? scanWikiLinkSource(context.state.sliceDoc(existing.from, existing.to), 0, sourceContext)
+        : null;
+      if (sourceContext === 'table' && !tableMatch) return null;
+      // Preserve the original alias bytes. When an alias follows, encode
+      // the reference together with a separator so even a trailing
+      // literal backslash has the correct table transport width.
+      const referenceInsert = (path: string): string => sourceContext === 'table'
+        ? serializeWikiLink(path, hasDisplayText ? '' : null, sourceContext).slice(2, hasDisplayText ? -4 : -2)
+        : path;
+      const zoneReference = tableMatch?.path ?? splitAtFirstUnescapedPipe(context.state.sliceDoc(zone.from, zone.to)).reference;
       const zoneHeadingResult = headingCompletionResult(
         zoneReference,
         zone.from,
         zone.to,
         getHeadingSuggestions(),
-        (view, target, from, to) => applyWikiLinkInsert(view, target, from, to)
+        (view, target, from, to) => applyWikiLinkInsert(view, referenceInsert(target), from, to)
       );
       if (zoneHeadingResult !== undefined) {
         return zoneHeadingResult;
@@ -253,16 +274,18 @@ export function wikiLinkCompletionSource(
       const refText = context.state.sliceDoc(zone.from, zone.to);
       const slashOffset = lastUnescapedSlashOffset(refText);
       const visibleFrom = slashOffset === null ? zone.from : zone.from + slashOffset + 1;
-      const query = splitAtFirstUnescapedPipe(context.state.sliceDoc(visibleFrom, zone.to)).reference;
+      // Scan the complete suffix (including its separator) so table
+      // escapes are decoded in their original context, not as prose.
+      const query = tableMatch
+        ? (scanWikiLinkSource('[[' + context.state.sliceDoc(visibleFrom, existing.to), 0, sourceContext)?.path ?? tableMatch.path)
+        : splitAtFirstUnescapedPipe(context.state.sliceDoc(visibleFrom, zone.to)).reference;
 
       // An alias match adds `|alias` only when the link has no display
       // text yet — an existing one is the user's, and stays untouched.
       // Serialized through serializeWikiLink (minus its brackets) so the
       // path and alias are escaped exactly as a fresh link's are.
-      const hasDisplayText = zone.to < findWikiLinkAt(context.state, zone.from)!.to - 2;
-
       return buildResult(zone.from, zone.to, query, suggestions, (path, alias) =>
-        alias !== null && !hasDisplayText ? serializeWikiLink(path, alias).slice(2, -2) : path,
+        alias !== null && !hasDisplayText ? serializeWikiLink(path, alias, sourceContext).slice(2, -2) : referenceInsert(path),
       config);
     }
 
@@ -300,14 +323,14 @@ export function wikiLinkCompletionSource(
       match.from,
       context.pos,
       getHeadingSuggestions(),
-      (view, target, from, to) => applyWikiLinkInsert(view, serializeWikiLink(target, null), from, to)
+      (view, target, from, to) => applyWikiLinkInsert(view, serializeWikiLink(target, null, sourceContext), from, to)
     );
     if (headingResult !== undefined) {
       return headingResult;
     }
 
     return buildResult(match.from, context.pos, query, suggestions, (path, alias) =>
-      serializeWikiLink(path, alias),
+      serializeWikiLink(path, alias, sourceContext),
     config);
   };
 }

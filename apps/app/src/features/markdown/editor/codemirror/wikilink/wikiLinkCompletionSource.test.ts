@@ -589,3 +589,67 @@ describe('wikiLinkCompletionSource — list layout', () => {
     expect(optionsFor('x [[').map((option) => option.row.path)).toEqual([null, null, null]);
   });
 });
+
+
+describe('WikiLink completion — raw table transport context', () => {
+  const slash = String.fromCharCode(92);
+  const raw = (logical: string) => logical.replace(/(\\*)\|/g, (_, run: string) => slash.repeat(2 * run.length + 1) + '|');
+  const suggest: GetWikiLinkSuggestions = () => [
+    { kind: 'page', path: 'Folder/Note', title: 'Note', breadcrumb: 'Folder', alias: 'Display|Name' },
+  ];
+  function apply(view: EditorView, pos: number, source: CompletionSource): void {
+    const result = call(source, contextAt(view, pos));
+    expect(result).not.toBeNull();
+    const option = result!.options[0]!;
+    expect(typeof option.apply).toBe('function');
+    if (typeof option.apply === 'function') option.apply(view, option, result!.from, result!.to ?? pos);
+  }
+
+  it.each(['[[No', '[[No]]'])('accepts a matched alias in %s without duplicating closers or storing an unsafe pipe', text => {
+    const view = mountView(text);
+    apply(view, 4, wikiLinkCompletionSource(() => suggest, undefined, {}, 'table'));
+    expect(view.state.doc.toString()).toBe(raw('[[Folder/Note|Display\\|Name]] '));
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+    view.destroy();
+  });
+
+  it('replaces just the raw reference, queries the filename and preserves the existing alias bytes', () => {
+    const view = mountView(raw('[[Old/No|Custom\\|Alias]]'));
+    const getSuggestions = vi.fn(suggest);
+    const source = wikiLinkCompletionSource(() => getSuggestions, undefined, {}, 'table');
+    const zone = call(source, contextAt(view, 8))!;
+    expect(getSuggestions).toHaveBeenCalledWith('No');
+    expect(view.state.sliceDoc(zone.from, zone.to)).toBe('Old/No');
+    expect(call(source, contextAt(view, view.state.doc.length - 3))).toBeNull();
+    apply(view, 8, source);
+    expect(view.state.doc.toString()).toBe(raw('[[Folder/Note|Custom\\|Alias]] '));
+    view.destroy();
+  });
+
+  it('encodes a literal pipe in a reference and preserves the original alias', () => {
+    const view = mountView(raw('[[No|Custom]]'));
+    apply(view, 4, wikiLinkCompletionSource(() => () => [
+      { kind: 'page', path: 'Folder/A|B', title: 'A|B', breadcrumb: 'Folder' },
+    ], undefined, {}, 'table'));
+    expect(view.state.doc.toString()).toBe(raw('[[Folder/A\\|B|Custom]] '));
+    view.destroy();
+  });
+
+  it('encodes trailing reference backslashes in the existing alias separator context', () => {
+    const view = mountView(raw('[[No|Custom]]'));
+    apply(view, 4, wikiLinkCompletionSource(() => () => [
+      { kind: 'page', path: 'Folder/A' + slash, title: 'A', breadcrumb: 'Folder' },
+    ], undefined, {}, 'table'));
+    expect(view.state.doc.toString()).toBe(raw('[[Folder/A' + slash.repeat(2) + '|Custom]] '));
+    view.destroy();
+  });
+
+  it('accepts a heading target while preserving an existing alias', () => {
+    const view = mountView(raw('[[Folder/Note#Se|Custom]]'));
+    const headings = vi.fn(() => [{ kind: 'heading' as const, heading: 'Setup | Notes', level: 2 }]);
+    apply(view, '[[Folder/Note#Se'.length, wikiLinkCompletionSource(() => suggest, () => headings, {}, 'table'));
+    expect(headings).toHaveBeenCalledWith('Folder/Note', 'Se');
+    expect(view.state.doc.toString()).toBe(raw('[[Folder/Note#Setup \\| Notes|Custom]] '));
+    view.destroy();
+  });
+});
