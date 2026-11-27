@@ -9,6 +9,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
+import { undoDepth } from '@codemirror/commands';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor } from '../../MarkdownEditor';
@@ -311,5 +312,80 @@ describe('editor URL context menu', () => {
       'Copy as Markdown',
       'Open in Browser',
     ]);
+  });
+});
+
+
+describe('static table link context menu', () => {
+  function setupTable(source: string, readOnly = false) {
+    const doc = '| Heading |\n| --- |\n| ' + source + ' |';
+    const { container } = render(
+      <MarkdownEditor pageId={`static-link-table-${++sequence}`} markdown={doc} readOnly={readOnly} />
+    );
+    const content = container.querySelector<HTMLElement>('.cm-content')!;
+    const view = EditorView.findFromDOM(content)!;
+    const host = container.querySelector<HTMLElement>('tbody [data-cell]')!;
+    const rightClick = (target: Element) => {
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 40, clientY: 50 });
+      act(() => { target.dispatchEvent(event); });
+      return event;
+    };
+    return { doc, container, view, content, host, rightClick };
+  }
+
+  describe.each([false, true])('readOnly=%s', readOnly => {
+    it.each([
+      ['[**Formatted**](https://example.com/path "Title")', '.tok-strong', 'https://example.com/path', '[**Formatted**](https://example.com/path "Title")'],
+      ['<person@example.com>', '.tok-link-title', 'mailto:person@example.com', '<person@example.com>'],
+      ['www.example.com/path', '.tok-link-title', 'https://www.example.com/path', '[www.example.com/path](<https://www.example.com/path>)'],
+    ])('reuses all three actions on %s without entering cell editing', async (source, selector, url, markdown) => {
+      const { doc, container, view, host, rightClick } = setupTable(source, readOnly);
+      const hit = host.querySelector(selector)!;
+      expect(hit).not.toBeNull();
+      const depth = undoDepth(view.state);
+      expect(rightClick(hit).defaultPrevented).toBe(true);
+      expect(labels()).toEqual(['Copy URL', 'Copy as Markdown', 'Open in Browser']);
+      expect(openExternalUrl).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText('Copy URL'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(url));
+      expect(rightClick(hit).defaultPrevented).toBe(true);
+      fireEvent.click(screen.getByText('Copy as Markdown'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(markdown));
+      expect(rightClick(hit).defaultPrevented).toBe(true);
+      fireEvent.click(screen.getByText('Open in Browser'));
+      expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith(url);
+      expect(container.querySelector('tbody .cm-editor')).toBeNull();
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(undoDepth(view.state)).toBe(depth);
+    });
+
+    it('does not turn padding, code, WikiLinks or destinationless text into URL menu hits', () => {
+      const { doc, view, host, rightClick } = setupTable('[Site](https://example.com) `https://example.net` [[Note]] [literal]', readOnly);
+      // Even if root coordinates resolve to a URL, only the real static link hit qualifies.
+      vi.spyOn(view, 'posAtCoords').mockReturnValue(doc.indexOf('Site') + 1);
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue(rect(0, 0, 1024, 768));
+      for (const target of [host, host.querySelector('.tok-code')!, host.querySelector('.tok-wikilink')!]) {
+        expect(target).not.toBeNull();
+        expect(rightClick(target).defaultPrevented).toBe(false);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      }
+      expect(openExternalUrl).not.toHaveBeenCalled();
+      expect(view.state.doc.toString()).toBe(doc);
+    });
+  });
+
+  it('copies the exact second occurrence when two formatted labels are identical', async () => {
+    const second = '[**Same**](https://second.example "Second")';
+    const { host, view, content, doc, rightClick } = setupTable('[**Same**](https://first.example) ' + second);
+    const links = host.querySelectorAll('.tok-link');
+    expect(links).toHaveLength(2);
+    expect(rightClick(links[1]!.querySelector('.tok-strong')!).defaultPrevented).toBe(true);
+    fireEvent.click(screen.getByText('Copy as Markdown'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(second));
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(rightClick(links[0]!.querySelector('.tok-strong')!).defaultPrevented).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(content).toHaveFocus();
   });
 });

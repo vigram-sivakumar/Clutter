@@ -13,6 +13,7 @@ import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 
 import { isWithinTokenBounds } from '../semanticToken/tokenMouseHandlers';
 import { editorLinkAt, type EditorLink } from './linkContextMenu';
+import { projectedLinkAt } from '../table/renderInlineMarkdown';
 
 const items: OverflowMenuItemConfig[] = [
   { id: 'copy-url', label: 'Copy URL', icon: 'link' },
@@ -40,7 +41,7 @@ export function useLinkContextMenu(): {
     onContextMenu(event) {
       const target = event.target;
       if (
-        !(target instanceof HTMLElement) ||
+        !(target instanceof Element) ||
         !event.currentTarget.contains(target)
       )
         return;
@@ -48,14 +49,22 @@ export function useLinkContextMenu(): {
       const editor = target.closest<HTMLElement>('.cm-editor');
       const view = editor && EditorView.findFromDOM(editor);
       if (!view || !view.contentDOM.contains(target)) return;
-      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (pos === null) return;
-      const link = editorLinkAt(view.state, pos);
-      if (
-        !link ||
-        !isWithinTokenBounds(view, link, event.clientX, event.clientY)
-      )
-        return;
+      let link: EditorLink | null;
+      // Static table cells have no independent CM coordinates. Their
+      // painted occurrence supplies the same payload as a live editor.
+      // A nested active editor's enclosing table is outside its contentDOM.
+      const table = target.closest<HTMLElement>('[data-table-engine-cells="true"]');
+      if (table && view.contentDOM.contains(table)) {
+        const host = target.closest<HTMLElement>('.cm-table-cell-wrapper[data-cell]');
+        if (!host || !table.contains(host)) return;
+        link = projectedLinkAt(host, target);
+        if (!link) return;
+      } else {
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (pos === null) return;
+        link = editorLinkAt(view.state, pos);
+        if (!link || !isWithinTokenBounds(view, link, event.clientX, event.clientY)) return;
+      }
       event.preventDefault();
       event.stopPropagation();
       returnFocusRef.current = view.contentDOM;

@@ -14,13 +14,38 @@ export interface EditorLink {
   readonly markdown: string;
 }
 
+/** Canonical menu payload for an exact parsed occurrence, in either a live
+ * editor or a static cell. Coordinates remain in the occurrence's source. */
+export function editorLinkFromNode(
+  node: SyntaxNode,
+  slice: (from: number, to: number) => string
+): EditorLink | null {
+  const link = node.name === 'Link' || node.name === 'Autolink' ? node : null;
+  const url = link ? link.getChild('URL') : node.name === 'URL' ? node : null;
+  if (!url) return null;
+  const raw = slice(url.from, url.to);
+  const destination = decodeLinkDestination(raw, link?.name);
+  if (!destination) return null;
+  const navigationUrl = resolveNavigationUrl(destination);
+  return {
+    from: node.from,
+    to: node.to,
+    url: navigationUrl,
+    markdown: link
+      ? slice(link.from, link.to)
+      : raw === navigationUrl
+        ? `<${raw}>`
+        : `[${raw.replace(/[\\[\]]/g, '\\/** Resolve the whole link, even when the pointer is over formatting inside its label or its raw URL. */')}](<${navigationUrl}>)`,
+  };
+}
+
 /** Resolve the whole link, even when the pointer is over formatting inside its label or its raw URL. */
 export function editorLinkAt(
   state: EditorState,
   pos: number
 ): EditorLink | null {
-  // Active table cells are plain-text CM views without a language extension. Parse those with
-  // Clutter’s existing shared grammar rather than changing how the cell editor renders or behaves.
+  // Prose and active cells install the Markdown language extension. Retain
+  // the shared-parser fallback for callers without a populated syntax tree.
   const currentTree = syntaxTree(state);
   const tree = currentTree.length
     ? currentTree
@@ -41,21 +66,7 @@ export function editorLinkAt(
     if (link) url = link.getChild('URL');
     if (!url) continue;
 
-    const raw = state.sliceDoc(url.from, url.to);
-    const destination = decodeLinkDestination(raw, link?.name);
-    if (!destination) return null;
-    const range = link ?? url;
-    const navigationUrl = resolveNavigationUrl(destination);
-    return {
-      from: range.from,
-      to: range.to,
-      url: navigationUrl,
-      markdown: link
-        ? state.sliceDoc(link.from, link.to)
-        : raw === navigationUrl
-          ? `<${raw}>`
-          : `[${raw.replace(/[\\[\]]/g, '\\$&')}](<${navigationUrl}>)`,
-    };
+    return editorLinkFromNode(link ?? url, (from, to) => state.sliceDoc(from, to));
   }
   return null;
 }

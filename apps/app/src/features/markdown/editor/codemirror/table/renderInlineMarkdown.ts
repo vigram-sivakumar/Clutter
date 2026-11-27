@@ -9,6 +9,7 @@ import { renderDate } from '../date/dateDecorations';
 import { getWikiLinkSourceActivation } from '../wikilink/wikiLinkActivation';
 import { wikiLinkEditCaret } from '../wikilink/wikiLinkMouseHandlers';
 import { getLinkSourceActivation } from '../link/linkActivation';
+import { editorLinkFromNode, type EditorLink } from '../link/linkContextMenu';
 import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
 import { getTagSourceActivation } from '../tag/tagActivation';
 import { getDateSourceActivation } from '../date/dateActivation';
@@ -16,11 +17,24 @@ import { getDateSourceActivation } from '../date/dateActivation';
 interface ProjectedToken {
   readonly activation: () => (() => void) | null;
   readonly editCaret?: number;
+  readonly contextLink?: () => EditorLink | null;
 }
 
 // Occurrence metadata belongs to the painted leaf, not the cell's label or
 // a second editable document. Removed/repainted elements cannot be hits.
 const projectedTokens = new WeakMap<Element, ProjectedToken>();
+
+/** Resolve only an actual painted external-link hit, never cell padding or
+ * a stale detached widget. The existing context-menu owner builds the payload. */
+export function projectedLinkAt(host: HTMLElement, target: Element): EditorLink | null {
+  let element: Element | null = target;
+  while (element && element !== host && host.contains(element)) {
+    const contextLink = projectedTokens.get(element)?.contextLink;
+    if (contextLink) return contextLink();
+    element = element.parentElement;
+  }
+  return null;
+}
 
 export function handleProjectedTokenPress(
   host: HTMLElement, event: MouseEvent, edit?: (caret: number) => boolean, beforeActivate?: () => void
@@ -122,6 +136,7 @@ export function paintInlineMarkdown(
       else paintSpans(title, label, splitStrike);
       if (occurrence) projectedTokens.set(element, {
         activation: () => getLinkSourceActivation(tree, (from, to) => text.slice(from, to), occurrence),
+        contextLink: () => editorLinkFromNode(occurrence, (from, to) => text.slice(from, to)),
       });
       const index = nodes.push(element) - 1;
       return `<span data-inline-widget="${index}"></span>`;
