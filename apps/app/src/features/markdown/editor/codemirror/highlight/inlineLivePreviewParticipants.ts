@@ -3,6 +3,7 @@ import { Decoration, type WidgetType } from '@codemirror/view';
 import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common';
 
 import { renderDate } from '../date/dateDecorations';
+import { bracketedLabelMarks } from '../../../render/inlineSpan';
 import type { ResolveDate } from '../date/dateResolution';
 import { isConstructEngaged, isDelimitedMarkConstruct } from '../semanticToken/tokenEngagement';
 import { renderTag } from '../tag/tagDecorations';
@@ -876,20 +877,12 @@ function widgetReplaceRenderer(
  */
 const linkRenderer: ParticipantRenderer = (node, state) => {
   const linkNode = node.node;
-  const marks: SyntaxNode[] = [];
-  let urlNode: SyntaxNode | null = null;
-  for (let child = linkNode.firstChild; child; child = child.nextSibling) {
-    if (child.name === 'LinkMark' && marks.length < 2) {
-      marks.push(child);
-    } else if (child.name === 'URL' && !urlNode) {
-      urlNode = child;
-    }
-  }
-
-  const [openMark, labelCloseMark] = marks;
-  if (!openMark || !labelCloseMark || !urlNode) {
+  const marks = bracketedLabelMarks(linkNode);
+  const urlNode = linkNode.getChild('URL');
+  if (!marks || !urlNode) {
     return { decorations: [] };
   }
+  const [openMark, labelCloseMark] = marks;
 
   const strikeClasses = collectActiveStrikeClass(node, state);
   const decorations: Range<Decoration>[] = [

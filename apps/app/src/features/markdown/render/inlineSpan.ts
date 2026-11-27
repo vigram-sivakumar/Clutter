@@ -142,7 +142,7 @@ export function readDate(node: SyntaxNode, text: string): InlineSpan {
  * recovers emphasis content: the text between the first two `LinkMark`
  * children.
  */
-export function bracketedLabelText(node: SyntaxNode, text: string): string | null {
+export function bracketedLabelMarks(node: SyntaxNode): readonly [SyntaxNode, SyntaxNode] | null {
   const marks: SyntaxNode[] = [];
   for (let child = node.firstChild; child && marks.length < 2; child = child.nextSibling) {
     if (child.name === 'LinkMark') {
@@ -153,7 +153,12 @@ export function bracketedLabelText(node: SyntaxNode, text: string): string | nul
   if (!open || !close) {
     return null;
   }
-  return text.slice(open.to, close.from);
+  return [open, close];
+}
+
+export function bracketedLabelText(node: SyntaxNode, text: string): string | null {
+  const marks = bracketedLabelMarks(node);
+  return marks ? text.slice(marks[0].to, marks[1].from) : null;
 }
 
 /**
@@ -309,7 +314,8 @@ function tokenizeChildren(
   node: SyntaxNode,
   text: string,
   from?: number,
-  options: TokenizeInlineOptions = {}
+  options: TokenizeInlineOptions = {},
+  to = node.to
 ): InlineSpan[] {
   const spans: InlineSpan[] = [];
   let cursor = from ?? node.from;
@@ -417,9 +423,13 @@ function tokenizeChildren(
   }
 
   for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.to <= (from ?? node.from)) continue;
+    if (child.from >= to) break;
+    // The enclosing Link owns its direct URL children, including a URL-shaped label.
+    if (node.name === 'Link' && child.name === 'URL') continue;
     visit(child);
   }
-  pushText(cursor, node.to);
+  pushText(cursor, to);
 
   return spans;
 }
@@ -452,6 +462,15 @@ export function tokenizeInline(
   options?: TokenizeInlineOptions
 ): InlineSpan[] {
   return tokenizeChildren(node, text, from, options);
+}
+
+/** Walk the original parsed label, never reparse its text as a separate paragraph.
+ * Empty labels retain the editor's URL fallback. Non-Link leaves are unchanged. */
+export function tokenizeLinkLabel(node: SyntaxNode, text: string, options: TokenizeInlineOptions): InlineSpan[] | null {
+  if (node.name !== 'Link') return null;
+  const marks = bracketedLabelMarks(node);
+  if (!marks || !node.getChild('URL') || marks[0].to === marks[1].from) return null;
+  return tokenizeChildren(node, text, marks[0].to, options, marks[1].from);
 }
 
 /** Shared destination decoding, extracted unchanged from the editor’s link context menu. */

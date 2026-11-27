@@ -1,5 +1,5 @@
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
-import { tokenizeInline, type InlineSpan } from '../../../render/inlineSpan';
+import { tokenizeInline, tokenizeLinkLabel, type InlineSpan, type TokenizeInlineOptions } from '../../../render/inlineSpan';
 import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
 import type { EditorView, WidgetType } from '@codemirror/view';
 import { INLINE_CONTENT_CLASS_BY_NODE_NAME, STRIKETHROUGH_PROTECTED_NODE_NAMES, collectActiveInlineClasses, collectActiveStrikeClass, linkContentClasses, type ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
@@ -94,7 +94,8 @@ export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
   const tree = sharedMarkdownParser.parse(text);
-  const spans = tokenizeInline(tree.topNode, text, undefined, { includeSemanticSource: true, includeActivationSource: true, includePresentationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
+  const options: TokenizeInlineOptions = { includeSemanticSource: true, includeActivationSource: true, includePresentationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' };
+  const spans = tokenizeInline(tree.topNode, text, undefined, options);
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
     let widget: WidgetType | null = null;
@@ -107,12 +108,18 @@ export function paintInlineMarkdown(
       widget = renderDate(span.source, resolvers.resolveDate ?? (() => undefined), classes);
     } else if (span.kind === 'link') {
       const element = host.ownerDocument.createElement('span');
-      const [outerClass, titleClass] = linkContentClasses(span.activationSource ? collectActiveStrikeClass(span.activationSource) : []);
+      const occurrence = span.activationSource;
+      const label = occurrence ? tokenizeLinkLabel(occurrence, text, options) : null;
+      const strikeClasses = occurrence ? collectActiveStrikeClass(occurrence) : [];
+      // Preserve a single strike owner even when the struck label has its
+      // own formatting/widget descendants. Underline stays on the title.
+      const splitStrike = strikeClasses.length > 0 && label !== null && containsProtectedSpan(label);
+      const [outerClass, titleClass] = linkContentClasses(splitStrike ? [] : strikeClasses);
       element.className = outerClass;
       const title = element.appendChild(host.ownerDocument.createElement('span'));
       title.className = titleClass;
-      title.textContent = span.label;
-      const occurrence = span.activationSource;
+      if (label === null) title.textContent = span.label;
+      else paintSpans(title, label, splitStrike);
       if (occurrence) projectedTokens.set(element, {
         activation: () => getLinkSourceActivation(tree, (from, to) => text.slice(from, to), occurrence),
       });
@@ -150,10 +157,13 @@ export function paintInlineMarkdown(
     const index = nodes.push(element) - 1;
     return `<span data-inline-widget="${index}"></span>`;
   };
-  host.innerHTML = renderSpans(spans, true, renderLeaf);
-  for (const placeholder of host.querySelectorAll<HTMLElement>('[data-inline-widget]')) {
-    placeholder.replaceWith(nodes[Number(placeholder.dataset.inlineWidget)]!);
+  function paintSpans(target: HTMLElement, content: readonly InlineSpan[], struck = false): void {
+    target.innerHTML = renderSpans(content, true, renderLeaf, struck);
+    for (const placeholder of target.querySelectorAll<HTMLElement>('[data-inline-widget]')) {
+      placeholder.replaceWith(nodes[Number(placeholder.dataset.inlineWidget)]!);
+    }
   }
+  paintSpans(host, spans);
 }
 
 function escapeHtml(value: string): string {

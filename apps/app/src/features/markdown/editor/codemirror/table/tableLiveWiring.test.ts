@@ -2458,3 +2458,81 @@ describe('static table formatting uses shared inline presentation ownership', ()
     }
   });
 });
+
+
+describe('formatted Markdown link labels in table projections', () => {
+  it.each([
+    ['**Bold**', 'Bold', 'tok-strong'],
+    ['*Italic*', 'Italic', 'tok-emphasis'],
+    ['==Highlight==', 'Highlight', 'tok-highlight'],
+    ['`Code`', 'Code', 'tok-code'],
+    ['~~Strike~~', 'Strike', 'tok-strike'],
+  ])('renders %s consistently and navigates from the formatted child', (raw, label, cls) => {
+    const link = '[' + raw + '](https://example.com "Title")';
+    const text = 'Before ' + link + ' after';
+    const source = TABLE.replace('Vik', text);
+    const prose = mount(text, false);
+    const view = mount(source, false);
+    const readonly = mount(source, true);
+    const assertLabel = (host: Element) => {
+      const token = host.querySelector('.tok-link');
+      expect(token?.textContent).toBe(label);
+      expect(token?.querySelector('.' + cls)?.textContent ?? host.querySelector('.' + cls)?.textContent).toBe(label);
+      return token!;
+    };
+    assertLabel(prose.contentDOM);
+    for (const root of [view, readonly]) {
+      const token = assertLabel(root.dom.querySelector('[data-cell="1,0"]')!);
+      const child = token.querySelector('.' + cls)!;
+      expect(child).not.toBeNull();
+      const open = vi.mocked(openExternalUrl);
+      open.mockClear();
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      child.dispatchEvent(event);
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      expect(event.defaultPrevented).toBe(true);
+      expect(open.mock.calls).toEqual([['https://example.com']]);
+      expect(root.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+      expect(root.state.doc.toString()).toBe(source);
+      expect(undoDepth(root.state)).toBe(0);
+    }
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    assertLabel(controller.nested!.contentDOM);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('uses the parsed label boundary, not the destination or title, and keeps nested strike ownership unique', () => {
+    const text = 'Before ~~[**Bold** and `code`](https://example.com "Hidden title")~~ after';
+    const source = TABLE.replace('Vik', text);
+    for (const readOnly of [false, true]) {
+      const view = mount(source, readOnly);
+      const host = view.dom.querySelector('[data-cell="1,0"]')!;
+      const link = host.querySelector('.tok-link')!;
+      expect(link.textContent).toBe('Bold and code');
+      expect(link.querySelector('.tok-strong.tok-strike')?.textContent).toBe('Bold');
+      expect(link.querySelector('.tok-code.tok-strike')?.textContent).toBe('code');
+      expect(host.querySelector('.tok-strike .tok-strike')).toBeNull();
+      expect(link.querySelector('.tok-link-title')).not.toBeNull();
+      expect(view.state.doc.toString()).toBe(source);
+    }
+  });
+
+  it('retains URL fallback, literal destinationless syntax and a URL-shaped label owned by its explicit link', () => {
+    const text = 'Before [](https://example.com) [**literal**] [https://example.net](https://example.org) after';
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, false);
+    const host = view.dom.querySelector('[data-cell="1,0"]')!;
+    const links = host.querySelectorAll('.tok-link');
+    expect(links).toHaveLength(2);
+    expect(links[0]?.textContent).toBe('https://example.com');
+    expect(host.textContent).toContain('[**literal**]');
+    expect(links[1]?.textContent).toBe('https://example.net');
+    const open = vi.mocked(openExternalUrl);
+    open.mockClear();
+    links[1]!.querySelector('.tok-link-title')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(open.mock.calls).toEqual([['https://example.org']]);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+});
