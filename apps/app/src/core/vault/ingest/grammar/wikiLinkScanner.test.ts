@@ -191,3 +191,39 @@ describe('lastUnescapedSlashOffset', () => {
     expect(lastUnescapedSlashOffset('Note\\')).toBeNull();
   });
 });
+
+describe('explicit table WikiLink transport', () => {
+  it('distinguishes an alias separator in table context from a literal pipe in prose', () => {
+    const text = 'prefix [[Folder/Note\\|Label]] after';
+    const start = text.indexOf('[[');
+    const end = text.indexOf(']]') + 2;
+    expect(scanWikiLink(text, start, 'table')).toEqual({
+      path: 'Folder/Note', alias: 'Label', pipeIndex: text.indexOf('|'), end,
+    });
+    expect(scanWikiLink(text, start)).toEqual({
+      path: 'Folder/Note|Label', alias: null, pipeIndex: null, end,
+    });
+  });
+
+  it('decodes literal pipes and backslashes without losing raw offsets', () => {
+    const slash = String.fromCharCode(92);
+    const text = '[[A' + slash.repeat(3) + '|B' + slash.repeat(5) + '|C' + slash + '|D' + slash.repeat(3) + '|E]]';
+    expect(scanWikiLink(text, 0, 'table')).toEqual({
+      path: 'A|B' + slash, alias: 'C|D|E',
+      pipeIndex: text.indexOf('|', text.indexOf('|') + 1), end: text.length,
+    });
+  });
+
+  it.each(['[[A|B]]', '[[A\\\\|B]]', '[[A\\|B]', '[[A\\|B]](url)', '[[A\\|B\nC]]'])(
+    'refuses invalid or incomplete table source %s', (source) => {
+      expect(scanWikiLink(source, 0, 'table')).toBeNull();
+    },
+  );
+
+  it('keeps non-pipe CommonMark escapes and later alias pipes literal', () => {
+    const text = '[[A\\]B\\q\\|C\\|D]]';
+    expect(scanWikiLink(text, 0, 'table')).toEqual({
+      path: 'A]B\\q', alias: 'C|D', pipeIndex: text.indexOf('|'), end: text.length,
+    });
+  });
+});
