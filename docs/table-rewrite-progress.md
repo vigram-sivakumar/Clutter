@@ -405,3 +405,7 @@ Owner supplied full regression results for exact HEAD `43c203733b229391ec97515f3
 4. Finish applicable inline/context-menu parity and full native/integration validation. Keep block embeds, lists/tasks, nested tables and unsupported prose constructs out of scope.
 
 Next concrete user check: on tested runtime tree, type ordinary cell text and immediately Escape (select cell), Shift+arrow range and Delete, select tag/date suggestions by keyboard/mouse near table edges, Escape closes popup before leaving cell, undo/redo from a cell, plus applicable §7 native smoke. Owner confirmation of the native gate allows the next scoped runtime candidate; no need to repeat the full suite for this documentation-only checkpoint. All subsequent milestones continue to record exact SHA, actual tests and blockers here.
+
+### Accepted checkpoint — tag/date completion (2026-11-27)
+
+Owner explicitly confirmed all requested native checks passed and authorised proceeding. This closes the remaining native gate for runtime tree tested at `43c203733b229391ec97515f3344137c1235494d` (17,763/17,763; 966/966; build/diff chain reached HEAD). Documentation-only HEAD before acceptance: `ed24420a0a564bbada7d03851717148fde183a3c`, confirmed remotely identical. Preserve this branch as the accepted baseline; next isolated candidate is table WikiLink transport/semantic parity. No main merge or release authorised. Record exact implementation and test evidence separately.
