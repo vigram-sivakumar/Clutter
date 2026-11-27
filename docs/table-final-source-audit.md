@@ -56,3 +56,7 @@ Real IME remains **unverified**: owner cannot test non-English composition. Do n
 ## Recovery addendum
 
 The owner pushed the local unfinished test on `testing/table-final-recovery` at `e69546a83`. Its 24-line patch was inspected and the parent test blob matches the verified testing branch byte for byte. The exact test was transferred, no runtime changes or divergent-history merge. It covers bold/tag/date rendering across four surfaces, static link-title containment, and source preservation. The test-only candidate still requires its own automated gate (expected 17,910/967). It does not cover every at-rest nested strike/activation combination, actual IME or effective packaged CSP. The independent recovery branch remains intact.
+
+## Nested strike follow-up
+
+Recovered test and fixture cleanup accepted at 35f27973 (17,910/967). Deeper review established a pre-existing live strike ownership mismatch against STRIKETHROUGH.md: the old shared live tests explicitly expected an outer styled tok-strike ancestor containing a tok-strike Link. The new candidate extends the canonical protected-range complement to live struck containers/explicit link labels, retaining their base formatting and separate underline, plus strict four-surface tests. This is not a table-only workaround. Candidate verification pending; see progress ledger. No runtime cleanup based on unverified dead-code guesses.

@@ -1904,14 +1904,13 @@ describe('inlineLivePreviewRegion', () => {
 
       const outside = mountViewWithSelection(doc, 0);
       const strongOutside = outside.dom.querySelector('.tok-strong');
-      expect(strongOutside!.classList.contains('tok-strike')).toBe(true);
+      expect(strongOutside!.classList.contains('tok-strike')).toBe(false);
       const linkOutside = outside.dom.querySelector('.tok-link');
       expect(linkOutside!.classList.contains('tok-strike')).toBe(true);
-      // Link composes tok-strike onto its own root (needed to avoid the
-      // ancestor-line-through compositing bug) but never tok-strong — Bold
-      // has no such conflict, so the Link is simply a genuine DOM
-      // descendant of Bold's own `.tok-strong` wrapping mark instead.
+      expect(strongOutside!.textContent).toContain('inner ');
+      expect(Array.from(outside.dom.querySelectorAll('.tok-strike')).some(el => el.textContent === 'inner ')).toBe(true);
       expect(linkOutside!.closest('.tok-strong')).not.toBeNull();
+      expect(outside.dom.querySelector('.tok-strike .tok-strike')).toBeNull();
 
       // Cursor in the outer Strikethrough's own plain text ("outer"),
       // outside the inner Strong entirely: Strong keeps its own bold

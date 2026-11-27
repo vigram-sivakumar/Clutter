@@ -169,13 +169,14 @@ describe('Strikethrough + Link/URL/Autolink: link is always a sibling of any anc
     expect(bareStrikeSpans.map((s) => s.textContent)).toEqual([' middle ', ' after']);
   });
 
-  it('7. ~~**[Google](url)**~~ — link excluded from any bare tok-strike wrapper; StrongEmphasis itself still legitimately self-composes tok-strike (no text-decoration conflict there)', () => {
+  it('7. ~~**[Google](url)**~~ — bold remains around the link, but only the link owns its strike', () => {
     const view = mountView('Lead. ~~**[Google](url)**~~');
     const link = view.dom.querySelector('.tok-link');
     expect(link?.classList.contains('tok-strike')).toBe(true);
     const strong = view.dom.querySelector('.tok-strong');
-    expect(strong?.classList.contains('tok-strike')).toBe(true);
+    expect(strong?.classList.contains('tok-strike')).toBe(false);
     expect(strong?.contains(link)).toBe(true);
+    expect(view.dom.querySelector('.tok-strike .tok-strike')).toBeNull();
   });
 
   it('8. ~~==[Google](url)==~~ — same, for Highlight', () => {
@@ -183,8 +184,9 @@ describe('Strikethrough + Link/URL/Autolink: link is always a sibling of any anc
     const link = view.dom.querySelector('.tok-link');
     expect(link?.classList.contains('tok-strike')).toBe(true);
     const highlight = view.dom.querySelector('.tok-highlight');
-    expect(highlight?.classList.contains('tok-strike')).toBe(true);
+    expect(highlight?.classList.contains('tok-strike')).toBe(false);
     expect(highlight?.contains(link)).toBe(true);
+    expect(view.dom.querySelector('.tok-strike .tok-strike')).toBeNull();
   });
 
   it('9. ~~[a](u)[b](u)~~ — two links with zero characters between them, each independently self-composes tok-strike', () => {

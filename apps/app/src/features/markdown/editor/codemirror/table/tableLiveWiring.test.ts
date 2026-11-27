@@ -2586,6 +2586,37 @@ describe('formatted Markdown link labels in table projections', () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 
+  it.each([
+    ['~~[**Bold** #tag @2025-03-05 and `code`](https://example.com)~~', ['tok-strong', 'tok-tag', 'tok-date', 'tok-code']],
+    ['~~**bold [Label](https://example.com) after**~~', ['tok-link']],
+    ['~~==**bold #tag**==~~', ['tok-tag']],
+  ] as const)('assigns exactly one strike owner in nested %s across all four surfaces', (raw, classes) => {
+    const text = 'Before ' + raw + ' after';
+    const source = TABLE.replace('Vik', text).replace('Designer', text);
+    const prose = mount(text, false);
+    const view = mount(source, false);
+    const readonly = mount(source, true);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const surfaces = [prose.contentDOM, controller.nested!.contentDOM,
+      view.dom.querySelector('[data-cell="1,1"]')!, readonly.dom.querySelector('[data-cell="1,0"]')!];
+    for (const surface of surfaces) {
+      expect(surface.querySelector('.tok-strike .tok-strike')).toBeNull();
+      for (const cls of classes) {
+        const owner = surface.querySelector('.' + cls + '.tok-strike');
+        expect(owner, cls).not.toBeNull();
+        expect(owner!.textContent?.trim()).not.toBe('');
+      }
+      expect(Array.from(surface.querySelectorAll('.tok-strike')).some(el => el.textContent?.includes(' '))).toBe(true);
+      expect(surface.textContent).not.toContain('~~');
+      expect(surface.textContent).not.toContain('https://example.com');
+    }
+    expect(prose.state.doc.toString()).toBe(text);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(readonly.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
   it('uses the parsed label boundary, not the destination or title, and keeps nested strike ownership unique', () => {
     const text = 'Before ~~[**Bold** and `code`](https://example.com "Hidden title")~~ after';
     const source = TABLE.replace('Vik', text);

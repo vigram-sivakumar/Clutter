@@ -162,9 +162,9 @@ function delimitedInlineRenderer(
       // wrapper at all. Ordinary (non-widget) content is unaffected: plain
       // text and concealed zero-width marker ranges compose into this mark
       // the same way regardless of inclusivity, so this is purely additive.
-      const classes = [contentClass, ...collectActiveStrikeClass(node, state)].join(
-        ' '
-      );
+      const strikeClasses = collectActiveStrikeClass(node, state);
+      const strikeGaps = splitOwnedStrike(node.node, openMark.to, closeMark.from, strikeClasses);
+      const classes = [contentClass, ...(strikeGaps === null ? strikeClasses : [])].join(' ');
       decorations.push(
         Decoration.mark({
           class: classes,
@@ -172,6 +172,7 @@ function delimitedInlineRenderer(
           inclusiveEnd: true,
         }).range(openMark.to, closeMark.from)
       );
+      if (strikeGaps) decorations.push(...strikeGaps);
     }
     decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
     return { decorations };
@@ -270,12 +271,11 @@ export const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
  * `InlineCode`'s own content is never further parsed by CommonMark, so it
  * has no protected descendants to redundantly re-find either.
  *
- * Does not skip descending into a found node's own children (e.g. a
- * `Link`'s nested `URL` child, or a `StrongEmphasis`'s nested `Link`) — any
- * such nested match is always fully contained within its already-collected
- * ancestor range, so it's redundant but harmless; `mergeProtectedRanges`
- * collapses it away rather than this function needing to track "have I
- * already found an ancestor protected node" itself.
+ * Does not skip descending into a found node's own children: nested
+ * protected ranges are merged by mergeProtectedRanges. When the owner
+ * is a Link or a styled container, its own range is not a descendant.
+ * A directly owned URL and a literal destinationless Link do not claim
+ * a separate strike; only actual protected descendants split the range.
  *
  * Does skip descending into `Image` — an Image's own destination is parsed
  * as a nested `URL` node (`![alt](url)` is structurally a `Link` sibling
@@ -294,13 +294,22 @@ function collectProtectedRanges(
 ): { from: number; to: number }[] {
   const ranges: { from: number; to: number }[] = [];
   const cursor = root.cursor();
-  let hasNext = true;
-  do {
-    if (STRIKETHROUGH_PROTECTED_NODE_NAMES.has(cursor.name)) {
+  // Start at the first descendant, not the owner itself: styled containers
+  // and links also use this traversal when splitting their inherited strike.
+  let hasNext = cursor.next();
+  while (hasNext && cursor.from < root.to) {
+    const name = cursor.name;
+    const parentName = cursor.node.parent?.name;
+    // A direct URL inside a Link or Autolink is owned by its enclosing
+    // renderer, not by urlRenderer (including a URL-shaped link label).
+    const ownedUrl = name === 'URL' && (parentName === 'Link' || parentName === 'Autolink' || parentName === 'Image');
+    // Destinationless Link nodes do not render their own link decoration.
+    const literalLink = name === 'Link' && (!cursor.node.getChild('URL') || !bracketedLabelMarks(cursor.node));
+    if (STRIKETHROUGH_PROTECTED_NODE_NAMES.has(name) && !ownedUrl && !literalLink) {
       ranges.push({ from: cursor.from, to: cursor.to });
     }
-    hasNext = cursor.next(cursor.name !== 'Image');
-  } while (hasNext && cursor.from < root.to);
+    hasNext = cursor.next(name !== 'Image');
+  }
   return ranges;
 }
 
@@ -385,6 +394,34 @@ function computeStrikethroughGaps(
     });
   }
   return gaps;
+}
+
+/**
+ * A struck formatting container or explicit link owns the uncovered parts
+ * of its visible content, not the protected descendants that compose their
+ * own strike. Keep its formatting/underline mark across the entire label;
+ * paint strike only over the existing protected-range complement. Null
+ * means no split is needed and preserves the ordinary self-composed mark.
+ * The parent strike's engagement is already resolved by strikeClasses.
+ */
+function splitOwnedStrike(
+  node: SyntaxNode,
+  from: number,
+  to: number,
+  strikeClasses: readonly string[]
+): Range<Decoration>[] | null {
+  if (strikeClasses.length === 0) return null;
+  const protectedRanges = mergeProtectedRanges(
+    collectProtectedRanges(node).filter(range => range.from >= from && range.to <= to)
+  );
+  if (protectedRanges.length === 0) return null;
+  return computeStrikethroughGaps(from, to, protectedRanges).map(gap =>
+    Decoration.mark({
+      class: INLINE_CONTENT_CLASS_BY_NODE_NAME.get('Strikethrough')!,
+      inclusiveStart: gap.inclusiveStart,
+      inclusiveEnd: gap.inclusiveEnd,
+    }).range(gap.from, gap.to)
+  );
 }
 
 /**
@@ -896,8 +933,10 @@ const linkRenderer: ParticipantRenderer = (node, state) => {
     // Non-empty label: unchanged from before the URL fallback — the URL
     // portion (`](url "title")`) stays concealed as one combined range,
     // exactly as it always has.
+    const strikeGaps = splitOwnedStrike(linkNode, openMark.to, labelCloseMark.from, strikeClasses);
     decorations.push(
-      ...linkContentDecorations(openMark.to, labelCloseMark.from, strikeClasses)
+      ...linkContentDecorations(openMark.to, labelCloseMark.from, strikeGaps === null ? strikeClasses : []),
+      ...(strikeGaps ?? [])
     );
     decorations.push(
       Decoration.replace({}).range(labelCloseMark.from, linkNode.to)
