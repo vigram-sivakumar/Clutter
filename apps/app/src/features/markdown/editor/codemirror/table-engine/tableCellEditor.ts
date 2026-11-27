@@ -1,5 +1,5 @@
 import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
-import { closeCompletion, completionStatus } from '@codemirror/autocomplete';
+import { closeBrackets, closeBracketsKeymap, closeCompletion, completionStatus, insertBracket } from '@codemirror/autocomplete';
 import { semanticCompletion } from '../completion';
 import { tagAutocomplete } from '../tag/tagAutocomplete';
 import { dateAutocomplete } from '../date/dateAutocomplete';
@@ -749,7 +749,21 @@ export class TableCellEditor {
         if (this.interaction.kind !== 'cell') return;
         this.activate(tableFrom, cell, host);
         if (!this.nested || !this.active) return;
-        const length = this.nested.state.doc.length;
+        const state = this.nested.state;
+        const length = state.doc.length;
+        // A selected cell is replaced, not wrapped. For the first WikiLink
+        // bracket, run CM6's own pairing command against the proposed empty
+        // cell and compose it into the same validated root edit. Never
+        // publish a separate clear transaction or hand-roll a closer.
+        if (event.key === '[') {
+          const clear = state.update({ changes: { from: 0, to: length }, selection: { anchor: 0 } });
+          const pair = insertBracket(clear.state, event.key);
+          if (pair) {
+            this.nested.dispatch({ changes: clear.changes.compose(pair.changes),
+              selection: pair.newSelection, effects: pair.effects, userEvent: 'input.type' });
+            return;
+          }
+        }
         this.nested.dispatch({ changes: { from: 0, to: length, insert: event.key },
           selection: { anchor: event.key.length }, userEvent: 'input.type' });
       }
@@ -813,6 +827,9 @@ export class TableCellEditor {
         drawSelection(),
         EditorView.lineWrapping,
         tableCellTransport(),
+        // Same CM6 inline pair insertion and type-over as the main editor.
+        // Block quote conversion is deliberately not a cell feature.
+        closeBrackets(),
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
@@ -870,6 +887,7 @@ export class TableCellEditor {
           { key: 'ArrowRight', run: () => this.navigateEditingArrow('right') },
           { key: 'ArrowUp', run: () => this.navigateEditingArrow('up') },
           { key: 'ArrowDown', run: () => this.navigateEditingArrow('down') },
+          ...closeBracketsKeymap,
           ...defaultKeymap,
         ])),
       ],

@@ -1177,6 +1177,113 @@ describe('engine original table handles (M9b candidate)', () => {
   });
 });
 
+describe('shared bracket pairing inside the active cell', () => {
+  // Drive the actual installed input handlers, like the main-editor
+  // clutterQuoteEditing.fullStack suite. A raw dispatch bypasses CM6's
+  // closeBrackets input handler and would not exercise the feature.
+  function type(nested: EditorView, text: string): void {
+    for (const char of text) {
+      const { from, to } = nested.state.selection.main;
+      const insert = () => nested.state.update({ changes: { from, to, insert: char },
+        selection: { anchor: from + char.length }, userEvent: 'input.type' });
+      if (!nested.state.facet(EditorView.inputHandler).some(handler => handler(nested, from, to, char, insert))) {
+        nested.dispatch(insert());
+      }
+    }
+  }
+  function press(target: Element, key: string): void {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+
+  it('pairs both opening WikiLink brackets, accepts the pipe without exposing transport, and types over closers', () => {
+    const source = TABLE.replace('Vik', '');
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, '[');
+    expect(nested.state.doc.toString()).toBe('[]');
+    expect(nested.state.selection.main.head).toBe(1);
+    type(nested, '[');
+    expect(nested.state.doc.toString()).toBe('[[]]');
+    expect(nested.state.selection.main.head).toBe(2);
+    type(nested, 'Note');
+    press(nested.contentDOM, '|');
+    type(nested, 'Label');
+    expect(nested.contentDOM.textContent).toBe('[[Note|Label]]');
+    const raw = '[[Note\\|Label]]';
+    expect(nested.state.doc.toString()).toBe(raw);
+    const before = view.state.doc.toString();
+    type(nested, ']]');
+    expect(nested.state.doc.toString()).toBe(raw);
+    expect(nested.state.selection.main.head).toBe(raw.length);
+    expect(view.state.doc.toString()).toBe(before);
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+  });
+
+  it('deletes an empty auto-closed pair in one Backspace and commits through root history', () => {
+    const view = mount(TABLE, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    type(nested, '[');
+    expect(nested.state.doc.toString()).toBe('Vik[]');
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', 'Vik[]'));
+    press(nested.contentDOM, 'Backspace');
+    expect(nested.state.doc.toString()).toBe('Vik');
+    expect(view.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('starts a WikiLink from a selected host without wrapping the old cell text or adding a separate clear edit', () => {
+    const view = mount(TABLE, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    press(controller.nested!.contentDOM, 'Escape');
+    const host = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    press(host, '[');
+    const nested = controller.nested!;
+    expect(nested.state.doc.toString()).toBe('[]');
+    expect(nested.state.selection.main.head).toBe(1);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '[]'));
+    expect(undoDepth(view.state)).toBe(1);
+    type(nested, '[');
+    expect(nested.state.doc.toString()).toBe('[[]]');
+    expect(nested.state.selection.main.head).toBe(2);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '[[]]'));
+  });
+
+  it('wraps a text selection with the native pair while preserving existing pipe transport', () => {
+    const raw = 'A\\|B';
+    const source = TABLE.replace('Vik', raw);
+    const view = mount(source, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: raw.length } });
+    type(nested, '[');
+    expect(nested.state.doc.toString()).toBe('[' + raw + ']');
+    expect(nested.contentDOM.textContent).toBe('[A|B]');
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '[' + raw + ']'));
+  });
+
+  it('does not commit a bracket pair or its child state if the host refuses the root transaction', () => {
+    let allowed = true;
+    const view = mount(TABLE, false, undefined, {}, () => allowed);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    const before = nested.state;
+    allowed = false;
+    type(nested, '[');
+    expect(nested.state).toBe(before);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+});
+
 describe('shared completion inside the active cell', () => {
   const source = TABLE.replace('Vik', 'Before ').replace('Designer', 'Other');
   const settle = () => new Promise<void>(resolve => setTimeout(resolve, 180));
