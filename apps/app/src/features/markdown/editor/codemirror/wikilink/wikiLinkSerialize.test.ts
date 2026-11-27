@@ -69,7 +69,7 @@ describe('canonical table WikiLink transport', () => {
     expect(serializeWikiLink('Folder/Note', 'Label')).toBe('[[Folder/Note|Label]]');
   });
 
-  it.each([
+  it.each<[string, string | null]>([
     ['A|B', null],
     ['A|B', 'C|D'],
     ['A\\', 'B'],
