@@ -1353,6 +1353,36 @@ describe('rich inline cell presentation', () => {
     expect(readOnly.state.doc.toString()).toBe(source);
   });
 
+  it.each([
+    { before: 'abc', from: 1, to: 1, after: 'a\\|bc' },
+    { before: 'abc', from: 1, to: 2, after: 'a\\|c' },
+    { before: '[[Note', from: 6, to: 6, after: '[[Note\\|' },
+  ])('encodes ordinary single-pipe typing before the root preflight: $before', ({ before, from, to, after }) => {
+    const source = TABLE.replace('Vik', before);
+    const view = mount(source, false, undefined, resolverOptions);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    clickCell(cell.parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: from, head: to } });
+    const depth = undoDepth(view.state);
+    nested.dispatch({
+      ...nested.state.replaceSelection('|'),
+      userEvent: 'input.type',
+    });
+    const expected = TABLE.replace('Vik', after);
+    expect(nested.state.doc.toString()).toBe(after);
+    expect(nested.state.selection.main.head).toBe(from + 2);
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(view.dom.querySelectorAll('[data-cell="1,1"]')).toHaveLength(1);
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(expected);
+  });
+
   it('resolves a stored table alias consistently across static, active and read-only presentation', () => {
     const text = 'Before [[Folder/Note\\|Display]] after';
     const source = TABLE.replace('Vik', text);

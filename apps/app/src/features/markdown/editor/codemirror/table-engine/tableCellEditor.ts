@@ -1,4 +1,4 @@
-import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
+import { ChangeSet, EditorState, Facet, Prec, Transaction } from '@codemirror/state';
 import { closeCompletion, completionStatus } from '@codemirror/autocomplete';
 import { semanticCompletion } from '../completion';
 import { tagAutocomplete } from '../tag/tagAutocomplete';
@@ -808,6 +808,27 @@ export class TableCellEditor {
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
         EditorView.lineWrapping,
+        // Normalize the ordinary single-pipe input before the exact-source
+        // root preflight. Existing backslash runs, composition and paste
+        // need a separate logical-offset contract.
+        EditorState.transactionFilter.of(tr => {
+          if (tr.annotation(Transaction.userEvent) !== 'input.type' || !tr.docChanged) return tr;
+          let count = 0;
+          const positions: number[] = [];
+          tr.changes.iterChanges((from, _to, fromB, _toB, inserted) => {
+            count++;
+            if (inserted.toString() === '|' &&
+                (from === 0 || tr.startState.sliceDoc(from - 1, from) !== '\\')) {
+              positions.push(fromB);
+            }
+          });
+          const at = positions[0];
+          if (count !== 1 || at === undefined) return tr;
+          // Reuse ordinary table escaping and map the proposed selection.
+          // CM6 combines the sequential specs into one transaction.
+          const escape = ChangeSet.of({ from: at, insert: externalCell('|', false).slice(0, -1) }, tr.newDoc.length);
+          return [tr, { changes: escape, selection: tr.newSelection.map(escape), sequential: true }];
+        }),
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
