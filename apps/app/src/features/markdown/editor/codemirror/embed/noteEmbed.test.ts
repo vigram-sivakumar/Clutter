@@ -22,6 +22,35 @@ import { editorRevealHighlight, setRevealHighlight } from '../highlight/editorRe
 const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
 const declinePdf: ResolveEmbedPdf = () => ({ status: 'non-pdf' });
 
+// Real views keep parser/measure callbacks alive until destroy(), even if
+// their fixture DOM is detached. Dispose every fixture before jsdom tears
+// down its document; direct widget DOM has its own explicit lifecycle.
+const mountedViews = new Set<EditorView>();
+const directWidgets = new Map<HTMLElement, NoteEmbedWidget>();
+
+function trackView(view: EditorView): EditorView {
+  mountedViews.add(view);
+  return view;
+}
+
+function destroyView(view: EditorView): void {
+  mountedViews.delete(view);
+  view.destroy();
+}
+
+function renderWidget(widget: NoteEmbedWidget, view: EditorView): HTMLElement {
+  const dom = widget.toDOM(view);
+  directWidgets.set(dom, widget);
+  return dom;
+}
+
+afterEach(() => {
+  for (const [dom, widget] of directWidgets) widget.destroy(dom);
+  directWidgets.clear();
+  for (const view of mountedViews) destroyView(view);
+  document.body.replaceChildren();
+});
+
 function mountView(
   doc: string,
   resolvePageEmbed: ResolvePageEmbed,
@@ -58,7 +87,7 @@ function mountView(
       }),
     ],
   });
-  return new EditorView({ state, parent });
+  return trackView(new EditorView({ state, parent }));
 }
 
 /**
@@ -89,7 +118,7 @@ function createInMemoryFoldStatePersistence(): FoldStatePersistence {
 
 /** A real, editable host editor for tests that call `toDOM` directly (it reads the host view's state). */
 function hostView(): EditorView {
-  return new EditorView({ state: EditorState.create({ doc: '' }) });
+  return trackView(new EditorView({ state: EditorState.create({ doc: '' }) }));
 }
 
 function resolverFor(pages: Record<string, PageEmbedResolution>): ResolvePageEmbed {
@@ -126,7 +155,7 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     view.dispatch({ selection: { anchor: doc.length } });
     expect(card.classList.contains('cm-block-range-selected')).toBe(false);
     expect(view.state.doc.toString()).toBe(doc);
-    view.destroy();
+    destroyView(view);
   });
 
   it('renders a resolved page target as a note embed card with the source note title and its content', () => {
@@ -657,7 +686,7 @@ describe('embed target classification — extension decides type, never a failed
         }),
       ],
     });
-    return new EditorView({ state, parent });
+    return trackView(new EditorView({ state, parent }));
   }
 
   it('![[statue.png]] (recognized image extension, file missing): renders a broken Image, never a Note', () => {
@@ -877,7 +906,7 @@ describe('the embedded document has no fold toggles; the header caret is the onl
     const set = vi.spyOn(store, 'set');
     const view = mountView(doc, resolve('# Heading\n\nBody'), { getFoldStateStore: () => store });
 
-    view.destroy();
+    destroyView(view);
 
     expect(set).not.toHaveBeenCalled();
   });
@@ -1248,7 +1277,7 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     const cardBefore = before.dom.querySelector('.cm-note-embed')!;
     collapseButtonOf(cardBefore).dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(cardBefore.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
-    before.destroy();
+    destroyView(before);
 
     const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
     const cardAfter = after.dom.querySelector('.cm-note-embed')!;
@@ -1260,7 +1289,7 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     const store = createInMemoryFoldStatePersistence();
 
     const before = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
-    before.destroy();
+    destroyView(before);
 
     const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
     const cardAfter = after.dom.querySelector('.cm-note-embed')!;
@@ -1278,7 +1307,7 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     collapseButtonOf(hostA.dom.querySelector('.cm-note-embed')!).dispatchEvent(
       new MouseEvent('click', { bubbles: true })
     );
-    hostA.destroy();
+    destroyView(hostA);
 
     // A different host note, embedding the exact same page, never toggled
     // in this session at all.
@@ -1289,7 +1318,7 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     const cardB = hostB.dom.querySelector('.cm-note-embed')!;
     expect(cardB.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
     expect(collapseButtonOf(cardB).getAttribute('aria-label')).toBe('Collapse note');
-    hostB.destroy();
+    destroyView(hostB);
 
     // Reopening host A still shows its own collapsed state, independent of
     // host B ever having been opened in between.
@@ -1368,8 +1397,8 @@ describe('note embed lifecycle: each nested view belongs to the DOM it was rende
   it('rendering the same widget instance twice, then dropping the first DOM, keeps the visible editor alive', () => {
     const widget = widgetWith(createInMemoryFoldStatePersistence());
     const outer = hostView();
-    const first = widget.toDOM(outer);
-    const second = widget.toDOM(outer);
+    const first = renderWidget(widget, outer);
+    const second = renderWidget(widget, outer);
 
     widget.destroy(first);
 
@@ -1380,7 +1409,7 @@ describe('note embed lifecycle: each nested view belongs to the DOM it was rende
 
   it('an equal widget instance that never rendered a DOM still cleans up the editor in the DOM it is handed', () => {
     const store = createInMemoryFoldStatePersistence();
-    const dom = widgetWith(store).toDOM(hostView());
+    const dom = renderWidget(widgetWith(store), hostView());
 
     widgetWith(store).destroy(dom);
 
@@ -1389,7 +1418,7 @@ describe('note embed lifecycle: each nested view belongs to the DOM it was rende
 
   it('destroying a DOM leaves no editor behind and a second destroy of it is a no-op', () => {
     const widget = widgetWith(createInMemoryFoldStatePersistence());
-    const dom = widget.toDOM(hostView());
+    const dom = renderWidget(widget, hostView());
     const nested = nestedOf(dom);
     const destroy = vi.spyOn(nested, 'destroy');
 
@@ -1403,8 +1432,8 @@ describe('note embed lifecycle: each nested view belongs to the DOM it was rende
     const store = createInMemoryFoldStatePersistence();
     const widget = widgetWith(store);
     const outer = hostView();
-    const first = widget.toDOM(outer);
-    const second = widget.toDOM(outer);
+    const first = renderWidget(widget, outer);
+    const second = renderWidget(widget, outer);
     const secondView = nestedOf(second);
     forceParsing(secondView);
     const heading = secondView.state.doc.line(1);
