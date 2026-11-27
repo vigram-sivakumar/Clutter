@@ -1,8 +1,4 @@
-/**
- * Insertion-time-only writer. Isolated in this slice by design: called
- * from nowhere except its own test file. No autocomplete, no UI insertion
- * command, no other feature wires into it yet.
- */
+import { encodeWikiLinkTableSource, type WikiLinkSourceContext } from '@core/vault/ingest/grammar/wikiLinkScanner';
 
 /**
  * Escapes every literal `\`, `|`, and individual `]` character —
@@ -43,15 +39,12 @@ function normalize(value: string): string {
  * — which is what guarantees repeated serialization can't drift
  * (canonical-serialization stability).
  */
-export function serializeWikiLink(path: string, alias: string | null): string {
+export function serializeWikiLink(path: string, alias: string | null, context: WikiLinkSourceContext = 'prose'): string {
   const normalizedPath = normalize(path);
   const escapedPath = escapeSegment(normalizedPath);
 
-  if (alias === null) {
-    return `[[${escapedPath}]]`;
-  }
-
-  const normalizedAlias = normalize(alias);
-  const escapedAlias = escapeSegment(normalizedAlias);
-  return `[[${escapedPath}|${escapedAlias}]]`;
+  const logical = alias === null
+    ? `[[${escapedPath}]]`
+    : `[[${escapedPath}|${escapeSegment(normalize(alias))}]]`;
+  return context === 'table' ? encodeWikiLinkTableSource(logical) : logical;
 }
