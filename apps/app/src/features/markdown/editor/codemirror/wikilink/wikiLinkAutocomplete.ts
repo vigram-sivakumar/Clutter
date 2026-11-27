@@ -9,6 +9,7 @@ import { EditorView, keymap } from '@codemirror/view';
 
 import { completionReactivation } from '../completionLifecycle';
 import { findWikiLinkAt } from './wikiLinkEngagement';
+import { serializeWikiLink } from './wikiLinkSerialize';
 import type { HeadingCompletion } from '../completionPopup/headingCompletion';
 import type { WikiLinkCompletion } from './wikiLinkCompletionRow';
 import {
@@ -68,13 +69,19 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
     return false;
   }
 
-  const insertText = `${reference}|]]`;
-  const cursorPos = match.from + 2 + reference.length + 1;
+  const insertText = serializeWikiLink(reference, '');
+  const cursorPos = match.from + insertText.length - 2;
+  const before = view.state;
+  const changes = before.changes({ from: match.from, to: pos, insert: insertText });
+  const expected = changes.apply(before.doc);
 
   view.dispatch({
-    changes: { from: match.from + 2, to: pos, insert: insertText },
+    changes,
     selection: { anchor: cursorPos },
   });
+  // Consume the command even when refused; do not fall through to a
+  // literal pipe insertion or create an unreferenced note.
+  if (view.state === before || !view.state.doc.eq(expected)) return true;
   closeCompletion(view);
 
   if (suggestion?.kind === 'create') {
