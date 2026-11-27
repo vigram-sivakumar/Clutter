@@ -1353,6 +1353,37 @@ describe('rich inline cell presentation', () => {
     expect(readOnly.state.doc.toString()).toBe(source);
   });
 
+  it('resolves a stored table alias consistently across static, active and read-only presentation', () => {
+    const text = 'Before [[Folder/Note\\|Display]] after';
+    const source = TABLE.replace('Vik', text);
+    const resolve = vi.fn((path: string, alias: string | null) => ({
+      status: 'resolved' as const, pageId: 'page', displayLabel: alias ?? path,
+      activate: () => undefined, icon: 'note' as const, emoji: null,
+    }));
+    const options = { ...resolverOptions, resolveWikiLink: () => resolve };
+    const view = mount(source, false, undefined, options);
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    expect(cell.querySelector('.tok-wikilink__title')?.textContent).toBe('Display');
+    expect(resolve).toHaveBeenCalledWith('Folder/Note', 'Display');
+    clickCell(cell.parentElement!);
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    const depth = undoDepth(view.state);
+    nested.dispatch({ selection: { anchor: text.length } });
+    expect(nested.contentDOM.querySelector('.tok-wikilink__title')?.textContent).toBe('Display');
+    nested.dispatch({ selection: { anchor: text.indexOf('[[') + 2 } });
+    // Raw storage is still revealed in this slice. Concealment/input
+    // mapping is the following milestone, not a cosmetic CSS workaround.
+    expect(nested.contentDOM.textContent).toBe(text);
+    controller.close();
+    expect(cell.querySelector('.tok-wikilink__title')?.textContent).toBe('Display');
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
+    const readOnly = mount(source, true, undefined, options);
+    expect(readOnly.dom.querySelector('[data-cell="1,0"] .tok-wikilink__title')?.textContent).toBe('Display');
+    expect(readOnly.state.doc.toString()).toBe(source);
+  });
+
   it('keeps an incomplete WikiLink literal in prose, static, active and read-only cells', () => {
     const text = 'Before [[Autodesker/Things to get to] after';
     const source = text + '\n\n' + TABLE.replace('Vik', text);
