@@ -46,8 +46,17 @@ describe('renderInlineMarkdown', () => {
     expect(renderInlineMarkdown('[[Page]]')).toBe('<span class="cm-table-cell-wikilink">Page</span>');
   });
 
-  it('renders a WikiLink alias as the raw path, matching fallbackWikiLinkResolution', () => {
-    expect(renderInlineMarkdown('[[Page|Alias]]')).toBe('<span class="cm-table-cell-wikilink">Page</span>');
+  it('renders the display alias from escaped table storage', () => {
+    expect(renderInlineMarkdown('[[Page\\|Alias]]')).toBe('<span class="cm-table-cell-wikilink">Alias</span>');
+  });
+
+  it('does not treat unsafe unescaped table source as an alias', () => {
+    expect(renderInlineMarkdown('[[Page|Alias]]')).toBe('[[Page|Alias]]');
+  });
+
+  it('renders literal pipes separately from the alias separator', () => {
+    const source = '[[A' + String.fromCharCode(92).repeat(3) + '|B\\|Label\\|More]]';
+    expect(renderInlineMarkdown(source)).toBe('<span class="cm-table-cell-wikilink">Label|More</span>');
   });
 
   it('composes multiple spans in document order', () => {
