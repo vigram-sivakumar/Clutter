@@ -2126,7 +2126,7 @@ describe('table link activation parity', () => {
   const modifier = () => /Mac|iPhone|iPad/i.test(navigator.platform || '') ? { metaKey: true } : { ctrlKey: true };
   function wikiOptions(activate: () => void) {
     const resolve = vi.fn(() => ({
-      status: 'resolved' as const, pageId: 'page', displayLabel: 'Alias', icon: 'note' as const, activate,
+      status: 'resolved' as const, pageId: 'page', displayLabel: 'Alias', icon: 'note' as const, emoji: null, activate,
     }));
     return { resolve, options: { resolveWikiLink: () => resolve } };
   }
