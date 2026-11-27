@@ -811,7 +811,7 @@ export class TableCellEditor {
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
-        inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false),
+        inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
         formatShortcutsKeymap(),
         // Escape belongs to a visible completion popup, not to an
         // invisible pending query after ordinary cell typing. Cancel
