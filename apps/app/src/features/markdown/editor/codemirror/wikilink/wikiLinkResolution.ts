@@ -88,6 +88,6 @@ export type ResolveWikiLink = (path: string, localAlias: string | null) => WikiL
  * (decorations, mouse handlers, keymap) so this fallback exists in exactly
  * one place.
  */
-export function fallbackWikiLinkResolution(path: string): WikiLinkResolution {
-  return { status: 'unresolved', displayLabel: path, activate: () => {} };
+export function fallbackWikiLinkResolution(path: string, alias: string | null = null): WikiLinkResolution {
+  return { status: 'unresolved', displayLabel: alias?.trim() || path, activate: () => {} };
 }
