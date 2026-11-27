@@ -52,3 +52,7 @@ Real IME remains **unverified**: owner cannot test non-English composition. Do n
 - Reconcile Work's unfinished local changes with this audit and recover its parity test, including evidence of the corrected case. Do not reset or overwrite its local work.
 - Complete exact-branch dead code scan and resolve only proven defects. Run type/build, focused and full regression and relevant packaged native tests on any changed runtime. Record exact candidate and actual results.
 - Actual IME and packaged CSP enforcement remain open. A decision to defer or change the acceptance requirement belongs to the owner under implementation-rules §7; English-only testing is not a pass. No integration or release approval has been granted.
+
+## Recovery addendum
+
+The owner pushed the local unfinished test on `testing/table-final-recovery` at `e69546a83`. Its 24-line patch was inspected and the parent test blob matches the verified testing branch byte for byte. The exact test was transferred, no runtime changes or divergent-history merge. It covers bold/tag/date rendering across four surfaces, static link-title containment, and source preservation. The test-only candidate still requires its own automated gate (expected 17,910/967). It does not cover every at-rest nested strike/activation combination, actual IME or effective packaged CSP. The independent recovery branch remains intact.
