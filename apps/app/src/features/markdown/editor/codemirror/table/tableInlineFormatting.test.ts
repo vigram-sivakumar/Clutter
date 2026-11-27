@@ -150,9 +150,12 @@ describe('a Markdown table with formatted cells', () => {
     expect(renderInlineMarkdown(cells[0]!, { styled: true })).toBe('<strong class="tok-strong">Bold</strong>');
     expect(renderInlineMarkdown(cells[1]!, { styled: true })).toBe('<em class="tok-emphasis">Italic</em>');
     expect(renderInlineMarkdown(cells[2]!, { styled: true })).toBe('<code class="tok-code cm-table-cell-code">code</code>');
-    expect(renderInlineMarkdown(cells[3]!, { styled: true })).toBe('<mark class="tok-highlight cm-table-cell-highlight">Mark</mark>');
+    expect(renderInlineMarkdown(cells[3]!, { styled: true })).toBe('<span class="tok-highlight">Mark</span>');
     expect(renderInlineMarkdown(cells[4]!, { styled: true })).toBe('plain <strong class="tok-strong">b</strong> and <em class="tok-emphasis">i</em>');
-    expect(renderInlineMarkdown(cells[5]!, { styled: true })).toBe('<code class="tok-code cm-table-cell-code">a</code> <mark class="tok-highlight cm-table-cell-highlight">m</mark>');
+    expect(renderInlineMarkdown(cells[5]!, { styled: true })).toBe('<code class="tok-code cm-table-cell-code">a</code> <span class="tok-highlight">m</span>');
     expect(renderInlineMarkdown(cells[6]!, { styled: true })).toBe('<strong class="tok-strong">bold <em class="tok-emphasis">both</em></strong>');
+    // On-screen markup matches Live Preview; clipboard HTML keeps semantic mark.
+    expect(renderInlineMarkdown(cells[3]!)).toBe('<mark class="cm-table-cell-highlight">Mark</mark>');
+    expect(renderInlineMarkdown(cells[5]!)).toBe('<code class="cm-table-cell-code">a</code> <mark class="cm-table-cell-highlight">m</mark>');
   });
 });
