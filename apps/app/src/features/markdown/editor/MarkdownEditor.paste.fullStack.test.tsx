@@ -324,10 +324,10 @@ describe('A. table range selection — which handler takes the paste', () => {
     expect(o.userEvents).toEqual(['input.table']);
   });
 
-  it('[behaviour] rich HTML that is not a table pastes plain text into the selection\'s top-left cell', async () => {
+  it('[intentional] compatible scalar rich HTML preserves formatting in the selection\'s top-left cell', async () => {
     const o = await paste(SELECTED, { html: '<p>hello <b>bold</b></p>', text: 'hello bold' });
 
-    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | b1 |'));
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello **bold** | b1 |'));
     expect(o.undoRestores).toBe(true);
     expect(o.redoRestores).toBe(true);
     expect(o.stored).toEqual([]);
@@ -348,15 +348,15 @@ describe('A. table range selection — which handler takes the paste', () => {
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] a file with rich HTML and cells selected: no embed; plain text pastes at top-left', async () => {
+  it('[intentional] a file with compatible rich HTML and cells selected: file skipped; formatted text pastes at top-left', async () => {
     const o = await paste(SELECTED, { files: [png()], html: '<p>hi <b>b</b></p>', text: 'hi b' });
 
-    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hi b | b1 |'));
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hi **b** | b1 |'));
     expect(o.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] a whole row selection pastes from its first cell', async () => {
+  it('[intentional] a whole row selection preserves scalar inline formatting in its first cell', async () => {
     const fake = fakeAssets();
     const { container } = render(<MarkdownEditor pageId="page" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
     const root = rootOf(container);
@@ -370,7 +370,7 @@ describe('A. table range selection — which handler takes the paste', () => {
     });
     await sleep();
 
-    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | b1 |'));
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello **bold** | b1 |'));
     expect(fake.stored).toEqual([]);
     expect(controller.currentAxisSelection()).toMatchObject({ kind: 'row', rowIndex: 1 });
   });
@@ -510,8 +510,8 @@ describe('C. the root editor versus the active nested cell editor', () => {
     expect((await paste(PLAIN, { text: 'one\n\ntwo\n\n- a\n\n- b' })).doc).toBe('Startone\ntwo\n- a\n- b\n\nEnd');
   });
 
-  it('[defect] rich HTML is NOT converted in a cell (the root converts it): the plain-text fallback is pasted and the formatting is lost', async () => {
-    expect(cellRow((await paste(CELL, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' }, 'cell')).doc)).toBe('| PLAINFALLBACK | b1 |');
+  it('[intentional] compatible inline rich HTML wins over plain-text fallback in both an active cell and prose', async () => {
+    expect(cellRow((await paste(CELL, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' }, 'cell')).doc)).toBe('| hello **bold** | b1 |');
     expect((await paste(PLAIN, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' })).doc).toBe('Starthello **bold**\n\nEnd');
   });
 
@@ -1368,10 +1368,10 @@ describe('J. pipes pasted into cells', () => {
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
-  it('[intentional] rich HTML with a pipe pastes its text escaped (no conversion in a cell)', async () => {
+  it('[intentional] rich HTML preserves inline formatting and escapes a literal pipe without changing the table shape', async () => {
     const o = await paste(CELL, { html: '<p>a|<b>b</b></p>', text: 'a|b' }, 'cell');
 
-    expect(row(o.doc)).toBe('| a\\|b | b1 |');
+    expect(row(o.doc)).toBe('| a\\|**b** | b1 |');
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
