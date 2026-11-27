@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { lastUnescapedSlashOffset, scanWikiLink } from './wikiLinkScanner';
+import { lastUnescapedSlashOffset, scanWikiLink, scanWikiLinkSource } from './wikiLinkScanner';
 
 /**
  * Pure scanner tests — no CM6/Lezer runtime involved. Every case is a
@@ -225,5 +225,17 @@ describe('explicit table WikiLink transport', () => {
     expect(scanWikiLink(text, 0, 'table')).toEqual({
       path: 'A]B\\q', alias: 'C|D', pipeIndex: text.indexOf('|'), end: text.length,
     });
+  });
+});
+
+describe('WikiLink raw source ranges', () => {
+  it.each([1, 5])('keeps the table transport separator out of the reference span (%i slashes)', count => {
+    const slash = String.fromCharCode(92);
+    const text = 'before [[Note' + slash.repeat(count) + '|Alias]] after';
+    const match = scanWikiLinkSource(text, text.indexOf('[['), 'table')!;
+    expect(text.slice(match.referenceFrom, match.referenceTo)).toBe('Note' + slash.repeat(count - 1));
+    expect(text.slice(match.separatorFrom!, match.aliasFrom!)).toBe(slash + '|');
+    expect(text.slice(match.aliasFrom!, match.aliasTo!)).toBe('Alias');
+    expect(text.slice(match.aliasTo!, match.end)).toBe(']]');
   });
 });
