@@ -24,7 +24,7 @@ import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
-import { clearSelectedCommand, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
+import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
 import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
@@ -634,7 +634,10 @@ export class TableCellEditor {
         (!grid || (grid.length === 1 && grid[0]?.length === 1))) {
         const text = grid ? grid[0]![0]! : data.getData('text/plain');
         if (text !== '') this.nested.dispatch({
-          ...this.nested.state.replaceSelection(grid ? logicalCellText(text) : text.replace(/\r\n?|\n/g, ' ')),
+          // External Markdown retains the established odd/even escaping
+          // contract; grids already contain normalized raw cell source.
+          // Decode exactly once before the logical input filter encodes.
+          ...this.nested.state.replaceSelection(logicalCellText(grid ? text : externalCell(text, false))),
           userEvent: 'input.paste',
         });
         return;

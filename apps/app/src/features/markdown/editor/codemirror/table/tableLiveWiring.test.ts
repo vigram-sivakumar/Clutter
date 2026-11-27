@@ -654,6 +654,31 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Vik','Va\\|bik'));
     expect(nested.dom.isConnected).toBe(true);
   });
+  it.each([
+    { slashes: 0, stored: 1 },
+    { slashes: 1, stored: 1 },
+    { slashes: 2, stored: 3 },
+    { slashes: 3, stored: 3 },
+  ])('preserves external Markdown pipe escaping ($slashes input slashes, $stored stored)', ({ slashes, stored }) => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: 3 } });
+    const raw = 'a' + '\\'.repeat(stored) + '|b';
+    const visible = 'a' + '\\'.repeat((stored - 1) / 2) + '|b';
+    fire(nested.contentDOM, 'paste', { 'text/plain': 'a' + '\\'.repeat(slashes) + '|b' });
+    expect(nested.state.doc.toString()).toBe(raw);
+    expect(nested.contentDOM.textContent).toBe(visible);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', raw));
+    expect(nested.state.selection.main.head).toBe(raw.length);
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', raw));
+  });
+
   it('inserts a copied single cell into the active caret, preserving surrounding text and Markdown', () => {
     const source = doc.replace('Designer', '**Designer**');
     const view = mount(source, false);
