@@ -55,7 +55,7 @@ export function UrlPasteMenu({ anchor, onChooseMarkdownLink, onChooseUrl, onDism
       side="bottom"
       alignment="start"
     >
-      <Menu size="small">
+      <Menu size="small" className="cm-url-paste-menu">
         <MenuGroupTitle>Paste as</MenuGroupTitle>
         <MenuItem
           onClick={(event) => {

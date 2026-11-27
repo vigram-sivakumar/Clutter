@@ -13,6 +13,9 @@ import { isolateHistory, undo, redo, undoDepth, redoDepth } from '@codemirror/co
 import { editorDefaultKeymap } from '../editorDefaultKeymap';
 import { cspNonceExtension } from '../cspNonce';
 import { editorTheme } from '../editorTheme';
+import { urlPasteChoiceField } from '../link/urlPaste/urlPasteChoiceState';
+import { urlPasteAnchorDecoration } from '../link/urlPaste/urlPasteAnchorDecoration';
+import type { OnOpenUrlPasteMenu } from '../link/urlPaste/UrlPasteAnchorWidget';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
@@ -42,6 +45,7 @@ export const tableEngineIntegration = Facet.define<{
   readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
   readonly getWikiLinkSuggestions?: () => GetWikiLinkSuggestions | undefined;
   readonly getHeadingSuggestions?: () => GetHeadingSuggestions | undefined;
+  readonly getOnOpenUrlPasteMenu?: () => OnOpenUrlPasteMenu | undefined;
 }>();
 
 interface ActiveCell { tableFrom: number; cell: CellAddress; from: number; to: number }
@@ -184,6 +188,7 @@ export class TableCellEditor {
     }
     if (this.interactionTable === null) return;
     if (target instanceof Element && target.closest('.cm-table-handle-menu')) return;
+    if (this.nested && target instanceof Element && target.closest('.cm-url-paste-menu')) return;
     // The portaled backdrop is a sibling of the menu surface, not a
     // descendant of the menu. Its mousedown precedes Overlay's click-to-
     // dismiss callback. Let that callback close only the menu, not the
@@ -192,6 +197,10 @@ export class TableCellEditor {
     if (this.handleMenu && target instanceof Element) {
       const backdrop = target.closest('.overlay__backdrop');
       if (backdrop?.parentElement?.querySelector(':scope > .overlay__surface .cm-table-handle-menu')) return;
+    }
+    if (this.nested && target instanceof Element) {
+      const backdrop = target.closest('.overlay__backdrop');
+      if (backdrop?.parentElement?.querySelector(':scope > .overlay__surface .cm-url-paste-menu')) return;
     }
     if (target instanceof Element &&
       this.root.dom.contains(target) && target.closest('[data-table-engine-cells="true"]')) return;
@@ -856,6 +865,8 @@ export class TableCellEditor {
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
+        urlPasteChoiceField,
+        urlPasteAnchorDecoration(() => integration?.getOnOpenUrlPasteMenu?.()),
         inlinePreviewExtensions(integration?.resolvers, false, 'table'),
         inlineTokenMouseExtensions(integration?.resolvers, 'table', tokenMouseOptions),
         formatShortcutsKeymap(),
