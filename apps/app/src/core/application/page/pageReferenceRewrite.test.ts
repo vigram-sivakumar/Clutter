@@ -203,3 +203,9 @@ describe('table WikiLink reference maintenance', () => {
     expect(rewriteReferenceTargets(md, 'A', 'Renamed')).toBe(md);
   });
 });
+
+it('rewrites decoded targets and headings by their exact escaped source spans', () => {
+  const md = '| A | B |\n|---|---|\n| [[A\\!\\#H\\!\\|Alias]] | other |';
+  expect(rewriteReferenceTargets(md, 'A!', 'New')).toBe(md.replace('A\\!', 'New'));
+  expect(rewriteHeadingReferences(md, 'H!', 'Next', target => target === 'A!')).toBe(md.replace('H\\!', 'Next'));
+});
