@@ -22,11 +22,10 @@ export interface ScannedLinkSource {
   readonly headingRange: { readonly from: number; readonly to: number } | null;
 }
 
-function literalRange(content: string, from: number, to: number, expected: string): { from: number; to: number } | null {
+function trimmedSourceRange(content: string, from: number, to: number): { from: number; to: number } | null {
   const raw = content.slice(from, to);
-  if (!expected || raw.trim() !== expected) return null;
-  const start = from + raw.length - raw.trimStart().length;
-  return { from: start, to: start + expected.length };
+  if (!raw.trim()) return null;
+  return { from: from + raw.length - raw.trimStart().length, to: from + raw.trimEnd().length };
 }
 
 export class LinkExtractor {
@@ -47,12 +46,22 @@ export class LinkExtractor {
         const blockReference = fragment?.startsWith('^') ? fragment.slice(1).trim() : undefined;
         const heading = fragment && !fragment.startsWith('^') ? fragment.trim() : undefined;
         const hash = content.slice(match.referenceFrom, match.referenceTo).indexOf('#');
-        const targetEnd = hash === -1 ? match.referenceTo : match.referenceFrom + hash;
-        // Maintenance retains its literal-target policy. Never search the
-        // alias for a decoded name absent from the actual target segment.
-        const targetRange = literalRange(content, match.referenceFrom, targetEnd, target);
-        const headingRange = heading !== undefined && hash !== -1
-          ? literalRange(content, targetEnd + 1, match.referenceTo, heading) : null;
+        const hashOffset = hash === -1 ? match.referenceTo : match.referenceFrom + hash;
+        let targetEnd = hashOffset;
+        if (hash !== -1) {
+          // A backslash escaping '#' belongs to the delimiter, not the
+          // decoded target. Preserve it on a target rename.
+          let runStart = hashOffset;
+          while (runStart > match.referenceFrom && content[runStart - 1] === '\\') runStart--;
+          if ((hashOffset - runStart) % 2 === 1) targetEnd--;
+        }
+        const targetRange = target ? trimmedSourceRange(content, match.referenceFrom, targetEnd) : null;
+        // Keep the existing policy for multi-hash fragments (not a
+        // representable heading rename). A single fragment's raw range
+        // can include escaped punctuation, without touching its alias.
+        const headingRange = heading !== undefined && hash !== -1 &&
+          !content.slice(hashOffset + 1, match.referenceTo).includes('#')
+          ? trimmedSourceRange(content, hashOffset + 1, match.referenceTo) : null;
         links.push({
           link: {
             target, heading, blockReference, alias: match.alias === null ? undefined : match.alias.trim(),
