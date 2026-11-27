@@ -14,6 +14,10 @@ import type { GetHeadingSuggestions } from './completionPopup/headingCompletion'
 import { tagCompletionSource } from './tag/tagCompletionSource';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
 import { wikiLinkCompletionSource } from './wikilink/wikiLinkCompletionSource';
+import { wikiLinkAutocomplete } from './wikilink/wikiLinkAutocomplete';
+import { embedAutocomplete } from './embed/embedAutocomplete';
+import { tagAutocomplete } from './tag/tagAutocomplete';
+import { dateAutocomplete } from './date/dateAutocomplete';
 import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
 
 /**
@@ -80,5 +84,35 @@ export function semanticCompletion(
     completionPopupTheme(),
     completionScrollFade(),
     completionSectionLimit(),
+  ];
+}
+
+/** Production composition: completion sources and their trigger/reactivation
+ * extensions travel together. Table cells exclude block embeds and insert
+ * their pipe/Escape bindings after WikiLink's first-refusal pipe binding,
+ * before the CM6 completion keymap at the same highest precedence. */
+export function semanticCompletionExtensions(
+  options: {
+    readonly getWikiLinkSuggestions?: () => GetWikiLinkSuggestions | undefined;
+    readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
+    readonly getEmbedSuggestions?: () => GetEmbedSuggestions | undefined;
+    readonly getHeadingSuggestions?: () => GetHeadingSuggestions | undefined;
+  },
+  context: WikiLinkSourceContext = 'prose',
+  beforeCompletion: Extension = []
+): Extension {
+  return [
+    wikiLinkAutocomplete(context),
+    ...(context === 'prose' ? [embedAutocomplete()] : []),
+    tagAutocomplete(),
+    dateAutocomplete(),
+    beforeCompletion,
+    semanticCompletion(
+      options.getWikiLinkSuggestions ?? (() => undefined),
+      options.getTagSuggestions,
+      context === 'prose' ? options.getEmbedSuggestions : undefined,
+      options.getHeadingSuggestions,
+      {}, {}, context
+    ),
   ];
 }

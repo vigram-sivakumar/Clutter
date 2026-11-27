@@ -1,11 +1,8 @@
 import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
 import { closeBrackets, closeBracketsKeymap, closeCompletion, completionStatus, insertBracket } from '@codemirror/autocomplete';
-import { semanticCompletion } from '../completion';
-import { wikiLinkAutocomplete } from '../wikilink/wikiLinkAutocomplete';
+import { semanticCompletionExtensions } from '../completion';
 import type { GetWikiLinkSuggestions } from '../wikilink/wikiLinkSuggestion';
 import type { GetHeadingSuggestions } from '../completionPopup/headingCompletion';
-import { tagAutocomplete } from '../tag/tagAutocomplete';
-import { dateAutocomplete } from '../date/dateAutocomplete';
 import type { GetTagSuggestions } from '../tag/tagSuggestion';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from '../table/tableDeletionSelection';
 import { tableAtCaret } from '../table/tableRootSelectionSnap';
@@ -17,13 +14,8 @@ import { editorDefaultKeymap } from '../editorDefaultKeymap';
 import { formatShortcutsKeymap } from '../format/formatShortcutsKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
-import { inlinePreviewExtensions, refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
+import { inlinePreviewExtensions, inlineTokenMouseExtensions, refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
-import { wikiLinkMouseHandlers } from '../wikilink/wikiLinkMouseHandlers';
-import { tagMouseHandlers } from '../tag/tagMouseHandlers';
-import { dateMouseHandlers } from '../date/dateMouseHandlers';
-import { linkMouseHandlers } from '../link/linkMouseHandlers';
-import { urlMouseHandlers } from '../link/urlMouseHandlers';
 import { handleProjectedTokenPress, paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
 import { logicalCellText, tableCellTransport } from './tableCellTransport';
@@ -842,6 +834,7 @@ export class TableCellEditor {
       shouldHandle: () => !this.forwardingCellPointer,
       onHandled: () => this.cancelDrag(),
     };
+    const integration = this.root.state.facet(tableEngineIntegration)[0];
     const state = EditorState.create({
       doc: range.text,
       selection: { anchor: range.text.length },
@@ -857,55 +850,41 @@ export class TableCellEditor {
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),
-        inlinePreviewExtensions(this.root.state.facet(tableEngineIntegration)[0]?.resolvers, false, 'table'),
-        wikiLinkMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveWikiLink ?? (() => undefined), 'table', tokenMouseOptions),
-        tagMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveTag ?? (() => undefined), tokenMouseOptions),
-        dateMouseHandlers(this.root.state.facet(tableEngineIntegration)[0]?.resolvers?.resolveDate ?? (() => undefined), tokenMouseOptions),
-        linkMouseHandlers(tokenMouseOptions),
-        urlMouseHandlers(tokenMouseOptions),
+        inlinePreviewExtensions(integration?.resolvers, false, 'table'),
+        inlineTokenMouseExtensions(integration?.resolvers, 'table', tokenMouseOptions),
         formatShortcutsKeymap(),
-        // The shared WikiLink pipe-accept command gets first refusal;
-        // ordinary pipe typing still follows the mapped input route.
-        wikiLinkAutocomplete('table'),
-        // Own the physical pipe key before native contenteditable input.
-        // Route it through the same nested transaction filter and root
-        // preflight as ordinary text; never allow a default insertion after
-        // a refused edit. IME input stays on CM6's composition path.
-        Prec.highest(keymap.of([{
-          key: '|',
-          run: view => {
-            if (view.composing) return false;
-            view.dispatch({ ...view.state.replaceSelection('|'), userEvent: 'input.type' });
-            return true;
-          },
-        }])),
-        // Escape belongs to a visible completion popup, not to an
-        // invisible pending query after ordinary cell typing. Cancel
-        // that query and exit the cell in the same gesture. Register
-        // before semanticCompletion: CM6's default completion keymap
-        // also has Prec.highest; equal precedence follows extension order.
-        Prec.highest(keymap.of([{
-          key: 'Escape',
-          run: view => {
-            if (completionStatus(view.state) !== 'pending') return false;
-            closeCompletion(view);
-            return this.exitEdit();
-          },
-        }])),
-        // Same providers, popup and lifecycle as prose. Only WikiLink's
-        // source context differs; single-line cells still exclude embeds.
-        semanticCompletion(
-          this.root.state.facet(tableEngineIntegration)[0]?.getWikiLinkSuggestions ?? (() => undefined),
-          this.root.state.facet(tableEngineIntegration)[0]?.getTagSuggestions,
-          () => undefined,
-          this.root.state.facet(tableEngineIntegration)[0]?.getHeadingSuggestions,
-          {}, {}, 'table'
-        ),
+        semanticCompletionExtensions(integration ?? {}, 'table', [
+          // The shared WikiLink pipe-accept command gets first refusal;
+          // ordinary pipe typing still follows the mapped input route.
+          // Own the physical pipe key before native contenteditable input.
+          // Route it through the same nested transaction filter and root
+          // preflight as ordinary text; never allow a default insertion after
+          // a refused edit. IME input stays on CM6's composition path.
+          Prec.highest(keymap.of([{
+            key: '|',
+            run: view => {
+              if (view.composing) return false;
+              view.dispatch({ ...view.state.replaceSelection('|'), userEvent: 'input.type' });
+              return true;
+            },
+          }])),
+          // Escape belongs to a visible completion popup, not to an
+          // invisible pending query after ordinary cell typing. Cancel
+          // that query and exit the cell in the same gesture. Register
+          // before semanticCompletion: CM6's default completion keymap
+          // also has Prec.highest; equal precedence follows extension order.
+          Prec.highest(keymap.of([{
+            key: 'Escape',
+            run: view => {
+              if (completionStatus(view.state) !== 'pending') return false;
+              closeCompletion(view);
+              return this.exitEdit();
+            },
+          }])),
+        ]),
         // CM6 owns the external tooltip container, theme, positioning and
         // disposal. Preserve table overflow and the shared tooltipSpace.
         tooltips({ parent: this.root.dom.ownerDocument.body }),
-        tagAutocomplete(),
-        dateAutocomplete(),
         Prec.low(keymap.of([
           { key: 'Mod-z', run: () => this.stepHistory(true) },
           { key: 'Mod-Shift-z', run: () => this.stepHistory(false) },

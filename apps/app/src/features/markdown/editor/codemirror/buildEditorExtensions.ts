@@ -3,9 +3,7 @@ import { EditorView } from '@codemirror/view';
 
 import { readOnlyModeEffect } from './createEditorView';
 
-import { semanticCompletion } from './completion';
-import { dateAutocomplete } from './date/dateAutocomplete';
-import { dateMouseHandlers } from './date/dateMouseHandlers';
+import { semanticCompletionExtensions } from './completion';
 import type { ResolveDate } from './date/dateResolution';
 import { emptyLeadingLineDeletion } from './emptyLeadingLineDeletion';
 import { markdownEnterKeymap } from './enter/markdownEnterKeymap';
@@ -24,11 +22,9 @@ import type { OnOpenFencedCodeMenu } from './fencedCode/FencedCodeActionsButtonW
 import { fencedCodeLanguageLabelDecoration } from './highlight/fencedCodeLanguageLabelDecoration';
 import { fencedCodeMarkerDecoration } from './highlight/fencedCodeMarkerDecoration';
 import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
-import { inlinePreviewExtensions } from './highlight/inlineLivePreviewRegion';
+import { inlinePreviewExtensions, inlineTokenMouseExtensions } from './highlight/inlineLivePreviewRegion';
 import { leadingIndentDecoration } from './highlight/leadingIndentDecoration';
 import { editorRevealHighlight } from './highlight/editorRevealHighlight';
-import { linkMouseHandlers } from './link/linkMouseHandlers';
-import { urlMouseHandlers } from './link/urlMouseHandlers';
 import { urlPasteChoiceField } from './link/urlPaste/urlPasteChoiceState';
 import { urlPasteAnchorDecoration } from './link/urlPaste/urlPasteAnchorDecoration';
 import type { OnOpenUrlPasteMenu } from './link/urlPaste/UrlPasteAnchorWidget';
@@ -50,13 +46,8 @@ import type { ResolveImageSrc } from './image/imageSrcResolution';
 import { markdownLanguageExtension } from './markdownLanguage';
 import type { ResolveTag } from './tag/tagResolution';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
-import { tagAutocomplete } from './tag/tagAutocomplete';
-import { tagMouseHandlers } from './tag/tagMouseHandlers';
 import type { ResolveWikiLink } from './wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
-import { wikiLinkAutocomplete } from './wikilink/wikiLinkAutocomplete';
-import { embedAutocomplete } from './embed/embedAutocomplete';
-import { wikiLinkMouseHandlers } from './wikilink/wikiLinkMouseHandlers';
 import type { ResolveEmbedImage } from './embed/embedImageResolution';
 import type { ResolveEmbedPdf } from './pdf/embedPdfResolution';
 import type { ResolvePageEmbed } from '../../render/blocks/pageEmbedResolution';
@@ -293,11 +284,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     horizontalRuleDecoration(),
     blockSeparatorDecoration(),
     leadingIndentDecoration(),
-    wikiLinkMouseHandlers(resolveWikiLink),
-    tagMouseHandlers(resolveTag),
-    dateMouseHandlers(resolveDate),
-    linkMouseHandlers(),
-    urlMouseHandlers(),
+    inlineTokenMouseExtensions({ resolveWikiLink, resolveTag, resolveDate }),
   ];
 
   const table: Extension[] = [
@@ -355,16 +342,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     urlPasteAnchorDecoration(() => onOpenUrlPasteMenu?.()),
     formatShortcutsKeymap(),
     taskCheckboxMouseHandlers(() => onTaskCheckboxToggled?.()),
-    wikiLinkAutocomplete(),
-    embedAutocomplete(),
-    tagAutocomplete(),
-    dateAutocomplete(),
-    semanticCompletion(
-      getWikiLinkSuggestions ?? (() => undefined),
-      getTagSuggestions ?? (() => undefined),
-      getEmbedSuggestions ?? (() => undefined),
-      getHeadingSuggestions ?? (() => undefined)
-    ),
+    semanticCompletionExtensions({ getWikiLinkSuggestions, getTagSuggestions, getEmbedSuggestions, getHeadingSuggestions }),
   ];
 
   return { before, rendering, table, after };

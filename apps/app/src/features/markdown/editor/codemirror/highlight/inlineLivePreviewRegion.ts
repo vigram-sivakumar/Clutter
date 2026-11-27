@@ -12,6 +12,12 @@ import {
 import { isConstructEngaged } from '../semanticToken/tokenEngagement';
 import { createInlineLivePreviewParticipants, revealedMarkNodeRanges, type ParticipantRenderer, type ParticipantResolvers } from './inlineLivePreviewParticipants';
 import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
+import { wikiLinkMouseHandlers } from '../wikilink/wikiLinkMouseHandlers';
+import { tagMouseHandlers } from '../tag/tagMouseHandlers';
+import { dateMouseHandlers } from '../date/dateMouseHandlers';
+import { linkMouseHandlers } from '../link/linkMouseHandlers';
+import { urlMouseHandlers } from '../link/urlMouseHandlers';
+import type { TokenMouseOptions } from '../semanticToken/tokenMouseHandlers';
 
 /**
  * Heading content classing (`tok-heading1`-`tok-heading6`), folded into
@@ -281,5 +287,23 @@ export function inlinePreviewExtensions(resolvers: Partial<ParticipantResolvers>
       resolveDate: resolvers.resolveDate ?? (() => undefined),
     }), { includeHeadings }),
     wikiLinkLivePreview(resolvers.resolveWikiLink ?? (() => undefined), wikiLinkContext),
+  ];
+}
+
+/** Shared registration order for every live inline token surface. Cells
+ * supply their source context and pointer-forwarding guard, not a second
+ * list of supported token kinds. Static projections still use the
+ * existing rendered-token hit adapter (no extra EditorView). */
+export function inlineTokenMouseExtensions(
+  resolvers: Partial<ParticipantResolvers> = {},
+  context: 'prose' | 'table' = 'prose',
+  options: TokenMouseOptions = {}
+): Extension {
+  return [
+    wikiLinkMouseHandlers(resolvers.resolveWikiLink ?? (() => undefined), context, options),
+    tagMouseHandlers(resolvers.resolveTag ?? (() => undefined), options),
+    dateMouseHandlers(resolvers.resolveDate ?? (() => undefined), options),
+    linkMouseHandlers(options),
+    urlMouseHandlers(options),
   ];
 }

@@ -7,7 +7,7 @@ import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange } from './ta
 import type { TableCommand } from '../table-engine/tableCommands';
 import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, drawSelection, keymap } from '@codemirror/view';
-import { completionStatus, currentCompletions } from '@codemirror/autocomplete';
+import { completionStatus, currentCompletions, startCompletion } from '@codemirror/autocomplete';
 import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
@@ -2534,5 +2534,32 @@ describe('formatted Markdown link labels in table projections', () => {
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     expect(open.mock.calls).toEqual([['https://example.org']]);
     expect(view.state.doc.toString()).toBe(source);
+  });
+});
+
+describe('shared production inline extension composition', () => {
+  it('keeps block embed completion available in prose but excluded from active cells', async () => {
+    const suggestions = vi.fn(() => [{ kind: 'page' as const, path: 'Note', title: 'Note', breadcrumb: null }]);
+    const overrides = { getEmbedSuggestions: () => suggestions };
+    const text = 'Before ![[No';
+    const prose = mount(text, false, undefined, overrides);
+    prose.dispatch({ selection: { anchor: text.length } });
+    expect(startCompletion(prose)).toBe(true);
+    await vi.waitFor(() => expect(completionStatus(prose.state)).toBe('active'));
+    expect(currentCompletions(prose.state).map(option => option.label)).toContain('Note');
+    expect(suggestions).toHaveBeenCalled();
+    suggestions.mockClear();
+    const source = TABLE.replace('Vik', text);
+    const view = mount(source, false, undefined, overrides);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    expect(startCompletion(nested)).toBe(true);
+    expect(completionStatus(nested.state)).toBe('pending');
+    await vi.waitFor(() => expect(completionStatus(nested.state)).toBeNull());
+    expect(currentCompletions(nested.state)).toHaveLength(0);
+    expect(suggestions).not.toHaveBeenCalled();
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(0);
   });
 });
