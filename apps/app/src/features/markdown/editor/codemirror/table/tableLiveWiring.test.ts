@@ -2521,6 +2521,30 @@ describe('static table formatting uses shared inline presentation ownership', ()
 
 
 describe('formatted Markdown link labels in table projections', () => {
+  it('shares nested formatting and semantic link-label presentation across all four surfaces', () => {
+    const text = '[**Bold** #tag @2025-03-05](https://example.com)';
+    const source = TABLE.replace('Vik', text).replace('Designer', text);
+    const prose = mount(text, false);
+    const view = mount(source, false);
+    const readonly = mount(source, true);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const surfaces = [prose.contentDOM, controller.nested!.contentDOM,
+      view.dom.querySelector('[data-cell="1,1"]')!, readonly.dom.querySelector('[data-cell="1,0"]')!];
+    surfaces.forEach((surface, index) => {
+      expect(surface.querySelector('.tok-strong')?.textContent, `surface ${index}`).toBe('Bold');
+      expect(surface.querySelector('.tok-tag')?.textContent).toContain('tag');
+      expect(surface.querySelector('.tok-date')?.textContent).toContain('2025');
+      if (index >= 2) {
+        const link = surface.querySelector('.tok-link-title');
+        expect(link?.querySelector('.tok-strong')?.textContent).toBe('Bold');
+        expect(link?.querySelector('.tok-tag')?.textContent).toContain('tag');
+        expect(link?.querySelector('.tok-date')?.textContent).toContain('2025');
+      }
+    });
+    expect(view.state.doc.toString()).toBe(source);
+    expect(readonly.state.doc.toString()).toBe(source);
+  });
   it.each([
     ['**Bold**', 'Bold', 'tok-strong'],
     ['*Italic*', 'Italic', 'tok-emphasis'],
