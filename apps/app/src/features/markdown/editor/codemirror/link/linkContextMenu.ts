@@ -35,7 +35,7 @@ export function editorLinkFromNode(
       ? slice(link.from, link.to)
       : raw === navigationUrl
         ? `<${raw}>`
-        : `[${raw.replace(/[\\[\]]/g, '\\/** Resolve the whole link, even when the pointer is over formatting inside its label or its raw URL. */')}](<${navigationUrl}>)`,
+        : `[${raw.replace(/[\\[\]]/g, '\\$&')}](<${navigationUrl}>)`,
   };
 }
 
