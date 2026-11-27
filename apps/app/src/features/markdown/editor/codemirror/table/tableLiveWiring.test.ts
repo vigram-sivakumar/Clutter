@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 function mount(doc: string, readOnly: boolean, onMenu?: OnTableHandleMenuChange,
-  overrides: Partial<BuildEditorExtensionsOptions> = {}): EditorView {
+  overrides: Partial<BuildEditorExtensionsOptions> = {}, canEdit?: () => boolean): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const view = new EditorView({
@@ -51,6 +51,11 @@ function mount(doc: string, readOnly: boolean, onMenu?: OnTableHandleMenuChange,
       }),
     }),
     parent,
+    dispatchTransactions: canEdit
+      ? (transactions, view) => {
+          if (!transactions.some(tr => tr.docChanged) || canEdit()) view.update(transactions);
+        }
+      : undefined,
   });
   mountedViews.push(view);
   return view;
@@ -1188,6 +1193,30 @@ describe('shared completion inside the active cell', () => {
     expect(view.state.doc.toString()).not.toMatch(stored);
     expect(redo(view)).toBe(true);
     expect(view.state.doc.toString()).toMatch(stored);
+  });
+
+  it('keeps the child and root at the same revision when the host refuses a cell edit', () => {
+    let allowed = true;
+    const view = mount(source, false, undefined, {}, () => allowed);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const nested = controller.nested!;
+    const rootBefore = view.state;
+    const childBefore = nested.state;
+    allowed = false;
+    type(nested, ' denied');
+    expect(view.state).toBe(rootBefore);
+    expect(nested.state).toBe(childBefore);
+    expect(undoDepth(view.state)).toBe(0);
+    allowed = true;
+    type(nested, ' accepted');
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toContain(' accepted');
+    expect(view.state.doc.toString()).toContain(' accepted');
+    expect(view.state.doc.toString()).not.toContain(' denied');
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
   });
 
   it('accepts a portaled option by pointer without closing the active cell, then disposes the popup on cell switch', async () => {
