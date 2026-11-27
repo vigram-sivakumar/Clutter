@@ -265,9 +265,9 @@ export function scanWikiLink(text: string, startIndex: number, context: WikiLink
   return { path, alias, end, pipeIndex };
 }
 
-/** Encode an already-serialized logical WikiLink for a GFM table cell.
- * Do not pass arbitrary cell Markdown or already-encoded table source.
- * This is an insertion boundary, not a migration of existing notes.
+/** Encode logical WikiLink syntax (or explicitly logical cell-editor text)
+ * for a GFM table cell. Never pass arbitrary raw Markdown or already-encoded
+ * table source. This is a transport boundary, not a source migration.
  */
 export function encodeWikiLinkTableSource(logical: string): string {
   return logical.replace(/(\\*)\|/g, (_match, slashes: string) =>

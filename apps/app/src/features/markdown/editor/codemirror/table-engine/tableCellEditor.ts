@@ -1,4 +1,4 @@
-import { ChangeSet, EditorState, Facet, Prec, Transaction } from '@codemirror/state';
+import { EditorState, Facet, Prec, Transaction } from '@codemirror/state';
 import { closeCompletion, completionStatus } from '@codemirror/autocomplete';
 import { semanticCompletion } from '../completion';
 import { tagAutocomplete } from '../tag/tagAutocomplete';
@@ -17,13 +17,14 @@ import { inlinePreviewExtensions, refreshInlinePresentation } from '../highlight
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
+import { logicalCellText, tableCellTransport } from './tableCellTransport';
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction, validatedRootEdit } from './tableTransaction';
 import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
-import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
+import { clearSelectedCommand, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
 import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
@@ -633,7 +634,7 @@ export class TableCellEditor {
         (!grid || (grid.length === 1 && grid[0]?.length === 1))) {
         const text = grid ? grid[0]![0]! : data.getData('text/plain');
         if (text !== '') this.nested.dispatch({
-          ...this.nested.state.replaceSelection(grid ? text : externalCell(text, false)),
+          ...this.nested.state.replaceSelection(grid ? logicalCellText(text) : text.replace(/\r\n?|\n/g, ' ')),
           userEvent: 'input.paste',
         });
         return;
@@ -808,27 +809,7 @@ export class TableCellEditor {
         // Each nested view must own its cursor and selection layers as well.
         drawSelection(),
         EditorView.lineWrapping,
-        // Normalize the ordinary single-pipe input before the exact-source
-        // root preflight. Existing backslash runs, composition and paste
-        // need a separate logical-offset contract.
-        EditorState.transactionFilter.of(tr => {
-          if (tr.annotation(Transaction.userEvent) !== 'input.type' || !tr.docChanged) return tr;
-          let count = 0;
-          const positions: number[] = [];
-          tr.changes.iterChanges((from, _to, fromB, _toB, inserted) => {
-            count++;
-            if (inserted.toString() === '|' &&
-                (from === 0 || tr.startState.sliceDoc(from - 1, from) !== '\\')) {
-              positions.push(fromB);
-            }
-          });
-          const at = positions[0];
-          if (count !== 1 || at === undefined) return tr;
-          // Reuse ordinary table escaping and map the proposed selection.
-          // CM6 combines the sequential specs into one transaction.
-          const escape = ChangeSet.of({ from: at, insert: externalCell('|', false).slice(0, -1) }, tr.newDoc.length);
-          return [tr, { changes: escape, selection: tr.newSelection.map(escape), sequential: true }];
-        }),
+        tableCellTransport(),
         // Same inline participants and WikiLink widget as the main editor.
         // No block styling or Markdown block keymap in a single cell.
         markdownLanguageExtension(),

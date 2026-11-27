@@ -1434,9 +1434,10 @@ describe('rich inline cell presentation', () => {
     nested.dispatch({ selection: { anchor: text.length } });
     expect(nested.contentDOM.querySelector('.tok-wikilink__title')?.textContent).toBe('Display');
     nested.dispatch({ selection: { anchor: text.indexOf('[[') + 2 } });
-    // Raw storage is still revealed in this slice. Concealment/input
-    // mapping is the following milestone, not a cosmetic CSS workaround.
-    expect(nested.contentDOM.textContent).toBe(text);
+    // Exact raw storage remains in the nested state and root; only the
+    // transport layer is omitted from the engaged editing presentation.
+    expect(nested.state.doc.toString()).toBe(text);
+    expect(nested.contentDOM.textContent).toBe('Before [[Folder/Note|Display]] after');
     controller.close();
     expect(cell.querySelector('.tok-wikilink__title')?.textContent).toBe('Display');
     expect(view.state.doc.toString()).toBe(source);
@@ -1444,6 +1445,42 @@ describe('rich inline cell presentation', () => {
     const readOnly = mount(source, true, undefined, options);
     expect(readOnly.dom.querySelector('[data-cell="1,0"] .tok-wikilink__title')?.textContent).toBe('Display');
     expect(readOnly.state.doc.toString()).toBe(source);
+  });
+
+  it.each([
+    { raw: '[[Note\\|', visible: '[[Note|' },
+    { raw: 'A\\|B', visible: 'A|B' },
+    { raw: '[[Note' + '\\'.repeat(3) + '|Label', visible: '[[Note\\|Label' },
+  ])('conceals only transport bytes in engaged or incomplete cell text: $raw', ({ raw, visible }) => {
+    const source = TABLE.replace('Vik', raw);
+    const view = mount(source, false, undefined, resolverOptions);
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    clickCell(cell.parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: raw.length } });
+    expect(nested.state.doc.toString()).toBe(raw);
+    expect(nested.contentDOM.textContent).toBe(visible);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it.each(['Backspace', 'Delete'])('deletes the logical pipe once via %s with root history and neighbours intact', key => {
+    const raw = '[[Note\\|Label';
+    const source = TABLE.replace('Vik', raw);
+    const view = mount(source, false, undefined, resolverOptions);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const cell = view.dom.querySelector<HTMLElement>('[data-cell="1,0"]')!;
+    clickCell(cell.parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: key === 'Backspace' ? 8 : 6 } });
+    nested.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    expect(nested.state.doc.toString()).toBe('[[NoteLabel');
+    expect(nested.contentDOM.textContent).toBe('[[NoteLabel');
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '[[NoteLabel'));
+    expect(view.dom.querySelector('[data-cell="1,1"]')?.textContent).toBe('Designer');
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(TABLE.replace('Vik', '[[NoteLabel'));
   });
 
   it('keeps an incomplete WikiLink literal in prose, static, active and read-only cells', () => {
