@@ -1,3 +1,5 @@
+export type WikiLinkSourceContext = 'prose' | 'table';
+
 export interface WikiLinkMatch {
   readonly path: string;
   readonly alias: string | null;
@@ -48,12 +50,41 @@ interface SegmentScan {
  * not-yet-closed text, which has no `]]` to find) — the fully-decoded text
  * scanned so far is still returned rather than discarded.
  */
-function scanSegment(text: string, start: number, stopOnPipe: boolean, requireStop = true): SegmentScan | null {
+function scanSegment(text: string, start: number, stopOnPipe: boolean, requireStop = true, context: WikiLinkSourceContext = 'prose'): SegmentScan | null {
   let out = '';
   let i = start;
 
   while (i < text.length) {
     const ch = text[i];
+
+    // A table delimiter must remain escaped at the raw Markdown layer.
+    // The transport maps n logical backslashes before a pipe to 2n+1
+    // raw backslashes. Decode only this run, then apply the same logical
+    // escape/separator rule as prose. Offsets always refer to raw source.
+    if (context === 'table' && (ch === '\\' || ch === '|')) {
+      let pipe = i;
+      while (text[pipe] === '\\') pipe++;
+      const count = pipe - i;
+      if (text[pipe] === '|') {
+        if (count % 2 === 0) return null;
+        const logicalSlashes = (count - 1) / 2;
+        out += '\\'.repeat(Math.floor(logicalSlashes / 2));
+        if (stopOnPipe && logicalSlashes % 2 === 0) {
+          return { text: out, stoppedAt: pipe, stoppedOnPipe: true };
+        }
+        out += '|';
+        i = pipe + 1;
+        continue;
+      }
+      // Consume ordinary backslash pairs together, keeping linear
+      // scanning even for a long run not followed by a pipe.
+      const pairs = Math.floor(count / 2);
+      if (pairs > 0) {
+        out += '\\'.repeat(pairs);
+        i += pairs * 2;
+        continue;
+      }
+    }
 
     if (ch === '\\' && i + 1 < text.length) {
       // The i + 1 < text.length check above guarantees this index is in
@@ -176,12 +207,12 @@ export function lastUnescapedSlashOffset(referenceText: string): number | null {
  *   if `(` or `[` immediately follows the close, so a genuine CommonMark
  *   link/image whose text happens to be a doubled bracket is never stolen.
  */
-export function scanWikiLink(text: string, startIndex: number): WikiLinkMatch | null {
+export function scanWikiLink(text: string, startIndex: number, context: WikiLinkSourceContext = 'prose'): WikiLinkMatch | null {
   if (text[startIndex] !== '[' || text[startIndex + 1] !== '[') {
     return null;
   }
 
-  const pathScan = scanSegment(text, startIndex + 2, true);
+  const pathScan = scanSegment(text, startIndex + 2, true, true, context);
   if (!pathScan) {
     return null;
   }
@@ -192,7 +223,7 @@ export function scanWikiLink(text: string, startIndex: number): WikiLinkMatch | 
   const pipeIndex = pathScan.stoppedOnPipe ? pathScan.stoppedAt : null;
 
   if (pathScan.stoppedOnPipe) {
-    const aliasScan = scanSegment(text, pathScan.stoppedAt + 1, false);
+    const aliasScan = scanSegment(text, pathScan.stoppedAt + 1, false, true, context);
     if (!aliasScan) {
       return null;
     }
@@ -209,4 +240,13 @@ export function scanWikiLink(text: string, startIndex: number): WikiLinkMatch | 
   }
 
   return { path, alias, end, pipeIndex };
+}
+
+/** Encode an already-serialized logical WikiLink for a GFM table cell.
+ * Do not pass arbitrary cell Markdown or already-encoded table source.
+ * This is an insertion boundary, not a migration of existing notes.
+ */
+export function encodeWikiLinkTableSource(logical: string): string {
+  return logical.replace(/(\\*)\|/g, (_match, slashes: string) =>
+    '\\'.repeat(2 * slashes.length + 1) + '|');
 }
