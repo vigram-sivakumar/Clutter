@@ -1,6 +1,9 @@
 import { selectionBounds, type TableInteraction } from './tableInteraction';
 import { TableEngineError, type TableModel } from './tableModel';
 import type { TableCommand } from './tableCommands';
+import { encodeWikiLinkTableSource } from '@core/vault/ingest/grammar/wikiLinkScanner';
+import { hasRichHtml, htmlToPieces } from '../paste/htmlToMarkdown';
+import { isBlockMarkdown } from '../paste/externalPaste';
 
 /** Clutter's current raw-Markdown clipboard format. */
 export const TABLE_MIME = 'application/x-clutter-table';
@@ -44,6 +47,27 @@ export function externalCell(text: string, trim = true): string {
   const escaped = text.replace(/\r\n?|\n/g, ' ').replace(/(\\*)\|/g,
     (_match, slash: string) => slash + (slash.length % 2 === 0 ? '\\|' : '|'));
   return trim ? escaped.trim() : escaped;
+}
+
+/** A scalar paste can preserve the same inline Markdown the prose HTML
+ * converter produces. Accept only a single, single-line Markdown piece:
+ * images, blocks and multiple paragraphs retain the existing plain-text
+ * fallback. New converter output is logical Markdown, not already escaped
+ * table source. Existing external plain text keeps its odd/even contract.
+ * Grid classification always runs before this scalar path.
+ */
+export function readScalarCell(data: ClipboardReader, trim = true): { source: 'html' | 'text'; markdown: string } | null {
+  const html = data.getData('text/html');
+  if (html && hasRichHtml(html)) {
+    const pieces = htmlToPieces(html);
+    const piece = pieces[0];
+    if (pieces.length === 1 && piece?.kind === 'markdown' && piece.text &&
+        !/[\r\n]/.test(piece.text) && !isBlockMarkdown(piece.text)) {
+      return { source: 'html', markdown: encodeWikiLinkTableSource(piece.text) };
+    }
+  }
+  const text = data.getData('text/plain');
+  return text !== '' ? { source: 'text', markdown: externalCell(text, trim) } : null;
 }
 
 /** Quoted spreadsheet TSV. Preserve empty edge cells and quoted tabs/newlines;
@@ -155,7 +179,10 @@ export function readClipboardGrid(data: ClipboardReader, allowScalar: boolean, r
   }
   const text = data.getData('text/plain');
   if (text.includes('\t') && (!root || rootTabularText(text))) return { source: 'text', grid: parseTsv(text).map(row => row.map(cell => externalCell(cell))) };
-  if (allowScalar && text !== '') return { source: 'text', grid: [[externalCell(text)]] };
+  if (allowScalar) {
+    const scalar = readScalarCell(data);
+    if (scalar) return { source: scalar.source, grid: [[scalar.markdown]] };
+  }
   return null;
 }
 

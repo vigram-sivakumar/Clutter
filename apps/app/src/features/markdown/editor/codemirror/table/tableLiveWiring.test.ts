@@ -713,6 +713,36 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'VXk'));
     expect(nested.dom.isConnected).toBe(true);
   });
+  it('preserves compatible rich inline paste at the active caret through root history', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: 3 } });
+    const paste = fire(nested.contentDOM, 'paste', {
+      'text/html': '<p><strong>Bold</strong> <em>italic</em> <a href="https://example.com">link</a> [[Page|Alias]]</p>',
+      'text/plain': 'Bold italic link [[Page|Alias]]',
+    });
+    const markdown = '**Bold** *italic* [link](https://example.com) [[Page\\|Alias]]';
+    expect(paste.event.defaultPrevented).toBe(true);
+    expect(nested.state.doc.toString()).toBe(markdown);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', markdown));
+    expect(nested.dom.isConnected).toBe(true);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', markdown));
+  });
+  it('preserves compatible rich inline paste in a selected cell without mounting an editor', () => {
+    const view = mount(doc, false);
+    clickCell(host(view, 1, 0).parentElement!);
+    key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
+    fire(host(view, 1, 0), 'paste', { 'text/html': '<strong>Bold</strong>', 'text/plain': 'Bold' });
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', '**Bold**'));
+    expect(view.plugin(tableCellEditor)!.nested).toBeNull();
+    expect(selected(view)).toEqual(['1,0']);
+  });
   it('still replaces a caret-free selected cell with a scalar clipboard payload', () => {
     const view = mount(doc, false);
     clickCell(host(view, 1, 0).parentElement!);

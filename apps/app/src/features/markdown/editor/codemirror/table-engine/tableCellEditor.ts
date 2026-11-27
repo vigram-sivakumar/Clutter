@@ -27,7 +27,7 @@ import type { TableCommand } from './tableCommands';
 import { bookmark, restoredSelection, tableSelectionTransition, type SelectionBookmark } from './tableSelectionHistory';
 import { arrowInteraction, extendInteraction, focusCell, isValidCell, noInteraction, selectionBounds, tabInteraction,
   type Direction, type TableInteraction } from './tableInteraction';
-import { clearSelectedCommand, externalCell, pasteSelectedCommand, readGrid, selectedGrid, writeGrid, type Grid } from './tableClipboard';
+import { clearSelectedCommand, pasteSelectedCommand, readGrid, readScalarCell, selectedGrid, writeGrid, type Grid } from './tableClipboard';
 import { createPastedTable } from './tableCreatePaste';
 import { TableDragSelection } from './tableDragSelection';
 import type { TableHandleMenuSelection, OnTableHandleMenuChange } from '../table/tableHandleMenuSync';
@@ -646,12 +646,11 @@ export class TableCellEditor {
       // In caret-free selection mode a scalar still replaces the cell.
       if (editing && this.nested && this.active &&
         (!grid || (grid.length === 1 && grid[0]?.length === 1))) {
-        const text = grid ? grid[0]![0]! : data.getData('text/plain');
+        const text = grid ? grid[0]![0]! : readScalarCell(data, false)?.markdown ?? '';
         if (text !== '') this.nested.dispatch({
-          // External Markdown retains the established odd/even escaping
-          // contract; grids already contain normalized raw cell source.
-          // Decode exactly once before the logical input filter encodes.
-          ...this.nested.state.replaceSelection(logicalCellText(grid ? text : externalCell(text, false))),
+          // Both scalar and grid readers return raw cell source. Decode
+          // exactly once before the logical input filter encodes it.
+          ...this.nested.state.replaceSelection(logicalCellText(text)),
           userEvent: 'input.paste',
         });
         return;

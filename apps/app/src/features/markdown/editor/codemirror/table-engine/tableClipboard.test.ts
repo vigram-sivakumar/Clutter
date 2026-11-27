@@ -4,7 +4,7 @@ import { parser } from '@lezer/markdown';
 import { EditorState, type Transaction } from '@codemirror/state';
 import { history, undo, redo, undoDepth } from '@codemirror/commands';
 import { markdownGrammarFor } from '@core/vault/ingest/grammar/markdownGrammarExtensions';
-import { clearSelectedCommand, externalCell, parseTsv, pasteSelectedCommand, readGrid, selectedGrid, TABLE_MIME, toTsv, writeGrid } from './tableClipboard';
+import { clearSelectedCommand, externalCell, parseTsv, pasteSelectedCommand, readGrid, readScalarCell, selectedGrid, TABLE_MIME, toTsv, writeGrid } from './tableClipboard';
 import { createTableTransaction } from './tableTransaction';
 import { readTable } from './tableModel';
 import type { TableInteraction } from './tableInteraction';
@@ -48,6 +48,26 @@ describe('table engine clipboard', () => {
   it('does not consume non-tabular prose during active text editing', () => {
     expect(readGrid(clipboard({ 'text/plain': 'hello\nworld' }), false)).toBeNull();
     expect(readGrid(clipboard({ 'text/plain': 'hello\nworld' }), true)).toEqual([['hello world']]);
+  });
+  it('shares inline HTML conversion for a scalar while encoding table transport exactly once', () => {
+    const data = clipboard({ 'text/html': '<p><strong>Bold</strong> <em>italic</em> <a href="https://example.com">link</a> [[Page|Alias]]</p>', 'text/plain': 'Bold italic link [[Page|Alias]]' });
+    const markdown = '**Bold** *italic* [link](https://example.com) [[Page\\|Alias]]';
+    expect(readScalarCell(data, false)).toEqual({ source: 'html', markdown });
+    expect(readGrid(data, false)).toBeNull();
+    expect(readGrid(data, true)).toEqual([[markdown]]);
+  });
+  it('keeps block and image HTML on the existing scalar plain-text fallback', () => {
+    for (const html of ['<h1>Title</h1>', '<p><b>One</b></p><p>Two</p>', '<p><b>Title</b><img src="https://example.com/a.png"></p>']) {
+      const data = clipboard({ 'text/html': html, 'text/plain': 'plain\ntext' });
+      expect(readScalarCell(data, false)).toEqual({ source: 'text', markdown: 'plain text' });
+      expect(readGrid(data, true)).toEqual([['plain text']]);
+    }
+  });
+  it('retains internal and HTML grid priority over scalar rich conversion', () => {
+    const data = clipboard({ 'text/html': '<table><tr><td><b>One</b></td><td>Two</td></tr></table>', 'text/plain': 'One\tTwo' });
+    expect(readGrid(data, true)).toEqual([['One', 'Two']]);
+    data.setData(TABLE_MIME, JSON.stringify({ kind: 'clutter-table-range', rows: [['**Internal**', 'Two']] }));
+    expect(readGrid(data, true)).toEqual([['**Internal**', 'Two']]);
   });
   it('rejects malformed internal payload before any changes', () => {
     expect(() => readGrid(clipboard({ [TABLE_MIME]: '{"kind":"clutter-table-range","rows":[[42]]}' }), true)).toThrow();
