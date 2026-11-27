@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { logicalCellText, tableCellTransport } from './tableCellTransport';
+import { externalPasteNormalization, normalizeExternalPaste } from '../paste/externalPaste';
 
 const slash = String.fromCharCode(92);
 const stored = (n: number) => slash.repeat(2 * n + 1) + '|';
@@ -88,5 +89,18 @@ describe('table cell transport offsets', () => {
       (text, filter) => filter(text, partial), partial.sliceDoc(1, 3));
     expect(copiedSlash).toBe(slash);
     expect(state('A').update({ changes: { from: 1, insert: '|' } }).newDoc.toString()).toBe('A|');
+  });
+
+  it('records decoded logical cell copy for the shared paste provenance filter', () => {
+    const raw = '- \\[ \\] Task [[Page\\|Alias]]';
+    const cellState = state(raw);
+    const copied = cellState.facet(EditorView.clipboardOutputFilter).reduce(
+      (text, filter) => filter(text, cellState), raw);
+    expect(copied).toBe('- \\[ \\] Task [[Page|Alias]]');
+    expect(normalizeExternalPaste(copied)).toBe('- [ ] Task [[Page|Alias]]');
+    const pasteState = EditorState.create({ extensions: [externalPasteNormalization()] });
+    const input = pasteState.facet(EditorView.clipboardInputFilter).reduce(
+      (text, filter) => filter(text, pasteState), copied);
+    expect(input).toBe(copied);
   });
 });

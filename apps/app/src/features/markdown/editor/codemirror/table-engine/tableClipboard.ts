@@ -3,7 +3,7 @@ import { TableEngineError, type TableModel } from './tableModel';
 import type { TableCommand } from './tableCommands';
 import { encodeWikiLinkTableSource } from '@core/vault/ingest/grammar/wikiLinkScanner';
 import { hasRichHtml, htmlToPieces } from '../paste/htmlToMarkdown';
-import { isBlockMarkdown } from '../paste/externalPaste';
+import { isBlockMarkdown, recordInternalClipboardText } from '../paste/externalPaste';
 
 /** Clutter's current raw-Markdown clipboard format. */
 export const TABLE_MIME = 'application/x-clutter-table';
@@ -113,9 +113,11 @@ export function toTsv(grid: Grid): string {
 /** HTML may be supplied by an existing sanitized inline renderer. No raw
  * clipboard HTML is ever attached to the live document. */
 export function writeGrid(data: ClipboardWriter, grid: Grid, renderCell: (markdown: string) => string): void {
-  data.setData('text/plain', toTsv(grid));
+  const text = toTsv(grid);
+  data.setData('text/plain', text);
   data.setData('text/html', '<table>' + grid.map(row => '<tr>' + row.map(cell => '<td>' + renderCell(cell) + '</td>').join('') + '</tr>').join('') + '</table>');
   data.setData(TABLE_MIME, JSON.stringify({ kind: 'clutter-table-range', rows: grid }));
+  recordInternalClipboardText(text);
 }
 
 /** A standalone simple HTML table, not arbitrary rich text containing a
