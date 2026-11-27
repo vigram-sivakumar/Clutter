@@ -274,12 +274,12 @@ export function inlineLivePreviewRegion(
 }
 
 /** Shared inline presentation, with only heading styling disabled for a cell. */
-export function inlinePreviewExtensions(resolvers: Partial<ParticipantResolvers> = {}, includeHeadings = true): Extension {
+export function inlinePreviewExtensions(resolvers: Partial<ParticipantResolvers> = {}, includeHeadings = true, wikiLinkContext?: 'prose' | 'table'): Extension {
   return [
     inlineLivePreviewRegion(createInlineLivePreviewParticipants({
       resolveTag: resolvers.resolveTag ?? (() => undefined),
       resolveDate: resolvers.resolveDate ?? (() => undefined),
     }), { includeHeadings }),
-    wikiLinkLivePreview(resolvers.resolveWikiLink ?? (() => undefined)),
+    wikiLinkLivePreview(resolvers.resolveWikiLink ?? (() => undefined), wikiLinkContext),
   ];
 }
