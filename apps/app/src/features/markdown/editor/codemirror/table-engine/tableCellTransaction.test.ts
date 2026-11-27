@@ -81,6 +81,28 @@ describe('table engine minimal cell changes', () => {
     expect(cell(target.state).text).toBe(next);
   });
 
+  // Characterise the installed table grammar's raw transport, without
+  // changing the meaning of WikiLink escapes or enabling alias input yet.
+  it.each([1, 3, 5])('preserves an escaped WikiLink pipe with %i backslashes in one cell and root history', (slashes) => {
+    const target = setup();
+    const before = cell(target.state);
+    const next = '[[Folder/Note' + String.fromCharCode(92).repeat(slashes) + '|Label]]';
+    const expected = doc.replace('one', next);
+    target.dispatch(createCellTransaction(target.state, start, address, before.text,
+      diffCellText(before.text, next), parse)!);
+    expect(target.state.doc.toString()).toBe(expected);
+    const snapshot = readTable(expected, start, parse);
+    expect(snapshot.model.header).toEqual(['A', 'B']);
+    expect(snapshot.model.rows).toEqual([[next, 'two']]);
+    const active = cell(target.state);
+    expect(active.text).toBe(next);
+    expect(expected.slice(active.from, active.to)).toBe(next);
+    expect(undo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(doc);
+    expect(redo(target)).toBe(true);
+    expect(target.state.doc.toString()).toBe(expected);
+  });
+
   it('round-trips interleaved cell typing and structural actions in the root history', () => {
     const target = setup();
     const snapshots = [doc];
