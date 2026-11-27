@@ -1,6 +1,6 @@
 import type { WidgetType } from '@codemirror/view';
 
-import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { scanWikiLink, type WikiLinkSourceContext } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkResolution';
 import { WikiLinkWidget } from './WikiLinkWidget';
 
@@ -32,15 +32,16 @@ import { WikiLinkWidget } from './WikiLinkWidget';
 export function renderWikiLink(
   raw: string,
   getResolver: () => ResolveWikiLink | undefined,
-  extraClasses: readonly string[] = []
+  extraClasses: readonly string[] = [],
+  context: WikiLinkSourceContext = 'prose'
 ): WidgetType | null {
-  const match = scanWikiLink(raw, 0);
+  const match = scanWikiLink(raw, 0, context);
   if (!match || !match.path.trim()) {
     return null;
   }
 
   const resolver = getResolver();
-  const resolution = resolver?.(match.path, match.alias) ?? fallbackWikiLinkResolution(match.path);
+  const resolution = resolver?.(match.path, match.alias) ?? fallbackWikiLinkResolution(match.path, context === 'table' ? match.alias : null);
   return new WikiLinkWidget(match.path, match.alias, resolution, extraClasses);
 }
 
@@ -60,8 +61,8 @@ export function renderWikiLink(
  * emit a range for punctuation that's actually present" convention (e.g.
  * `getHeadingMarkRanges`'s own optional separator-space range).
  */
-export function getWikiLinkMarkerRanges(raw: string): readonly { from: number; to: number }[] {
-  const match = scanWikiLink(raw, 0);
+export function getWikiLinkMarkerRanges(raw: string, context: WikiLinkSourceContext = 'prose'): readonly { from: number; to: number }[] {
+  const match = scanWikiLink(raw, 0, context);
   if (!match) {
     return [];
   }
