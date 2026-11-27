@@ -1,8 +1,9 @@
-import { WidgetType } from '@codemirror/view';
+import { EditorView, WidgetType } from '@codemirror/view';
 
 export interface OpenUrlPasteMenuParams {
-  readonly anchor: HTMLElement;
+  readonly anchor: HTMLElement | null;
   readonly id: number;
+  readonly view: EditorView;
 }
 
 export type OnOpenUrlPasteMenu = (params: OpenUrlPasteMenuParams) => void;
@@ -23,6 +24,7 @@ export type OnOpenUrlPasteMenu = (params: OpenUrlPasteMenuParams) => void;
 export class UrlPasteAnchorWidget extends WidgetType {
   constructor(
     private readonly id: number,
+    private readonly view: EditorView,
     private readonly getOnOpenUrlPasteMenu: () => OnOpenUrlPasteMenu | undefined
   ) {
     super();
@@ -41,10 +43,14 @@ export class UrlPasteAnchorWidget extends WidgetType {
     // once per pasted occurrence, immediately after the paste.
     queueMicrotask(() => {
       if (anchor.isConnected) {
-        this.getOnOpenUrlPasteMenu()?.({ anchor, id: this.id });
+        this.getOnOpenUrlPasteMenu()?.({ anchor, id: this.id, view: this.view });
       }
     });
     return anchor;
+  }
+
+  override destroy(): void {
+    this.getOnOpenUrlPasteMenu()?.({ anchor: null, id: this.id, view: this.view });
   }
 
   override ignoreEvent(): boolean {

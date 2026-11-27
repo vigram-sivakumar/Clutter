@@ -15,7 +15,7 @@ import { UrlPasteAnchorWidget, type OnOpenUrlPasteMenu } from './UrlPasteAnchorW
  */
 function buildDecorations(getOnOpenUrlPasteMenu: () => OnOpenUrlPasteMenu | undefined, view: EditorView): DecorationSet {
   const ranges = getUrlPasteEntries(view.state).map((entry) =>
-    Decoration.widget({ widget: new UrlPasteAnchorWidget(entry.id, getOnOpenUrlPasteMenu), side: 1 }).range(entry.to)
+    Decoration.widget({ widget: new UrlPasteAnchorWidget(entry.id, view, getOnOpenUrlPasteMenu), side: 1 }).range(entry.to)
   );
   return Decoration.set(ranges.sort((a, b) => a.from - b.from));
 }

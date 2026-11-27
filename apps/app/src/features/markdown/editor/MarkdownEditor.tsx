@@ -809,12 +809,19 @@ export const MarkdownEditor = forwardRef<
   // `contentDOM` (not the transient anchor widget, which is removed the
   // instant a choice is made) so `Overlay`'s focus-restore returns focus
   // to the editor, not a detached node.
-  const [urlPasteMenu, setUrlPasteMenu] = useState<{ anchor: UrlPasteMenuAnchor; id: number } | null>(null);
+  const [urlPasteMenu, setUrlPasteMenu] = useState<{ anchor: UrlPasteMenuAnchor; id: number; view: EditorView } | null>(null);
   const urlPasteMenuReturnFocusRef = useRef<HTMLElement | null>(null);
 
-  const onOpenUrlPasteMenuRef = useRef<OnOpenUrlPasteMenu>(({ anchor, id }) => {
-    urlPasteMenuReturnFocusRef.current = viewRef.current?.contentDOM ?? null;
-    setUrlPasteMenu({ anchor: { current: anchor }, id });
+  const onOpenUrlPasteMenuRef = useRef<OnOpenUrlPasteMenu>(({ anchor, id, view }) => {
+    if (!anchor) {
+      setUrlPasteMenu(current => current?.id === id && current.view === view ? null : current);
+      if (urlPasteMenuReturnFocusRef.current === view.contentDOM) {
+        urlPasteMenuReturnFocusRef.current = viewRef.current?.contentDOM ?? null;
+      }
+      return;
+    }
+    urlPasteMenuReturnFocusRef.current = view.contentDOM;
+    setUrlPasteMenu({ anchor: { current: anchor }, id, view });
   });
 
   // "Markdown link" chosen — a single, ordinary, undo-eligible CM6
@@ -822,8 +829,8 @@ export const MarkdownEditor = forwardRef<
   // between the brackets so the user can type the title immediately.
   // Synchronous, no network, no async state of any kind.
   const handleChooseMarkdownLink = () => {
-    const view = viewRef.current;
-    if (urlPasteMenu && view) {
+    const view = urlPasteMenu?.view;
+    if (urlPasteMenu && view?.dom.isConnected) {
       const entry = findUrlPasteEntryById(view.state, urlPasteMenu.id);
       if (entry) {
         view.dispatch({
@@ -842,8 +849,8 @@ export const MarkdownEditor = forwardRef<
   // network. Distinct from plain dismissal below: this is a deliberate
   // choice that still edits the document.
   const handleChooseUrl = () => {
-    const view = viewRef.current;
-    if (urlPasteMenu && view) {
+    const view = urlPasteMenu?.view;
+    if (urlPasteMenu && view?.dom.isConnected) {
       const entry = findUrlPasteEntryById(view.state, urlPasteMenu.id);
       if (entry) {
         view.dispatch({
@@ -861,8 +868,8 @@ export const MarkdownEditor = forwardRef<
   // tracking entry is removed so the menu never reappears for this
   // occurrence.
   const handleDismissUrlPaste = () => {
-    const view = viewRef.current;
-    if (urlPasteMenu && view) {
+    const view = urlPasteMenu?.view;
+    if (urlPasteMenu && view?.dom.isConnected) {
       view.dispatch({ effects: clearUrlPasteEntry.of(urlPasteMenu.id) });
     }
     setUrlPasteMenu(null);

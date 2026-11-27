@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { history, undo, redo, undoDepth, redoDepth, historyKeymap } from '@codemirror/commands';
+import { history, undo, redo, undoDepth, redoDepth, historyKeymap, isolateHistory } from '@codemirror/commands';
 import { tableCellEditor } from '../table-engine/tableCellEditor';
 import { buildTableShortcutMarkdown, insertTableOnShortcutSpace } from '../enter/tableCreateSpaceShortcut';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange } from './tableHandleMenuSync';
@@ -15,6 +15,7 @@ import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion'
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { cspNonceExtension } from '../cspNonce';
 import { editorTheme } from '../editorTheme';
+import { clearUrlPasteEntry, getUrlPasteEntries } from '../link/urlPaste/urlPasteChoiceState';
 import { readDateFormatChoice, writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 
 vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: vi.fn() }));
@@ -612,6 +613,32 @@ describe('engine staged clipboard and root history (M7 candidate)', () => {
     key(view.plugin(tableCellEditor)!.nested!.contentDOM, 'Escape');
     key(host(view, 1, 1), 'ArrowLeft', true);
   };
+  it('tracks a pasted URL in the active cell and routes a menu choice through root history', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(host(view, 1, 0).parentElement!);
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 0, head: 3 } });
+    fire(nested.contentDOM, 'paste', { 'text/plain': 'https://example.com/path' });
+    const [entry] = getUrlPasteEntries(nested.state);
+    expect(entry).toMatchObject({ from: 0, to: 24, url: 'https://example.com/path' });
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', entry!.url));
+    const menu = document.createElement('div');
+    menu.className = 'cm-url-paste-menu';
+    document.body.appendChild(menu);
+    menu.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    expect(view.plugin(tableCellEditor)!.nested).toBe(nested);
+    menu.remove();
+    view.dispatch({ annotations: isolateHistory.of('full') });
+    nested.dispatch({ changes: { from: entry!.from, to: entry!.to, insert: `[](${entry!.url})` },
+      selection: { anchor: entry!.from + 1 }, effects: clearUrlPasteEntry.of(entry!.id) });
+    expect(getUrlPasteEntries(nested.state)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', '[](https://example.com/path)'));
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc.replace('Vik', 'https://example.com/path'));
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
   it('copies Markdown in three formats, cuts once and restores the reverse selection on undo/redo', () => {
     const source = doc.replace('Vik', '**Vik**');
     const view = mount(source, false);

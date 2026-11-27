@@ -6,6 +6,7 @@ import { history, undo, undoDepth } from '@codemirror/commands';
 
 import { markdownLanguageExtension } from '../../markdownLanguage';
 import { clearUrlPasteEntry, findUrlPasteEntryById, getUrlPasteEntries, urlPasteChoiceField } from './urlPasteChoiceState';
+import { UrlPasteAnchorWidget } from './UrlPasteAnchorWidget';
 
 function mountView(doc = ''): EditorView {
   const parent = document.createElement('div');
@@ -59,6 +60,19 @@ function chooseUrl(view: EditorView, id: number) {
 }
 
 describe('urlPasteChoiceField', () => {
+  it('closes an occurrence menu when its anchor is destroyed', async () => {
+    const view = mountView();
+    const anchors: Array<HTMLElement | null> = [];
+    const widget = new UrlPasteAnchorWidget(12, view, () => ({ anchor }) => anchors.push(anchor));
+    const anchor = widget.toDOM();
+    document.body.appendChild(anchor);
+    await Promise.resolve();
+    expect(anchors).toEqual([anchor]);
+    widget.destroy();
+    expect(anchors).toEqual([anchor, null]);
+    anchor.remove();
+    view.destroy();
+  });
   it('pasting a plain HTTPS URL creates a pending entry', () => {
     const view = mountView();
     paste(view, 'https://example.com/article');
