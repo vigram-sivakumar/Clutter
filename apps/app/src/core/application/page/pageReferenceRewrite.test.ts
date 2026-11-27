@@ -177,3 +177,29 @@ describe('rewriteHeadingReferences', () => {
     expect(rewrite('no refs')).toBe('no refs');
   });
 });
+
+describe('table WikiLink reference maintenance', () => {
+  const source = '| A | B |\n|---|---|\n| [[ Folder/Note # Heading \\|Display # text]] | other |';
+  it('rewrites only the note segment, retaining the exact alias transport and neighbour', () => {
+    expect(referencesTarget(source, 'Folder/Note')).toBe(true);
+    expect(rewriteReferenceTargets(source, 'Folder/Note', 'Folder/Renamed')).toBe(
+      source.replace('Folder/Note', 'Folder/Renamed')
+    );
+  });
+
+  it('rewrites only the heading, retaining its spaces and the transport slash', () => {
+    expect(rewriteHeadingReferences(source, 'Heading', 'New heading', target => target === 'Folder/Note')).toBe(
+      source.replace('Heading', 'New heading')
+    );
+  });
+
+  it('never mistakes a literal pipe target for an alias or rewrites matching alias text', () => {
+    const raw = '[[A' + String.fromCharCode(92).repeat(3) + '|B\\|A|B]]';
+    // Every pipe in table storage must be escaped, including in the label.
+    const safe = raw.replace(/A\|B\]\]$/, 'A\\|B]]');
+    const md = '| X | Y |\n|---|---|\n| ' + safe + ' | other |';
+    expect(referencesTarget(md, 'A')).toBe(false);
+    expect(referencesTarget(md, 'A|B')).toBe(true);
+    expect(rewriteReferenceTargets(md, 'A', 'Renamed')).toBe(md);
+  });
+});
