@@ -409,3 +409,32 @@ Next concrete user check: on tested runtime tree, type ordinary cell text and im
 ### Accepted checkpoint — tag/date completion (2026-11-27)
 
 Owner explicitly confirmed all requested native checks passed and authorised proceeding. This closes the remaining native gate for runtime tree tested at `43c203733b229391ec97515f3344137c1235494d` (17,763/17,763; 966/966; build/diff chain reached HEAD). Documentation-only HEAD before acceptance: `ed24420a0a564bbada7d03851717148fde183a3c`, confirmed remotely identical. Preserve this branch as the accepted baseline; next isolated candidate is table WikiLink transport/semantic parity. No main merge or release authorised. Record exact implementation and test evidence separately.
+
+## Resume checkpoint — WikiLink integration, insertion safety (2026-11-27)
+
+Active isolated branch: `testing/table-wikilink-transport`, created at accepted tag/date checkpoint `c07085b22dfb798e8547a49ae5c8100bff996016`. Owner approved moving on after all requested native checks passed. Previously verified runtime: `43c203733b229391ec97515f3344137c1235494d`, 17,763 tests/966 files. Main and development/table-editor still identical at `8c50bc48ae6633ccdcc573ccd9e434a60485313e`; accepted tag/date branch preserved.
+
+### First scoped implementation: accepted source before reference side effects
+
+Pre-implementation §1: post-migration UI/Features and DocumentEditing integration work. No new facade, persistence operation, specification-level API, state owner or write path. Existing `EditorView.dispatch`, root `createCellTransaction(...)`/validatedRootEdit, `serializeWikiLink(path, alias)` and injected suggestion.create() remain the boundaries; spec §§9,12 and ADR-034 apply. Ownership rules 1,2,5,6,7,12: source transactions remain in the root editor; page creation stays in its existing injected facade callback and all writes still flow through its Gate; no concrete application service import, independent child history, or parser duplication. Preserve exact cell span and existing cursor/selection behaviour, and all accepted assertions. No Vault Ingest, sync, persistence, domain model, CSS, popup, or grammar changes in this slice.
+
+Source audit found a concrete reachable defect: `createEditorView`'s live canEdit dispatch gate can drop a root transaction **after** state filters and table validation; the active cell controller previously updated its nested view anyway. This can violate raw source equality and would permit a future WikiLink create completion to run when the root never accepted its reference. Shared WikiLink completion also previously called create() unconditionally after dispatch; the pipe-accept path hand-built its spelling instead of using the canonical serializer.
+
+Candidate `687b9197605efc2086ce41d620e1533ac4ed2689`: require root acceptance before updating nested state, and check that its mapped span actually matches the proposed child text (close on superseding reconciliation); require the expected inserted document before create side effects; pipe acceptance uses existing serializer, positions caret in alias zone, and consumes a refused command without falling through to unescaped pipe typing. Added four regression cases: refused root cell edit followed by allowed edit/undo, refused create completion, refused pipe acceptance, and escaping a literal target pipe on the existing prose pipe-accept path. Three runtime files and three test files, diff scope verified. Expected 17,767 tests. All tests, build and native checks on this new candidate remain unexecuted; do not label them passed.
+
+### Validation
+
+From root:
+
+```sh
+git fetch origin
+git switch --track origin/testing/table-wikilink-transport
+npm run build --workspace=apps/app && npm exec --workspace=apps/app -- vitest run src/features/markdown/editor/codemirror/wikilink/wikiLinkCompletionSource.test.ts src/features/markdown/editor/codemirror/wikilink/wikiLinkAutocomplete.test.ts src/features/markdown/editor/codemirror/table/tableLiveWiring.test.ts
+npm run test:run && git diff --check && git rev-parse HEAD && git status --short
+```
+
+Native smoke: ordinary cell edits and undo/redo, tag/date completion, prose [[ completion with Enter and pipe, then applicable §7 scenarios. Verify that no new page is created after refused insertion (covered by the new focused cases; exercise a real permission transition where practical). Record results and accept exact runtime tree before advancing.
+
+### Next scope — transport, not yet implemented
+
+Keep the raw cell buffer and constant root offset invariant if feasible. Candidate transport design: an alias separator in logical WikiLink syntax is raw table storage backslash+pipe; literal pipes require an unambiguous additional escape layer (e.g. a run of n logical backslashes before a pipe encodes as 2n+1 raw backslashes). This is a **proposal to validate**, not an implemented or accepted grammar rule. Verify actual Lezer/GFM handling of odd backslash runs with round-trip tests, and verify engaged editing and selection behaviour before exposing it. Existing raw table `[[A\|B]]` can be ambiguous with a previously intended literal pipe under the old prose interpretation; do not silently migrate legacy notes or globally alter prose escape semantics. Resolve compatibility explicitly before production grammar change. The remaining next work is shared contextual scanner/serialization and raw-offset mapping, active editing concealment/input, static and clipboard rendering, indexing/reference rewriting/cache, completion provider enablement, then activation and final parity. No independent parser, no validation bypass and no cosmetic-only backslash hide. If a logical-buffer offset mapping is required instead, document and obtain the necessary ADR-034 amendment. No WikiLink table autocomplete/alias behaviour claimed in this slice.
