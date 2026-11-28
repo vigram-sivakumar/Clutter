@@ -2,53 +2,14 @@ import { foldable, foldedRanges, syntaxTree } from '@codemirror/language';
 import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { firstNonWhitespaceOffset, resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeIndentedParagraphFold } from './indentedParagraphFoldService';
-import { computeListItemFold } from './listItemFoldService';
 
-/**
- * **The single authoritative answer, for the entire editor, to "can this
- * line be folded, and if so, exactly what range does it own."** Every
- * fold-producing entry point in this codebase — the inline toggle's own
- * render pass and click handler (`foldToggleDecoration.ts`), Clutter's own
- * fold/unfold/fold-all keyboard commands (`foldSemanticsKeymap.ts`), and
- * the fold-preserving line-move command (`foldAwareMoveLineKeymap.ts`) —
- * calls `getFoldRange`/`isFoldable` here, never `@codemirror/language`'s
- * own `foldable()` directly and never a construct-specific service
- * function directly. This is what closes the gap a prior investigation
- * found: `foldService`'s own public contract has no way for a registered
- * service to say "and don't ask anyone else either" — returning `null`
- * only ever means "try the next one," which (for `ListItem`/`Task`)
- * eventually reaches `@codemirror/lang-markdown`'s generic native
- * `foldNodeProp` branch and its lazy-continuation-corrupted answer, no
- * matter how correct `listItemFoldService.ts`'s own registered service
- * is. A registered `foldService` cannot close that gap by itself — only
- * *never asking `foldable()` at all* for the constructs where the native
- * answer is untrustworthy can, which is what every call site in this
- * codebase now does by going through this module instead.
- *
- * **This module does not replace CM6's fold mechanics — it replaces only
- * the *range-computation* entry point.** `foldState` (the `StateField`),
- * `foldEffect`/`unfoldEffect` (the state effects that mutate it),
- * `RangeSet.map` (how existing folds survive document edits),
- * `EditorState.toJSON`/`fromJSON` (serialization) are all still exactly
- * CM6's own, completely unmodified — `codeFolding()` is still the one and
- * only extension that owns fold *state*. This module only ever answers
- * "what range would folding this line hide," the same question
- * `foldable()` answers, just with Clutter's own corrections applied
- * uniformly instead of registered as one-of-several competing
- * `foldService`s.
- *
- * **Delegates to native CM6 wherever native semantics are already
- * correct** — headings and fenced code are never recomputed here; their
- * boundaries are delimiter/name-based, structurally immune to CommonMark
- * lazy continuation, so `foldable()` (gated by `isInScopeFoldOwner`, the
- * same allowlist this module always applied) remains the source of
- * truth for exactly those two constructs. Only `Paragraph` and
- * `ListItem`/`Task` — the two node shapes lazy continuation can corrupt —
- * are ever recomputed, by the same two Clutter-authored algorithms this
- * codebase already established (`computeIndentedParagraphFold`,
- * `computeListItemFold`), unchanged by this refactor.
+/** The single authoritative fold eligibility and range policy for toggle and keyboard commands.
+ * CM6 still owns fold state and effects. List/task markers and their list-owned
+ * continuation paragraphs are explicitly ineligible; native foldable() must
+ * not be asked for them because its generic ListItem fallback can fold them.
+ * Standalone indented paragraphs, headings and fenced code retain their rules.
  */
 
 /** A fold's `[from, to)` span — deliberately the same plain shape `@codemirror/language`'s own `foldable()`/`findFold` return, so every caller here is a drop-in replacement for the native call it used to make. */
@@ -115,22 +76,25 @@ export function resolveHeadingFoldClass(state: EditorState, linePos: number): st
   return ownerNodeName ? HEADING_FOLD_CLASS_BY_NODE_NAME.get(ownerNodeName) ?? null : null;
 }
 
-/**
- * **The authority's own core function.** For `kind: 'paragraph'`/`'list'`
- * lines, calls the corresponding Clutter-authored algorithm directly,
- * *never* consulting `foldable()` at all for those two kinds — this is
- * what makes the answer authoritative rather than merely "tried first."
- * For every other kind (heading/fenced-code/anything else),
- * `isInScopeFoldOwner` gates a call to the native `foldable()`, which is
- * correct and sufficient there (see this module's own top doc comment).
+/** Identifies retired list fold owners, including list-owned continuation rows.
+ * Probe the first content character so nested markers are not missed.
+ * A heading or fenced-code owner inside a list retains its own fold semantics.
  */
+export function isListFoldOwner(state: EditorState, line: Line): boolean {
+  if (resolveLineIndentContext(state, line).kind === 'list') {
+    return true;
+  }
+  return resolveFoldOwnerNodeName(state, line.from + firstNonWhitespaceOffset(line.text)) === 'ListItem';
+}
+
+/** The sole eligibility gate: no native fallback for retired list folds. */
 export function getFoldRange(state: EditorState, line: Line): FoldRange | null {
+  if (isListFoldOwner(state, line)) {
+    return null;
+  }
   const context = resolveLineIndentContext(state, line);
   if (context.kind === 'paragraph') {
     return computeIndentedParagraphFold(state, line);
-  }
-  if (context.kind === 'list') {
-    return computeListItemFold(state, line);
   }
   return isInScopeFoldOwner(state, line.from) ? foldable(state, line.from, line.to) : null;
 }
