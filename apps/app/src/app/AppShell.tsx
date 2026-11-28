@@ -8,7 +8,6 @@ import {
   Application,
   type SpaceProfileChange,
 } from '../core/application/Application';
-import { readLaunchSidebarTab } from '../features/settings/sidebar-setting/defaultSidebarTab';
 import { readStartupBehavior } from '../features/settings/startup-setting/startupPreference';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 import { markdownForTableSave } from '../features/markdown/editor/codemirror/table-engine/tableSavePolicy';
@@ -619,7 +618,6 @@ function AppShellContent() {
       try {
         await prepared.open({
           startup: readStartupBehavior(),
-          sidebarTab: readLaunchSidebarTab(),
         });
       } catch (openError) {
         await discardApplication(prepared);
@@ -630,7 +628,6 @@ function AppShellContent() {
             restored.workspace.setSidebarVisible(sidebarVisible);
           await restored.open({
             startup: readStartupBehavior(),
-            sidebarTab: readLaunchSidebarTab(),
           });
           applicationRef.current = restored;
           setApplication(restored);
