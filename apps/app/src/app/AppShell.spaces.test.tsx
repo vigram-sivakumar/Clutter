@@ -342,6 +342,20 @@ afterEach(() => {
 const OPENING = 'Opening Clutter…';
 
 describe('AppShell: startup', () => {
+  it.each(['todays-note', 'last-opened-note'])('ignores retired sidebar keys but passes the startup note strategy %s', async (startup) => {
+    const root = '/Users/me/Active';
+    tauri.isTauri = true;
+    seed([root], root);
+    localStorage.setItem('clutter-default-sidebar-tab', 'tasks');
+    localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
+    localStorage.setItem('clutter-startup-behavior', startup);
+    render(<ToastProvider><AppShell /></ToastProvider>);
+    await screen.findByTestId('open-root');
+    expect(created[0]!.open).toHaveBeenCalledWith({ startup });
+    expect(localStorage.getItem('clutter-default-sidebar-tab')).toBe('tasks');
+    expect(localStorage.getItem('clutter-use-last-sidebar-tab')).toBe('false');
+  });
+
   it('prepares an inactive Space’s image access before publishing its avatar, without opening it', async () => {
     tauri.isTauri = true;
     seed(['/Users/me/Active', '/Users/me/Other'], '/Users/me/Active');
