@@ -61,17 +61,12 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeTruthy();
   });
 
-  it('protects, arms, then deletes from non-empty text without merging or losing it', () => {
+  it('arms on the first press and deletes on the second from non-empty text without merging or losing it', () => {
     const doc = TABLE + '\nSomething else.';
     const start = TABLE.length + 1;
     const { view, controller } = mountRootView(doc, start, [history(), keymap.of(defaultKeymap)]);
     const painted = () => view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]');
-    dispatchKey(view, 'Backspace');
-    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
     expect(painted()).toBeNull();
-    expect(view.state.doc.toString()).toBe(doc);
-    expect(view.state.selection.main.head).toBe(start);
-    expect(undoDepth(view.state)).toBe(0);
     dispatchKey(view, 'Backspace');
     expect(view.state.field(tableDeletionSelectionField)).toBe(0);
     expect(painted()).not.toBeNull();
@@ -93,22 +88,19 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
     expect(view.state.doc.toString()).toBe('\nSomething else.');
   });
 
-  it('cancels either pending phase on Escape and restarts at the protected boundary', () => {
+  it('cancels deletion arming on Escape or caret movement, then preserves ordinary character deletion', () => {
     const doc = TABLE + '\nSomething else.';
     const start = TABLE.length + 1;
     const { view } = mountRootView(doc, start, [history(), keymap.of(defaultKeymap)]);
-    dispatchKey(view, 'Backspace');
-    dispatchKey(view, 'Escape');
-    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
-    dispatchKey(view, 'Backspace');
-    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
     dispatchKey(view, 'Backspace');
     expect(view.state.field(tableDeletionSelectionField)).toBe(0);
     dispatchKey(view, 'Escape');
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
     expect(view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]')).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
     dispatchKey(view, 'Backspace');
-    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
+    expect(view.state.field(tableDeletionSelectionField)).toBe(0);
     view.dispatch({ selection: { anchor: start + 1 } });
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
     dispatchKey(view, 'Backspace');
@@ -138,7 +130,7 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
     expect(painted()).toBeNull();
   });
 
-  it('does nothing when the line below the table is not blank', () => {
+  it('does not arm deletion away from the immediately adjacent line start', () => {
     const doc = `${TABLE}\n\nSomething else.`;
     const { view } = mountRootView(doc, doc.length);
 
