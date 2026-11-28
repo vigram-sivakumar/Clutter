@@ -23,7 +23,7 @@ export const SIDEBAR_TABS = ['notes', 'daily-notes', 'tasks', 'tags'] as const;
 export type SidebarTab = (typeof SIDEBAR_TABS)[number];
 
 /**
- * Search was once a sidebar tab, so a saved session or a saved "default tab" can still name it. It is an overlay now
+ * Search was once a sidebar tab, so a saved session can still name it. It is an overlay now
  * (ADR-061), never a view the sidebar can rest on: whatever persisted `'search'` restores to Notes.
  */
 export const LEGACY_SEARCH_TAB = 'search';
