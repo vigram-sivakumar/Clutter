@@ -2987,3 +2987,78 @@ describe('table cell presentation foundation', () => {
     }
   });
 });
+
+describe('leading table separator — root caret focus', () => {
+  const separator = (view: EditorView) => view.dom.querySelector<HTMLElement>('.cm-block-separator[data-table-from="0"]');
+  const click = (el: HTMLElement, button = 0) => el.dispatchEvent(new MouseEvent('mousedown', {
+    button, bubbles: true, cancelable: true,
+  }));
+
+  it('focuses the new real root line from outside the editor and records one undoable insertion', async () => {
+    const view = mount(TABLE, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    try {
+      outside.focus();
+      expect(document.activeElement).toBe(outside);
+      const depth = undoDepth(view.state);
+      click(separator(view)!);
+      await Promise.resolve(); // existing deferred root-focus repair
+      expect(view.state.doc.toString()).toBe('\n' + TABLE);
+      expect(view.state.selection.main.empty).toBe(true);
+      expect(view.state.selection.main.head).toBe(0);
+      expect(view.state.doc.lineAt(view.state.selection.main.head).text).toBe('');
+      expect(document.activeElement).toBe(view.contentDOM);
+      expect(view.hasFocus).toBe(true);
+      expect(view.plugin(tableCellEditor)!.nested).toBeNull();
+      expect(separator(view)).toBeNull();
+      expect(undoDepth(view.state)).toBe(depth + 1);
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(TABLE);
+      expect(redo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('\n' + TABLE);
+    } finally {
+      outside.remove();
+    }
+  });
+
+  it('transfers focus from the active cell to the new root line, without leaving a nested editor', async () => {
+    const view = mount(TABLE, false);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    expect(document.activeElement).toBe(controller.nested!.contentDOM);
+    click(separator(view)!);
+    await Promise.resolve();
+    expect(controller.nested).toBeNull();
+    expect(document.activeElement).toBe(view.contentDOM);
+    expect(view.state.selection.main.head).toBe(0);
+    expect(view.state.doc.toString()).toBe('\n' + TABLE);
+    view.dispatch(view.state.replaceSelection('Above.'));
+    expect(view.state.doc.toString()).toBe('Above.\n' + TABLE);
+    expect(view.dom.querySelector('.cm-table-widget')).not.toBeNull();
+  });
+
+  it('does not insert or steal focus on a refused root edit', () => {
+    const view = mount(TABLE, false, undefined, {}, () => false);
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    try {
+      outside.focus();
+      click(separator(view)!);
+      expect(view.state.doc.toString()).toBe(TABLE);
+      expect(document.activeElement).toBe(outside);
+    } finally {
+      outside.remove();
+    }
+  });
+
+  it('ignores non-primary clicks and omits the affordance in read-only views', () => {
+    const view = mount(TABLE, false);
+    click(separator(view)!, 2);
+    expect(view.state.doc.toString()).toBe(TABLE);
+    const readOnlyView = mount(TABLE, true);
+    expect(separator(readOnlyView)).toBeNull();
+    expect(readOnlyView.state.doc.toString()).toBe(TABLE);
+  });
+});
