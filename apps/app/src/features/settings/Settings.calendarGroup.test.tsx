@@ -99,3 +99,17 @@ describe('Settings — buttons have no leading icon', () => {
     }
   });
 });
+
+
+describe('Settings → Preferences → Startup', () => {
+  it('keeps launch at login and open-on-launch but removes the fixed sidebar tab setting', () => {
+    localStorage.setItem('clutter-default-sidebar-tab', 'tasks');
+    localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
+    render(<Settings />);
+    const group = screen.getByText('Startup', { selector: '.settings-group__title' }).closest('.settings-group')!;
+    const titles = Array.from(group.querySelectorAll('.settings-entry__title')).map(el => el.textContent);
+    expect(titles).toEqual(['Launch at login', 'Open on launch']);
+    expect(screen.queryByRole('button', { name: /^Default tab:/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Open on launch:/ })).toBeInTheDocument();
+  });
+});
