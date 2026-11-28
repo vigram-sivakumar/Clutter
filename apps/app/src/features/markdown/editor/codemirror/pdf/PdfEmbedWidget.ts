@@ -21,7 +21,7 @@ import { renderPdfPage, type RenderPdfPageHandle } from '@features/pdf/pdfPageRe
 import { getAvailableViewerWidth } from '@features/pdf/pdfFitWidth';
 import { computeFitScale } from '@features/pdf/pdfZoom';
 
-import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
+import { removeEmbed } from '../mediaPresentation/embedRemovalRange';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
@@ -279,8 +279,7 @@ export class PdfEmbedWidget extends WidgetType {
       source: this.path,
       removeLabel: 'Remove embed',
       onRemove: () => {
-        const { from, to } = computeEmbedRemovalRange(view.state, this.pos);
-        view.dispatch({ changes: { from, to, insert: '' } });
+        removeEmbed(view, this.pos);
       },
       editLabel: this.ui.revealed ? 'Hide source' : 'Edit source',
       onEdit: () => {

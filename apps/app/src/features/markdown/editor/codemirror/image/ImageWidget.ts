@@ -3,7 +3,7 @@ import { EditorSelection, type EditorState } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
 import './ImageWidget.css';
-import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
+import { removeEmbed } from '../mediaPresentation/embedRemovalRange';
 import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
 import {
   findEnclosingImageNode,
@@ -718,8 +718,7 @@ export class ImageWidget extends WidgetType {
       source: this.copyUrl ?? this.url,
       removeLabel: 'Remove image',
       onRemove: () => {
-        const { from, to } = computeEmbedRemovalRange(view.state, this.pos);
-        view.dispatch({ changes: { from, to, insert: '' } });
+        removeEmbed(view, this.pos);
       },
       editLabel: this.ui.revealed ? 'Hide source' : 'Edit source',
       onEdit: () => {

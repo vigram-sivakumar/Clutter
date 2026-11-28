@@ -14,7 +14,7 @@ import {
   EDIT_ICON,
   renderInvalidEmbedCard,
 } from '../mediaPresentation/invalidEmbedCard';
-import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
+import { removeEmbed } from '../mediaPresentation/embedRemovalRange';
 import { PAGE_IDENTITY_ICON_BY_KIND } from '../mediaPresentation/pageIdentityIcons';
 import type { PageEmbedResolution } from '../../../render/blocks/pageEmbedResolution';
 
@@ -715,8 +715,7 @@ export class NoteEmbedWidget extends WidgetType {
       source: this.path,
       removeLabel: 'Remove embed',
       onRemove: () => {
-        const { from, to } = computeEmbedRemovalRange(view.state, this.pos);
-        view.dispatch({ changes: { from, to, insert: '' } });
+        removeEmbed(view, this.pos);
       },
       editLabel: this.ui.revealed ? 'Hide source' : 'Edit source',
       onEdit: () => {

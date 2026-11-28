@@ -1,4 +1,5 @@
 import type { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 
 /**
  * Computes the exact `[from, to)` range to delete for "Remove" on an
@@ -123,4 +124,10 @@ export function computeEmbedRemovalRange(state: EditorState, nodeFrom: number): 
 /** A line's own end position, extended by one to also consume its trailing `\n` when it isn't the document's last line. */
 function lineEndInclusive(state: EditorState, line: { number: number; to: number }): number {
   return line.number < state.doc.lines ? line.to + 1 : line.to;
+}
+
+/** The common Remove action: one document edit, never a source-file operation. */
+export function removeEmbed(view: EditorView, nodeFrom: number): void {
+  const { from, to } = computeEmbedRemovalRange(view.state, nodeFrom);
+  view.dispatch({ changes: { from, to, insert: '' } });
 }

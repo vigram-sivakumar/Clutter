@@ -3,7 +3,7 @@ import { EditorSelection } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
-import { computeEmbedRemovalRange } from './embedRemovalRange';
+import { removeEmbed } from './embedRemovalRange';
 import { renderInvalidEmbedCard } from './invalidEmbedCard';
 import { selectEmbedObject } from '../embed/embedObjectSelection';
 
@@ -74,8 +74,7 @@ export class UnknownEmbedWidget extends WidgetType {
       source: this.path,
       removeLabel: 'Remove embed',
       onRemove: () => {
-        const { from, to } = computeEmbedRemovalRange(view.state, this.pos);
-        view.dispatch({ changes: { from, to, insert: '' } });
+        removeEmbed(view, this.pos);
       },
       editLabel: this.ui.revealed ? 'Hide source' : 'Edit source',
       onEdit: () => {

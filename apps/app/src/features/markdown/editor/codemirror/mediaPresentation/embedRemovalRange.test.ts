@@ -1,7 +1,10 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { EditorView } from '@codemirror/view';
+import { history, undo } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 
-import { computeEmbedRemovalRange } from './embedRemovalRange';
+import { computeEmbedRemovalRange, removeEmbed } from './embedRemovalRange';
 
 const IMAGE_MD = '![Mountain view](https://example.com/mountain.jpg)';
 
@@ -78,4 +81,22 @@ describe('computeEmbedRemovalRange', () => {
     const result = state.doc.toString().slice(0, from) + state.doc.toString().slice(to);
     expect(result).toBe('Before');
   });
+});
+
+describe('removeEmbed — shared document action', () => {
+  it.each([IMAGE_MD, '![[photo.png]]', '![[document.pdf]]', '![[Note]]', '![[unknown.zip]]'])(
+    'removes %s in one undoable edit without changing neighbouring paragraphs',
+    (source) => {
+      const doc = `Before\n\n${source}\n\nAfter`;
+      const view = new EditorView({ state: EditorState.create({ doc, extensions: [history()] }) });
+      try {
+        removeEmbed(view, doc.indexOf(source));
+        expect(view.state.doc.toString()).toBe('Before\n\nAfter');
+        expect(undo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(doc);
+      } finally {
+        view.destroy();
+      }
+    }
+  );
 });

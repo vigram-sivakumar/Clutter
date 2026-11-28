@@ -33,7 +33,7 @@ import { attachTableOutsideClickHandling } from './codemirror/table/tableOutside
 import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange, type TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
-import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
+import { removeEmbed } from './codemirror/mediaPresentation/embedRemovalRange';
 import { setRevealHighlight } from './codemirror/highlight/editorRevealHighlight';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
@@ -163,6 +163,15 @@ function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
     node = node.parentElement;
   }
   return null;
+}
+
+/** Keep the widget-owned DOM anchor stable while its React menu is open. */
+function setMediaMenuButtonOpen(button: HTMLElement, open: boolean, containerSelector?: string): void {
+  button.classList.toggle('cm-media-control--active', open);
+  button.setAttribute('aria-expanded', String(open));
+  if (containerSelector) {
+    button.closest(containerSelector)?.setAttribute('data-menu-open', String(open));
+  }
 }
 
 /**
@@ -489,11 +498,7 @@ export const MarkdownEditor = forwardRef<
    * decoration diffing looks at, so the button's identity — and therefore
    * `Overlay`'s anchor — is untouched by opening or closing this menu.
    */
-  function setImageMenuButtonOpen(button: HTMLElement, open: boolean) {
-    button.classList.toggle('cm-media-control--active', open);
-    button.setAttribute('aria-expanded', String(open));
-    button.closest('.cm-image-container')?.setAttribute('data-menu-open', String(open));
-  }
+
 
   const onOpenImageMenuRef = useRef<OnOpenImageMenu>(({ anchor, pos, to, alt, url, copyUrl }) => {
     // Clicking the size button for the image whose menu is already open
@@ -502,10 +507,10 @@ export const MarkdownEditor = forwardRef<
     setImageMenu((current) => {
       const closingSame = current !== null && current.pos === pos;
       if (current) {
-        setImageMenuButtonOpen(current.anchor.current, false);
+        setMediaMenuButtonOpen(current.anchor.current, false, '.cm-image-container');
       }
       if (!closingSame) {
-        setImageMenuButtonOpen(anchor, true);
+        setMediaMenuButtonOpen(anchor, true, '.cm-image-container');
       }
       return closingSame ? null : { anchor: { current: anchor }, pos, to, alt, url, copyUrl };
     });
@@ -513,7 +518,7 @@ export const MarkdownEditor = forwardRef<
 
   const closeImageMenu = () => {
     if (imageMenu) {
-      setImageMenuButtonOpen(imageMenu.anchor.current, false);
+      setMediaMenuButtonOpen(imageMenu.anchor.current, false, '.cm-image-container');
     }
     setImageMenu(null);
   };
@@ -529,19 +534,16 @@ export const MarkdownEditor = forwardRef<
     to: number;
   } | null>(null);
 
-  function setPdfMenuButtonOpen(button: HTMLElement, open: boolean) {
-    button.classList.toggle('cm-media-control--active', open);
-    button.setAttribute('aria-expanded', String(open));
-  }
+
 
   const onOpenPdfMenuRef = useRef<OnOpenPdfMenu>(({ anchor, resourceId, pos, to }) => {
     setPdfMenu((current) => {
       const closingSame = current !== null && current.anchor.current === anchor;
       if (current) {
-        setPdfMenuButtonOpen(current.anchor.current, false);
+        setMediaMenuButtonOpen(current.anchor.current, false);
       }
       if (!closingSame) {
-        setPdfMenuButtonOpen(anchor, true);
+        setMediaMenuButtonOpen(anchor, true);
       }
       return closingSame ? null : { anchor: { current: anchor }, resourceId, pos, to };
     });
@@ -549,7 +551,7 @@ export const MarkdownEditor = forwardRef<
 
   const closePdfMenu = () => {
     if (pdfMenu) {
-      setPdfMenuButtonOpen(pdfMenu.anchor.current, false);
+      setMediaMenuButtonOpen(pdfMenu.anchor.current, false);
     }
     setPdfMenu(null);
   };
@@ -563,8 +565,7 @@ export const MarkdownEditor = forwardRef<
     if (!pdfMenu || !view) {
       return;
     }
-    const { from, to } = computeEmbedRemovalRange(view.state, pdfMenu.pos);
-    view.dispatch({ changes: { from, to, insert: '' } });
+    removeEmbed(view, pdfMenu.pos);
   };
 
   const handleDownloadPdfResource = () => {
@@ -584,25 +585,15 @@ export const MarkdownEditor = forwardRef<
     to: number;
   } | null>(null);
 
-  function setNoteEmbedMenuButtonOpen(button: HTMLElement, open: boolean) {
-    button.classList.toggle('cm-media-control--active', open);
-    button.setAttribute('aria-expanded', String(open));
-    // Same `[data-menu-open]` mechanism as `setImageMenuButtonOpen` above —
-    // keeps `.cm-note-embed__controls` visible for the duration the menu is
-    // open, since `NoteEmbedMoreActions`'s `Overlay` is a portal outside
-    // `.cm-note-embed`'s own DOM subtree, so `:focus-within` alone doesn't
-    // survive focus moving into it.
-    button.closest('.cm-note-embed')?.setAttribute('data-menu-open', String(open));
-  }
 
   const onOpenNoteEmbedMenuRef = useRef<OnOpenNoteEmbedMenu>(({ anchor, pos, to }) => {
     setNoteEmbedMenu((current) => {
       const closingSame = current !== null && current.anchor.current === anchor;
       if (current) {
-        setNoteEmbedMenuButtonOpen(current.anchor.current, false);
+        setMediaMenuButtonOpen(current.anchor.current, false, '.cm-note-embed');
       }
       if (!closingSame) {
-        setNoteEmbedMenuButtonOpen(anchor, true);
+        setMediaMenuButtonOpen(anchor, true, '.cm-note-embed');
       }
       return closingSame ? null : { anchor: { current: anchor }, pos, to };
     });
@@ -610,7 +601,7 @@ export const MarkdownEditor = forwardRef<
 
   const closeNoteEmbedMenu = () => {
     if (noteEmbedMenu) {
-      setNoteEmbedMenuButtonOpen(noteEmbedMenu.anchor.current, false);
+      setMediaMenuButtonOpen(noteEmbedMenu.anchor.current, false, '.cm-note-embed');
     }
     setNoteEmbedMenu(null);
   };
@@ -635,8 +626,7 @@ export const MarkdownEditor = forwardRef<
     if (!noteEmbedMenu || !view) {
       return;
     }
-    const { from, to } = computeEmbedRemovalRange(view.state, noteEmbedMenu.pos);
-    view.dispatch({ changes: { from, to, insert: '' } });
+    removeEmbed(view, noteEmbedMenu.pos);
   };
 
   // A row/column handle's own floating menu (Clear contents / Insert /
@@ -757,8 +747,7 @@ export const MarkdownEditor = forwardRef<
   function setFencedCodeMenuButtonOpen(view: EditorView, fencedCodeFrom: number, open: boolean) {
     const line = resolveFencedCodeOpeningLine(view, fencedCodeFrom);
     const actionsButton = line?.querySelector<HTMLElement>('.cm-code-block-actions');
-    actionsButton?.classList.toggle('cm-media-control--active', open);
-    actionsButton?.setAttribute('aria-expanded', String(open));
+    if (actionsButton) setMediaMenuButtonOpen(actionsButton, open);
     // Keeps Copy visible too (not just Actions) for the duration the menu
     // is open — Copy/Actions are both hidden by default now (shared-hover
     // reveal, see `MarkdownEditor.css`'s own doc comment), and
@@ -1169,8 +1158,7 @@ export const MarkdownEditor = forwardRef<
     if (!imageMenu || !view) {
       return;
     }
-    const { from, to } = computeEmbedRemovalRange(view.state, imageMenu.pos);
-    view.dispatch({ changes: { from, to, insert: '' } });
+    removeEmbed(view, imageMenu.pos);
   };
 
   // Same freshness pattern as resolveWikiLinkRef above, for Tag's decoration/mouse/keymap accessor.
