@@ -203,40 +203,60 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
   const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
     .map(cell => (cell as HTMLElement).dataset.cell);
 
-  it('derives the active outline target from the mounted editor across mouse, keys and selection', () => {
+  it('reuses the same outline and grid geometry for editing and explicit selection', () => {
     const view = mount(doc, false);
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     const controller = view.plugin(tableCellEditor)!;
-    // Match the stylesheet target, not a second controller flag.
-    const outlined = (root: EditorView) => Array.from(root.dom.querySelectorAll(
-      '.cm-editor .cm-table-widget[data-table-engine-cells="true"] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor)'))
-      .map(cell => cell.querySelector('.cm-table-cell-wrapper')?.getAttribute('data-cell'));
-    expect(outlined(view)).toEqual([]);
+    const scroll = view.dom.querySelector<HTMLElement>('.cm-table-scroll')!;
+    const overlay = scroll.querySelector<HTMLElement>('.cm-table-selection-overlay')!;
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height } as DOMRect);
+    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(rect(20, 30, 400, 100));
+    const cells = view.dom.querySelectorAll('th,td');
+    for (let i = 0; i < cells.length; i++) vi.spyOn(cells[i]!, 'getBoundingClientRect')
+      .mockReturnValue(rect(20 + (i % 2) * 100, 30 + Math.floor(i / 2) * 36, 100, 36));
+    const visible = () => overlay.classList.contains('cm-table-selection-overlay-visible');
+    const assertOutline = (row: number, col: number) => {
+      expect(scroll.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+      expect(scroll.querySelector('.cm-table-selection-overlay')).toBe(overlay);
+      expect(visible()).toBe(true);
+      expect(overlay.style.left).toBe((col * 100 - 1) + 'px');
+      expect(overlay.style.top).toBe((row * 36 - 1) + 'px');
+      expect(overlay.style.width).toBe('102px');
+      expect(overlay.style.height).toBe('38px');
+    };
+    const editing = (row: number, col: number) => {
+      assertOutline(row, col);
+      expect(selected(view)).toEqual([]);
+      expect(controller.nested!.dom.parentElement).toBe(host(view, row, col));
+      expect(document.activeElement).toBe(controller.nested!.contentDOM);
+    };
+    expect(visible()).toBe(false);
     clickCell(findCell(view, 'Name'));
-    expect(outlined(view)).toEqual(['0,0']);
+    editing(0, 0);
     key(controller.nested!.contentDOM, 'Tab');
-    expect(outlined(view)).toEqual(['0,1']);
+    editing(0, 1);
     key(controller.nested!.contentDOM, 'Enter');
-    expect(outlined(view)).toEqual(['1,1']);
+    editing(1, 1);
     key(controller.nested!.contentDOM, 'Tab', true);
-    expect(outlined(view)).toEqual(['1,0']);
+    editing(1, 0);
     key(controller.nested!.contentDOM, 'ArrowRight');
-    expect(outlined(view)).toEqual(['1,1']);
+    editing(1, 1);
     key(controller.nested!.contentDOM, 'Escape');
-    expect(outlined(view)).toEqual([]);
+    expect(controller.nested).toBeNull();
     expect(selected(view)).toEqual(['1,1']);
+    assertOutline(1, 1);
     key(host(view, 1, 1), 'F2');
-    expect(outlined(view)).toEqual(['1,1']);
-    expect(selected(view)).toEqual([]);
+    editing(1, 1);
     clickCell(findCell(view, 'Role'));
-    expect(outlined(view)).toEqual(['0,1']);
+    editing(0, 1);
     document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-    expect(outlined(view)).toEqual([]);
+    expect(visible()).toBe(false);
     expect(view.state.doc.toString()).toBe(doc);
     expect(undoDepth(view.state)).toBe(0);
     const readonly = mount(doc, true);
     clickCell(findCell(readonly, 'Designer'));
-    expect(outlined(readonly)).toEqual([]);
+    expect(readonly.dom.querySelector('.cm-table-selection-overlay')).toBeNull();
   });
 
   it('Tab and Shift-Tab edit successive cells at the end, wrap rows, and retain Escape/F2 selection', () => {

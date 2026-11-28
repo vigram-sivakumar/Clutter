@@ -128,11 +128,13 @@ describe('automatic table sizing stylesheet', () => {
     expect(svg).not.toContain('stroke-width');
   });
 
-  it('paints the active editing cell with an inset accent outline and no layout changes', () => {
-    const active = rule('.cm-editor .cm-table-widget[data-table-engine-cells="true"] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor)');
-    expect(active).toContain('outline: 2px solid var(--border-focus)');
-    expect(active).toContain('outline-offset: -2px');
-    expect(active).not.toMatch(/;\s*(?:border|padding|margin|width|height|position|background|pointer-events)\s*:/);
+  it('shares the existing non-interactive selection overlay styling rather than a second cell outline', () => {
+    const overlay = readFileSync(join(__dirname, 'tableSelectionOverlay.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(overlay).toMatch(/\.cm-table-selection-overlay\s*\{[^}]*position: absolute;/);
+    expect(overlay).toMatch(/\.cm-table-selection-overlay\s*\{[^}]*border: 2px solid var\(--border-focus\);/);
+    expect(overlay).toMatch(/\.cm-table-selection-overlay\s*\{[^}]*pointer-events: none;/);
+    expect(css).not.toContain(':has(> .cm-table-cell-wrapper > .cm-editor)');
   });
 
   it('retains bounded cell widths and wrapping', () => {

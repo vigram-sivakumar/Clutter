@@ -277,7 +277,14 @@ export class TableCellEditor {
     widget.firstElementChild?.classList.toggle('cm-table-wrapper-selected',
       full || (widget.dataset.tableRootSelected === 'true' &&
       !(this.interactionTable === from && this.interaction.kind !== 'none')));
-    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: bounds }));
+    // Editing has a caret, not a structural selection. Reuse the same
+    // outline paint instruction without changing selection bounds or classes.
+    const editingCell = this.interactionTable === from && this.interaction.kind === 'editing'
+      ? this.interaction.cell : null;
+    const outlineBounds = editingCell
+      ? { top: editingCell.row, bottom: editingCell.row, left: editingCell.col, right: editingCell.col }
+      : bounds;
+    widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: outlineBounds }));
   }
 
   private paintSelection(): void {
