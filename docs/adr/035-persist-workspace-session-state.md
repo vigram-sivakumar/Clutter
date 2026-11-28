@@ -31,7 +31,7 @@ The state this ADR concerns has no persistence owner:
 
 | State | Runtime owner today |
 |---|---|
-| Active sidebar tab | `Workspace._activeSidebarTab` (default `'daily-notes'`) |
+| Active sidebar tab | `Workspace._activeSidebarTab` (default `'notes'`) |
 | Active view | `Workspace._activeView` (`ActiveView` union) |
 | Sidebar visibility | `Workspace._isSidebarVisible` |
 | Notes folder expansion | `Workspace.expandedFolderIds` (stores *expanded* ids; default collapsed — see the amendment at the end) |
@@ -117,7 +117,7 @@ One new top-level key in `.clutter/workspace.json`, alongside the existing ones:
 
 | Case | Behavior |
 |---|---|
-| Unknown or malformed `activeSidebarTab` | Use `Workspace`'s existing default (`'daily-notes'`). Valid values are the sidebar's actual tab set. |
+| Unknown or malformed `activeSidebarTab` | Use `Workspace`'s existing default (`'notes'`). Valid values are the sidebar's actual tab set. |
 | `activeView.type === 'page'` whose id is not a current `Vault` page | Discard; use the existing fallback (§7). |
 | `activeView.type === 'folder'` whose id is not a current `Vault` folder | Discard; use the existing fallback. |
 | `activeView.type === 'filtered-view'` with an unknown `kind`, or `kind: 'tag'` whose tag no longer exists | Discard; use the existing fallback. |
@@ -221,3 +221,8 @@ Verification: unit tests for the write queue (shown to fail without it), `TagExp
 ## Amendment: folders start collapsed
 
 Notes folders now start collapsed instead of expanded. `Workspace` stores the folders the user has *expanded* (`expandedFolderIds`, with `expandedFolders` replacing `collapsedFolders`), and the persisted key `sidebar.notes.collapsedFolderIds` is now `sidebar.notes.expandedFolderIds`. The schema version is unchanged: a session saved under the old key simply has no expanded folders, so every folder opens collapsed once, and the next write stores the new key. Sidebar sections keep their expanded-by-default behavior (`collapsedSections` is unchanged).
+
+
+## Amendment (2026-11-28): retire fixed sidebar startup preference
+
+Owner approved removing the Default tab dropdown and both app-wide startup-tab keys. The selected sidebar section is remembered navigation, not a separate preference. Every Application.open restores the valid tab already seeded by WorkspaceSessionStore (Notes for absent, invalid or legacy Search values), independently of the retained startup note/view preference. Space switches and rollback use the same existing session restoration path. Remove the optional sidebarTab startup override; Workspace and workspaceSession schema/ownership stay unchanged. Previously stored fixed choices no longer influence startup; old keys are ignored on upgrade and discarded by explicit Reset settings. No new boot migration, storage owner or write path. ADR-073's proposed window-specific navigation model remains future work, without a global default-tab preference.
