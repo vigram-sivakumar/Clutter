@@ -25,3 +25,7 @@ At 061aab57 the shared note-pencil.svg contains the supplied outline and diagona
 ## Superseding icon revision
 
 Owner supplied two outlined paths replacing the previous diagonal and dot. Candidate 6b0a8f79d28f31e422c035a5915065d5e87e0266 preserves both exact path geometries, viewBox and round caps, with currentColor and the existing AppIcon 1.2px default stroke/size policy instead of hardcoded colour or per-path stroke widths. Migrated the previous icon test to assert both new paths, theme stroke and absence of the retired circle. Diff limited to the shared SVG and icon regression test plus this ledger. Main unchanged at bb181321; no new architectural surface. Targeted icon and shell tests, build, full regression and native acceptance remain pending for the combined candidate.
+
+## Targeted gate and build blocker
+
+Owner's local log identifies checkout 940cec281. Targeted suite 3,141/3,141 tests, 176/176 files, 72.85s passed. Build stopped at tsc with TS2769 in Controls.test.tsx:83 and globalShortcuts.integration.test.tsx:83 because ByRoleOptions does not accept exact. Full regression did not run due to && chain. Root cause is newly authored test options, not runtime. Smallest fix: remove unsupported exact: true from the two role queries; accessible string-name matching remains exact. No assertion weakening, production changes, new owner or persistence changes. Retest targeted suite, build and full regression; native still pending. Main and shared development must not change.
