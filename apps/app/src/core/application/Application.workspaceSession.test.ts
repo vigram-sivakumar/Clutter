@@ -142,15 +142,30 @@ describe('Application.open — restore last session (ADR-035)', () => {
     await application.close();
   });
 
-  it('open({ sidebarTab }) overrides the saved sidebar tab and is what the session then persists', async () => {
-    const { application, fileSystem } = await boot([], session(null, 'tags'));
-    expect(application.workspace.activeSidebarTab).toBe('tags');
+  it.each(['notes', 'daily-notes', 'tasks', 'tags'])('restores and persists the saved sidebar tab %s for either startup note strategy', async (tab) => {
+    for (const startup of ['todays-note', 'last-opened-note'] as const) {
+      const { application, fileSystem } = await boot([], session(null, tab));
+      expect(application.workspace.activeSidebarTab).toBe(tab);
+      await application.open({ startup });
+      expect(application.workspace.activeSidebarTab).toBe(tab);
+      await application.close();
+      expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe(tab);
+    }
+  });
 
-    await application.open({ sidebarTab: 'tasks' });
-    expect(application.workspace.activeSidebarTab).toBe('tasks');
-
+  it.each([undefined, '', 'calendar', 'Notes', 42, null])('uses Notes for an absent or invalid saved tab (%s)', async (tab) => {
+    const saved = { version: 1, navigation: { activeSidebarTab: tab, activeView: null } };
+    const { application } = await boot([], saved);
+    await application.open();
+    expect(application.workspace.activeSidebarTab).toBe('notes');
     await application.close();
-    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('tasks');
+  });
+
+  it('a new Space without a session opens on Notes', async () => {
+    const { application } = await boot([]);
+    await application.open();
+    expect(application.workspace.activeSidebarTab).toBe('notes');
+    await application.close();
   });
 
   it('a session saved on the old Search tab opens on Notes', async () => {
@@ -163,7 +178,7 @@ describe('Application.open — restore last session (ADR-035)', () => {
     expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('notes');
   });
 
-  it('keeps the saved sidebar tab when no default tab is given', async () => {
+  it('keeps the saved sidebar tab when no startup options are given', async () => {
     const { application } = await boot([], session(null, 'tags'));
     await application.open();
     expect(application.workspace.activeSidebarTab).toBe('tags');
