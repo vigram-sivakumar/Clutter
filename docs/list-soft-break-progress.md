@@ -2,7 +2,7 @@
 
 Updated 2026-11-28 (Asia/Kolkata).
 
-## Current checkpoint — focused regression green; full and native gates pending
+## Current checkpoint — focused regression green; native alignment issue open
 
 - Base: main `ddb97817b5ddbb52c70c59bbadbe7822cd703524`; controlled release v0.0.17, previous full regression 17,949/17,949 (recorded at runtime 560e07ad, not rerun).
 - Branch: `testing/list-soft-breaks`, isolated under implementation rulebook §7; no shared branch or main changes.
@@ -38,3 +38,8 @@ Candidate commits 616b3f1d (keymap) and 3f8c7344 (pending task detection); c3fe5
 ## 2026-11-28 — focused regression green
 
 Owner's terminal output at 5b9f5be0 confirms 4/4 files, 132/132 tests, 7.82s (80 full-stack continuation, 26 soft-line-break, 18 marker decoration, 8 pending spacing). All 11 diagnostic failures now pass; no production or test changes in this ledger update. Before expanding runtime scope, verify actual native CSS-like reproduction and common list/task keyboard flows, including repeated Shift+Enter on an empty continuation, imported two-space breaks, quoted/emoji and nested items, ordered tails, caret and save/undo. Record source and exact caret for any failures; assess whether a bounded fix is possible rather than accumulating special cases. Full type/build, complete affected regression and full app gate remain outstanding. No promotion, integration or release.
+
+
+## 2026-11-28 — native acceptance blocked by repeated-break alignment
+
+Owner reports all other manual checks passed, except repeated Shift+Enter can visually indent a list item's marker even when it should remain at the original nesting level. Screenshot shows item 2's marker and first-row text shifted right relative to items 1, 3 and 4; its following lines start at the original list content column. Raw Markdown and exact caret sequence not yet supplied. This is not evidence of actual structural nesting versus stale/wrong line decoration; both remain possible. Existing listLineDecoration derives gutter from owning marker line and uses a distinct consumed-width property for continuation lines; inspect actual source and rendered classes/properties before changing ownership or CSS. No runtime change, no promotion; full gate remains pending. Request before/after source and minimal reproduction; preserve native passes already reported.
