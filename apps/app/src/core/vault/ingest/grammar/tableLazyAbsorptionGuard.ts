@@ -1,5 +1,6 @@
 import type { BlockContext, LeafBlock, Line, MarkdownConfig } from '@lezer/markdown';
 import { isTableDelimiterLine } from './tableDelimiterLine';
+import { scanEmbed } from './embedScanner';
 
 /**
  * Closes a gap in `@lezer/markdown`'s own GFM `Table` extension: once a
@@ -58,6 +59,11 @@ import { isTableDelimiterLine } from './tableDelimiterLine';
  * `hasPipe`) fully intact, matching real GitHub rendering for the exact
  * reported reproduction case.
  *
+ * Clutter-specific extension: a complete standalone Embed is likewise
+ * not a row, even when its own alias or media-presentation syntax contains
+ * an unescaped pipe. The existing shared Embed scanner identifies this
+ * exact shape; actual rows with explicit cell separators still continue.
+ *
  * **Detecting "this leaf is currently a table" without the internal,
  * unexported `TableParser` class.** `leaf.content` at the point any
  * `endLeaf` predicate runs holds every *previous* line of the open leaf,
@@ -99,7 +105,14 @@ function endsTableLazyAbsorption(_cx: BlockContext, line: Line, leaf: LeafBlock)
   if (!isEstablishedTableLeaf(leaf.content)) {
     return false;
   }
-  return !hasUnescapedPipe(line.text, line.basePos);
+  if (!hasUnescapedPipe(line.text, line.basePos)) return true;
+  // A standalone Embed's own alias/presentation pipe is not a table
+  // delimiter. Use the shared scanner, not a metadata or filename regex.
+  // Only a complete embed occupying the entire line qualifies; outer
+  // pipes or additional content keep the existing table-row semantics.
+  const candidate = line.text.slice(line.basePos).trim();
+  const embed = scanEmbed(candidate, 0);
+  return embed !== null && embed.end === candidate.length;
 }
 
 export const tableLazyAbsorptionGuard: MarkdownConfig = {

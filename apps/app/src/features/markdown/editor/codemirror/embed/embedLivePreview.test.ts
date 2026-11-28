@@ -6,6 +6,9 @@ import { history, redo, undo } from '@codemirror/commands';
 import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/autocomplete';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { tableWidgetDecoration } from '../table/tableWidgetField';
+import { computeImagePresentationUpdate, getImagePresentation } from '../mediaPresentation/mediaPresentationUpdate';
+import { findAllTables } from '../table/tableGeometry';
 import { embedLivePreview } from './embedLivePreview';
 import { blockRangeSelection } from '../blockRangeSelection';
 import { embedCompletionSource } from './embedCompletionSource';
@@ -1030,5 +1033,51 @@ describe('document range selection of rendered images', () => {
     expect(blocks.every(block => !block.classList.contains('cm-block-range-selected'))).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
+  });
+});
+
+describe('image embed presentation immediately below a projected table', () => {
+  it('preserves two separate rendered blocks through Fill, Fit, undo and redo', () => {
+    const table = '| Name | Age |\n| --- | --- |\n| John | 30 |';
+    const prefix = 'Before.\n\n' + table + '\n';
+    const source = prefix + HERO;
+    const fit = prefix + '![[hero.png|fit]]';
+    const view = mountView(source, resolverFor({
+      'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png'),
+    }));
+    try {
+      // Mount the same static table projection used by the root editor
+      // and read-only views; no second editing controller is necessary.
+      view.dispatch({ effects: StateEffect.appendConfig.of(tableWidgetDecoration()) });
+      const assertBlocks = (raw: string, mode: 'fill' | 'fit') => {
+        settleAllProbes();
+        expect(view.state.doc.toString()).toBe(raw);
+        const tables = findAllTables(view.state);
+        expect(tables).toHaveLength(1);
+        expect(view.state.sliceDoc(tables[0]!.from, tables[0]!.to)).toBe(table);
+        const widget = view.dom.querySelector('.cm-table-widget');
+        const image = getImg(view);
+        expect(widget).not.toBeNull();
+        expect(image).not.toBeNull();
+        expect(widget!.contains(image)).toBe(false);
+        expect(view.dom.querySelector('.cm-image-container--' + mode)).not.toBeNull();
+        expect(getImagePresentation(view.state, view.state.doc.length).mode).toBe(mode);
+      };
+      assertBlocks(source, 'fill');
+      view.dispatch({ changes: computeImagePresentationUpdate(view.state, view.state.doc.length, {
+        ...getImagePresentation(view.state, view.state.doc.length), mode: 'fit',
+      }) });
+      assertBlocks(fit, 'fit');
+      expect(undo(view)).toBe(true);
+      assertBlocks(source, 'fill');
+      expect(redo(view)).toBe(true);
+      assertBlocks(fit, 'fit');
+      view.dispatch({ changes: computeImagePresentationUpdate(view.state, view.state.doc.length, {
+        ...getImagePresentation(view.state, view.state.doc.length), mode: 'fill',
+      }) });
+      assertBlocks(source, 'fill');
+    } finally {
+      view.destroy();
+    }
   });
 });

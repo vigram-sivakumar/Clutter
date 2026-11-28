@@ -44,7 +44,18 @@ describe('parser golden corpus', () => {
 it('ingests a table alias under its real target with the current cache version', () => {
   const raw = '[[Folder/Note\\|Display]]';
   const parsed = new FrontmatterParser().parse('| A | B |\n|---|---|\n| ' + raw + ' | other |');
-  expect(PARSER_VERSION).toBe(7);
+  expect(PARSER_VERSION).toBe(8);
   expect(parsed.analysis.links).toHaveLength(1);
   expect(parsed.analysis.links[0]).toMatchObject({ target: 'Folder/Note', alias: 'Display' });
+});
+
+it('ingests the standalone media embed after a table without changing its raw source', () => {
+  const table = '| A | B |\n|---|---|\n| 1 | 2 |';
+  const body = table + '\n![[image.png|fit]]';
+  const parsed = new FrontmatterParser().parse(body);
+  expect(parsed.body).toBe(body);
+  expect(parsed.analysis.embeds).toHaveLength(1);
+  expect(parsed.analysis.embeds[0]).toMatchObject({
+    target: 'image.png', alias: 'fit', startOffset: table.length + 1, endOffset: body.length,
+  });
 });

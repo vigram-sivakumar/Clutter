@@ -252,3 +252,33 @@ describe('tableLazyAbsorptionGuard — no regression to fenced/code blocks', () 
     expect(hasNode(state, 'Paragraph')).toBe(true);
   });
 });
+
+describe('tableLazyAbsorptionGuard — standalone embeds after a table', () => {
+  it.each([
+    '![[image.png]]',
+    '![[image.png|fit]]',
+    '![[image.png|320,500,center,fit]]',
+    '![[document.pdf|320,center]]',
+    '![[Note#Heading|Display name]]',
+  ])('ends the table before %s without requiring a blank line', embed => {
+    const doc = TABLE + '\n' + embed;
+    const state = makeState(doc);
+    expect(textOfNode(state, 'Table')).toBe(TABLE);
+    expect(textOfNode(state, 'Embed')).toBe(embed);
+    expect(nodeNamesAt(state, TABLE.length + 3)).not.toContain('Table');
+  });
+
+  it('preserves a genuine row whose first cell starts with an embed', () => {
+    const row = '![[image.png]] | other';
+    const state = makeState(TABLE_NO_OUTER_PIPES + '\n' + row);
+    expect(textOfNode(state, 'Table')).toBe(TABLE_NO_OUTER_PIPES + '\n' + row);
+    expect(nodeNamesAt(state, TABLE_NO_OUTER_PIPES.length + 3)).toContain('TableRow');
+  });
+
+  it('preserves explicit rows containing a transported pipe', () => {
+    const row = '| ![[image.png\\|fit]] | other |';
+    const state = makeState(TABLE + '\n' + row);
+    expect(textOfNode(state, 'Table')).toBe(TABLE + '\n' + row);
+    expect(nodeNamesAt(state, TABLE.length + 4)).toContain('TableRow');
+  });
+});

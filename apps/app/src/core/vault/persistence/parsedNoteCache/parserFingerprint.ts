@@ -23,7 +23,8 @@
  * installs, the golden-corpus test and `PARSER_VERSION`.
  */
 // 7 = shared syntax-tree WikiLink extraction and table transport.
-export const PARSER_VERSION = 7;
+// 8 = standalone embed boundary after a GFM table.
+export const PARSER_VERSION = 8;
 
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string> | undefined;
 
