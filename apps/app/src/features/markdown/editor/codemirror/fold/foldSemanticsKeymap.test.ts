@@ -80,16 +80,15 @@ describe('foldSemanticsKeymap — closes the native foldable() fallback loophole
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('Ctrl-Shift-[ at a task with a genuine nested paragraph folds only that paragraph', () => {
+  it('Ctrl-Shift-[ at a task with genuine nested content does not fold', () => {
     const doc = '- [ ] Parent\n    Child paragraph\nSibling paragraph';
     const view = mount(doc);
     view.dispatch({ selection: { anchor: 2 } });
 
     pressFoldShortcut(view, '[');
 
-    const parentLine = view.state.doc.line(1);
-    const childLine = view.state.doc.line(2);
-    expect(foldedRangeList(view)).toEqual([{ from: parentLine.to, to: childLine.to }]);
+    expect(foldedRangeList(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 
   it('Ctrl-Shift-[ still folds a heading, delegating correctly to native semantics', () => {
@@ -114,8 +113,8 @@ describe('foldSemanticsKeymap — closes the native foldable() fallback loophole
     expect(foldedRangeList(view)).toEqual([]);
   });
 
-  it('Ctrl-Alt-[ (foldAll) folds every genuinely-foldable construct in the document and skips leaf list items entirely', () => {
-    const doc = ['# Heading', 'body', '', '- [ ] Leaf task (no children)', 'Sibling paragraph'].join('\n');
+  it('Ctrl-Alt-[ (foldAll) folds every genuinely-foldable construct in the document and skips all list items entirely', () => {
+    const doc = ['# Heading', 'body', '', '- [ ] Parent task', '    Child paragraph', 'Sibling paragraph'].join('\n');
     const view = mount(doc);
 
     view.contentDOM.dispatchEvent(
@@ -123,10 +122,21 @@ describe('foldSemanticsKeymap — closes the native foldable() fallback loophole
     );
 
     const folds = foldedRangeList(view);
-    // Exactly the heading fold — the leaf task never produces one.
+    // Exactly the heading fold — list folding is retired.
     expect(folds).toHaveLength(1);
     const headingLine = view.state.doc.line(1);
     expect(folds[0]!.from).toBe(headingLine.to);
+  });
+
+  it.each(['1. Parent\n   Child', '- Parent\n    - Child', '- [x] Parent\n    Child'])('foldAll and fold-at-cursor never create list folds: %s', (doc) => {
+    const view = mount(doc);
+    for (let n = 1; n <= view.state.doc.lines; n++) {
+      view.dispatch({ selection: { anchor: view.state.doc.line(n).to } });
+      pressFoldShortcut(view, '[');
+    }
+    view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: '[', ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    expect(foldedRangeList(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 
   it('Ctrl-Alt-] (unfoldAll) unfolds every currently-folded range', () => {
