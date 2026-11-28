@@ -43,14 +43,15 @@ function setup() {
 const rowText = () => [...document.querySelectorAll('.property-list__add-row')].map((row) => row.textContent);
 const rowIcons = () => document.querySelectorAll('.property-list__add-row svg').length;
 const menu = () => screen.queryByRole('menu', { name: 'Add properties' });
-const start = () => fireEvent.click(screen.getByText('Add a property'));
+const start = () => fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
 const rowMarkup = () => document.querySelector('.property-list__add-row')!.outerHTML;
 
 describe('AddPropertyRow — at rest', () => {
   it('is the button "+ Add a property", with a plus icon and no menu or input', () => {
     setup();
 
-    expect(rowText()).toEqual(['Add a property']);
+    expect(rowText()).toEqual(['']);
+    expect(screen.getByRole('button', { name: 'Add a property' })).toHaveClass('button--icon');
     expect(rowIcons()).toBe(1);
     expect(menu()).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -105,14 +106,15 @@ describe('AddPropertyRow — clicking it', () => {
     expect(document.activeElement?.closest('.property-list__new-row')).toBeNull();
   });
 
-  it('opens the property picker: one list under "Type" — the system properties not listed, then the new types', () => {
+  it('opens the property picker with separate system and custom groups', () => {
     setup();
 
     start();
 
     expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(screen.getByText('System properties')).toBeInTheDocument();
+    expect(screen.getByText('Custom properties')).toBeInTheDocument();
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Created',
       'Text',
@@ -187,45 +189,73 @@ describe('AddPropertyRow — dismissing without a choice', () => {
   });
 });
 
-describe('AddPropertyRow — the menu actions', () => {
+describe('AddPropertyRow — separate management menu', () => {
+  const manage = () => fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
+
   it.each([
     ['Hide properties', 'onHideProperties'],
-    ['Delete all', 'onDeleteAll'],
-  ] as const)('%s closes the menu and reports it, adding nothing', (label, prop) => {
+    ['Delete all properties', 'onDeleteAll'],
+  ] as const)('%s closes management and calls only its handler', (label, prop) => {
     const handler = vi.fn();
+    const other = vi.fn();
     const onAddCustomProperty = vi.fn();
-    render(<AddPropertyRow onAddCustomProperty={onAddCustomProperty} {...{ [prop]: handler }} />);
-
-    start();
-    fireEvent.click(screen.getByRole('menuitem', { name: label }));
-
-    expect(handler).toHaveBeenCalledOnce();
+    const onAddSystemProperty = vi.fn();
+    render(<AddPropertyRow onAddCustomProperty={onAddCustomProperty} onAddSystemProperty={onAddSystemProperty}
+      onHideProperties={prop === 'onHideProperties' ? handler : other}
+      onDeleteAll={prop === 'onDeleteAll' ? handler : other} />);
+    manage();
     expect(menu()).toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+    expect(handler).toHaveBeenCalledOnce();
+    expect(other).not.toHaveBeenCalled();
     expect(onAddCustomProperty).not.toHaveBeenCalled();
+    expect(onAddSystemProperty).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it.each([
-    ['Hide properties', 'onHideProperties'],
-    ['Delete all', 'onDeleteAll'],
-  ] as const)('%s is shown but disabled with disableActions, and clicking it does nothing', (label, prop) => {
+  it.each(['onHideProperties', 'onDeleteAll'] as const)('does not offer %s with disableActions', (prop) => {
     const handler = vi.fn();
     render(<AddPropertyRow onAddCustomProperty={vi.fn()} disableActions {...{ [prop]: handler }} />);
-
+    expect(screen.queryByRole('button', { name: 'Manage properties' })).toBeNull();
     start();
-    const item = screen.getByRole('menuitem', { name: label });
-    fireEvent.click(item);
-
-    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete all properties' })).toBeNull();
     expect(handler).not.toHaveBeenCalled();
-    expect(menu()).toBeInTheDocument();
   });
 
   it('offers neither action unless the host supplies it', () => {
     setup();
-
+    expect(screen.queryByRole('button', { name: 'Manage properties' })).toBeNull();
     start();
-
     expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: 'Delete all' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete all properties' })).toBeNull();
+  });
+
+  it('shows two icon-only buttons and a management menu with a divider before deletion', () => {
+    render(<AddPropertyRow onAddCustomProperty={vi.fn()} onHideProperties={vi.fn()} onDeleteAll={vi.fn()} />);
+    expect(rowText()).toEqual(['']);
+    expect(rowIcons()).toBe(2);
+    expect(screen.getByRole('button', { name: 'Manage properties' })).toHaveClass('button--icon');
+    manage();
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Hide properties', 'Delete all properties']);
+    expect(screen.getByRole('separator').nextElementSibling?.textContent).toBe('Delete all properties');
+  });
+
+  it('creation offers no management actions even when both capabilities exist', () => {
+    render(<AddPropertyRow onAddCustomProperty={vi.fn()} onHideProperties={vi.fn()} onDeleteAll={vi.fn()} />);
+    start();
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete all properties' })).toBeNull();
+  });
+
+  it('Escape dismisses management without running either action', () => {
+    const onHideProperties = vi.fn();
+    const onDeleteAll = vi.fn();
+    render(<AddPropertyRow onAddCustomProperty={vi.fn()} onHideProperties={onHideProperties} onDeleteAll={onDeleteAll} />);
+    manage();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onHideProperties).not.toHaveBeenCalled();
+    expect(onDeleteAll).not.toHaveBeenCalled();
   });
 });

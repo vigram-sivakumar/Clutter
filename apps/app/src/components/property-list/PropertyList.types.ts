@@ -55,17 +55,14 @@ type RemovableValues = { onRemoveValue?(index: number, value: string): void };
  * What a Property's menu (the horizontal-dots button that replaces its icon
  * while its name is hovered) can do — each action present only when the
  * adapter allows it, never inferred here, and the menu itself absent when
- * none is. The adapter decides which apply: e.g. a system timestamp can be
- * hidden but not cleared or deleted.
+ * none is. The adapter decides which apply: a system timestamp's declaration
+ * can be deleted but its file-derived value cannot be cleared.
  * - `onClear`: empties its value (keeping its type).
- * - `onDelete`: removes the Property altogether.
- * - `onRemove`: takes a system Property off the list. Its value is kept and
- *   comes back when it is added again; unlike `onDelete`, nothing is lost.
+ * - `onDelete`: removes the property declaration and stored value (ADR-058).
  */
 export type PropertyActions = {
   onClear?(): void;
   onDelete?(): void;
-  onRemove?(): void;
 };
 
 /**

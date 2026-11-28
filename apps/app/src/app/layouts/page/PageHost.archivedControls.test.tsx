@@ -391,13 +391,14 @@ describe('Phase 5 — cover image of an archived resource', () => {
 describe('Phase 6 — properties of an archived resource are display-only', () => {
   const PROPS = { unownedLines: ['priority: high'] };
   const section = () => document.querySelector('.property-list');
-  const addRow = () => [...document.querySelectorAll('button')].find((b) => /Add a property/i.test(b.textContent ?? ''));
+  const addRow = () => [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Add a property');
 
   it('an active note shows its property and an Add a property row', async () => {
     await openNote({ ...PROPS });
 
     expect(section()?.textContent).toContain('priority');
     expect(addRow()).toBeDefined();
+    expect(section()?.querySelector('button[aria-label="Manage properties"]')).not.toBeNull();
   });
 
   it('an archived note still shows the property, with no Add property and no editable value or name', async () => {
@@ -406,6 +407,7 @@ describe('Phase 6 — properties of an archived resource are display-only', () =
     expect(section()?.textContent).toContain('priority');
     expect(section()?.textContent).toContain('high');
     expect(addRow()).toBeUndefined();
+    expect(section()?.querySelector('button[aria-label="Manage properties"]')).toBeNull();
     expect(section()?.querySelectorAll('input, textarea, [contenteditable="true"]')).toHaveLength(0);
   });
 
@@ -415,6 +417,7 @@ describe('Phase 6 — properties of an archived resource are display-only', () =
 
     expect(section()?.textContent).toContain('priority');
     expect(addRow()).toBeUndefined();
+    expect(section()?.querySelector('button[aria-label="Manage properties"]')).toBeNull();
     expect(section()?.querySelectorAll('input, textarea, [contenteditable="true"]')).toHaveLength(0);
   });
 

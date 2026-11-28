@@ -49,7 +49,7 @@ function setup(
 const rows = () =>
   [...document.querySelectorAll('.property-list__row, .property-list__add-row')].map((row) =>
     row.classList.contains('property-list__add-row')
-      ? row.textContent
+      ? row.querySelector('button[aria-label="Add a property"]')?.getAttribute('aria-label')
       : row.querySelector('.property-list__name')?.textContent || '(draft)'
   );
 const propertyNames = () => rows().filter((name) => name !== 'Add a property');
@@ -77,7 +77,7 @@ function clickTitle(label: string) {
 }
 /** An item in the picker the section's "+ Add a property" button opens. */
 function pick(label: string) {
-  fireEvent.click(screen.getByText('Add a property'));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 const menuItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
@@ -118,10 +118,10 @@ describe('Properties — the zero-property default', () => {
 
     expect(rows()).toEqual(['New property']);
     // The picker offers every system property (none listed yet) and the six types.
-    expect(menuItems()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select', 'Hide properties', 'Delete all']);
-    // A fresh section has nothing to hide or delete yet: both actions are listed, disabled.
-    expect(screen.getByRole('menuitem', { name: 'Hide properties' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('menuitem', { name: 'Delete all' })).toHaveAttribute('aria-disabled', 'true');
+    expect(menuItems()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
+    expect(screen.queryByRole('button', { name: 'Manage properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete all properties' })).toBeNull();
 
     fireEvent.keyDown(screen.getByRole('menu', { name: 'Add properties' }), { key: 'Escape' });
 
@@ -160,21 +160,21 @@ describe('Properties — system properties', () => {
   it('a listed system property is not offered again; a removed one is', () => {
     setup('', { initialOrder: ['id', 'tags', 'created'] });
 
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
     expect(menuItems().slice(0, 2)).toEqual(['Aliases', 'Last edited']);
     expect(menuItems()).not.toContain('Tags');
     fireEvent.keyDown(screen.getByRole('menu', { name: 'Add properties' }), { key: 'Escape' });
 
-    rowAction('Created', 'Remove');
-    fireEvent.click(screen.getByText('Add a property'));
+    rowAction('Created', 'Delete property');
+    fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
     expect(menuItems().slice(0, 3)).toEqual(['Aliases', 'Created', 'Last edited']);
   });
 
-  it('Remove takes the property out of the list and out of the file’s entries; adding it again declares it afresh', () => {
+  it('Delete property takes the property out of the list and out of the file’s entries; adding it again declares it afresh', () => {
     const { state } = setup('', { initialOrder: ['id', 'tags', 'aliases'], tags: ['work', 'home'], aliases: ['Alt'] });
     expect(tagPills()).toEqual(['#work', '#home']);
 
-    rowAction('Tags', 'Remove');
+    rowAction('Tags', 'Delete property');
 
     expect(propertyNames()).toEqual(['Aliases']);
     expect(state().order).toEqual(['id', 'aliases']);
@@ -183,20 +183,21 @@ describe('Properties — system properties', () => {
 
     expect(propertyNames()).toEqual(['Aliases', 'Tags']);
     expect(state().order).toEqual(['id', 'aliases', 'tags']);
+    expect(tagPills()).toEqual([]);
   });
 
-  it('Remove on Aliases leaves the other properties listed', () => {
+  it('Delete property on Aliases leaves the other properties listed', () => {
     setup('', { initialOrder: ['id', 'aliases', 'created'], aliases: ['Alt', 'Other'] });
     expect(pills()).toContain('Alt');
 
-    rowAction('Aliases', 'Remove');
+    rowAction('Aliases', 'Delete property');
     expect(propertyNames()).toEqual(['Created']);
   });
 
   it('removing the last property returns to the exact zero-property state: no section, no add row, title is Add a property, no properties block', () => {
     const { latest } = setup('', { initialOrder: ['id', 'created'] });
 
-    rowAction('Created', 'Remove');
+    rowAction('Created', 'Delete property');
 
     expect(hasSection()).toBe(false);
     expect(hasAddRow()).toBe(false);
@@ -204,14 +205,14 @@ describe('Properties — system properties', () => {
     expect(latest()).toEqual([]);
   });
 
-  it('Created and Last edited offer Move up/down and Remove; Tags and Aliases also Clear; none can be deleted', () => {
+  it('Created and Last edited offer Delete property; Tags and Aliases also Clear value', () => {
     setup('', { initialOrder: ['id', 'tags', 'aliases', 'created', 'modified'] });
 
     for (const [name, expected] of [
-      ['Tags', ['Move up', 'Move down', 'Clear', 'Remove']],
-      ['Aliases', ['Move up', 'Move down', 'Clear', 'Remove']],
-      ['Created', ['Move up', 'Move down', 'Remove']],
-      ['Last edited', ['Move up', 'Move down', 'Remove']],
+      ['Tags', ['Move up', 'Move down', 'Clear value', 'Delete property']],
+      ['Aliases', ['Move up', 'Move down', 'Clear value', 'Delete property']],
+      ['Created', ['Move up', 'Move down', 'Delete property']],
+      ['Last edited', ['Move up', 'Move down', 'Delete property']],
     ] as const) {
       openRowMenu(name);
       expect(menuItems()).toEqual(expected);
@@ -219,10 +220,10 @@ describe('Properties — system properties', () => {
     }
   });
 
-  it('Clear on Tags empties the tags but keeps the row (unlike Remove)', () => {
+  it('Clear value on Tags empties the tags but keeps the row', () => {
     setup('', { initialOrder: ['id', 'tags'] });
 
-    rowAction('Tags', 'Clear');
+    rowAction('Tags', 'Clear value');
 
     expect(propertyNames()).toEqual(['Tags']);
     expect(tagPills()).toEqual([]);
@@ -320,11 +321,11 @@ describe('Properties — custom properties', () => {
     const { latest } = setup('Due date: 2026-10-01\npeople:\n  - Ana\n  - Bo');
     expect(pills()).toEqual(['Ana', 'Bo']);
 
-    rowAction('people', 'Clear');
+    rowAction('people', 'Clear value');
     expect(pills()).toEqual([]);
     expect(readCustomProperties(latest()).find((p) => p.key === 'people')).toEqual({ key: 'people', type: 'list', value: [] });
 
-    rowAction('Due date', 'Clear');
+    rowAction('Due date', 'Clear value');
     expect(latest()).toContain('Due date: # date');
     expect(readCustomProperties(latest()).find((p) => p.key === 'Due date')).toEqual({ key: 'Due date', type: 'date', value: null });
     expect(propertyNames()).toEqual(['Due date', 'people']);
@@ -335,7 +336,7 @@ describe('Properties — custom properties', () => {
       initialOrder: ['id', 'tags', 'Due date', 'people', 'priority'],
     });
 
-    rowAction('people', 'Delete');
+    rowAction('people', 'Delete property');
 
     expect(propertyNames()).toEqual(['Tags', 'Due date', 'priority']);
     expect(latest()).toEqual(['Due date: 2026-10-01', 'priority: high']);
@@ -346,14 +347,14 @@ describe('Properties — custom properties', () => {
 
     openRowMenu('priority');
 
-    expect(menuItems()).toEqual(['Move up', 'Move down', 'Clear', 'Delete']);
+    expect(menuItems()).toEqual(['Move up', 'Move down', 'Clear value', 'Delete property']);
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(2);
   });
 
   it('deleting the last property returns to the zero-property state with no properties block', () => {
     const { latest } = setup('priority: high');
 
-    rowAction('priority', 'Delete');
+    rowAction('priority', 'Delete property');
 
     expect(hasSection()).toBe(false);
     expect(titleItems()).toEqual(['Properties']);
@@ -382,15 +383,15 @@ describe('Properties — hiding and showing the section', () => {
     setup('', { initialOrder: ['id', 'tags'] });
 
     expect(titleItems()).toEqual([]);
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
     expect(menuItems()).toContain('Hide properties');
-    expect(menuItems()).toContain('Delete all');
+    expect(menuItems()).toContain('Delete all properties');
   });
 
   it('Hide properties writes only `showProperties: false`, keeps every property and value, and the title then offers Show properties', () => {
     const { latest, state } = setup('priority: high', { initialOrder: ORDER });
 
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
 
     expect(hasSection()).toBe(false);
@@ -419,7 +420,7 @@ describe('Properties — hiding and showing the section', () => {
   it('hide then show returns the frontmatter to exactly what it was', () => {
     const { latest, state } = setup('priority: high', { initialOrder: ORDER });
 
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     clickTitle('Show properties');
 
@@ -439,7 +440,7 @@ describe('Properties — hiding and showing the section', () => {
     pick('Number');
     expect(rows()).toEqual(['Tags', '(draft)', 'Add a property']);
     // (Opening a menu moves focus out of the unnamed draft, which abandons it, as in the app.)
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     clickTitle('Show properties');
 
@@ -456,8 +457,8 @@ describe('Properties — Delete all', () => {
     // (the section is hidden here; show it to reach its menu)
     clickTitle('Show properties');
 
-    fireEvent.click(screen.getByText('Add a property'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all properties' }));
 
     expect(hasSection()).toBe(false);
     expect(hasAddRow()).toBe(false);

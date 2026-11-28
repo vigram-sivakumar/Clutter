@@ -83,7 +83,10 @@ export function PropertiesHarness({
       return;
     }
 
-    setState(next);
+    // Mirror the production Gate's owned-value retraction; never retain a deleted tag/alias value.
+    if (next.retract?.includes('tags')) setTags([]);
+    if (next.retract?.includes('aliases')) setAliases([]);
+    setState({ lines: next.lines, order: next.order });
     onLines?.(next.lines);
     onState?.(next);
   };

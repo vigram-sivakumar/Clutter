@@ -203,7 +203,7 @@ describe('dragging a property by its handle', () => {
       expect(handle.querySelector('svg')!.outerHTML).toBe(expected);
     }
 
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
     const draftRow = [...document.querySelectorAll('.property-list__row')].at(-1)!;
     expect(draftRow.querySelector('.property-list__drag-handle')).toBeNull();
@@ -224,7 +224,7 @@ describe('dragging a property by its handle', () => {
   it('a property being named (a draft) is never moved and stays last', () => {
     setup('a: 1\nproperties:\n  order: [tags, a]');
 
-    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a property' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
 
     const rows = [...document.querySelectorAll('.property-list__row')];

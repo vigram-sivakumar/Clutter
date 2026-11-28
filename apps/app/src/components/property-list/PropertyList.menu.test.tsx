@@ -71,16 +71,16 @@ describe('PropertyList — a property’s menu', () => {
     fireEvent.click(trigger('priority')!);
 
     expect(trigger('priority')).toHaveAttribute('aria-expanded', 'true');
-    expect(itemLabels()).toEqual(['Clear', 'Delete']);
+    expect(itemLabels()).toEqual(['Clear value', 'Delete property']);
     // The divider sits immediately above Delete, and nowhere else.
     const dividers = document.querySelectorAll('.menu [role="separator"]');
     expect(dividers).toHaveLength(1);
-    expect(dividers[0]!.nextElementSibling?.textContent).toBe('Delete');
+    expect(dividers[0]!.nextElementSibling?.textContent).toBe('Delete property');
   });
 
   it.each([
-    ['Clear', 'onClear'],
-    ['Delete', 'onDelete'],
+    ['Clear value', 'onClear'],
+    ['Delete property', 'onDelete'],
   ] as const)('choosing %s calls only %s and closes the menu', (label, handler) => {
     const handlers = renderWith();
 
@@ -97,28 +97,26 @@ describe('PropertyList — a property’s menu', () => {
   it('lists only the actions the adapter supplies, with the divider only when something precedes Delete', () => {
     renderWith({ onDelete: undefined });
     fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Clear']);
+    expect(itemLabels()).toEqual(['Clear value']);
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(0);
     cleanup();
 
     renderWith({ onClear: undefined });
     fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Delete']);
+    expect(itemLabels()).toEqual(['Delete property']);
     // Nothing above Delete, so no stray divider at the top.
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(0);
   });
 
-  it('Remove sits after a divider, calls only onRemove, and closes the menu', () => {
-    const onRemove = vi.fn();
+  it('a system property uses the same Delete property action after a divider', () => {
+    const onDelete = vi.fn();
     const onClear = vi.fn();
-    renderWith({ onDelete: undefined, onClear, onRemove });
-
-    fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Clear', 'Remove']);
+    renderWith({ name: 'Tags', type: 'tag', value: ['work'], onClear, onDelete });
+    fireEvent.click(trigger('Tags')!);
+    expect(itemLabels()).toEqual(['Clear value', 'Delete property']);
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }));
-    expect(onRemove).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete property' }));
+    expect(onDelete).toHaveBeenCalledOnce();
     expect(onClear).not.toHaveBeenCalled();
     expect(screen.queryByRole('menu')).toBeNull();
   });
@@ -143,7 +141,7 @@ describe('PropertyList — a property’s menu', () => {
     );
 
     fireEvent.click(trigger('b')!);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear value' }));
 
     expect(second.onClear).toHaveBeenCalledOnce();
     expect(first.onClear).not.toHaveBeenCalled();

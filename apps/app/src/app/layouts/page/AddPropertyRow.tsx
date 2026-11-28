@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
 import { Entry } from '@components/entry/Entry';
 import { Input } from '@components/input/Input';
+import { OverflowMenu, type OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { Overlay } from '@components/overlay/Overlay';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
@@ -28,15 +29,15 @@ interface AddPropertyRowProps {
   autoOpen?: boolean;
   /** The menu was dismissed without a choice. */
   onDismiss?(): void;
-  /** The menu's "Hide Properties" and "Delete all" actions — see AddPropertyMenu. Each closes the menu first. */
+  /** The separate management menu's actions; each closes the menu first. */
   onHideProperties?(): void;
   onDeleteAll?(): void;
-  /** Those two actions are shown but disabled: the page has no properties yet. */
+  /** No properties yet: the management menu is not offered. */
   disableActions?: boolean;
 }
 
 /**
- * The Properties list's "+ Add a property" button: it always ends the list.
+ * The Properties list's icon-only Add a property button: it always ends the list.
  * Clicking it turns it into an empty property — an info icon, a "New
  * property" name placeholder and an empty value field — with the Add
  * properties menu (AddPropertyMenu) open on it; the title's "Properties"
@@ -63,6 +64,14 @@ export function AddPropertyRow({
   disableActions,
 }: AddPropertyRowProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const managementItems: OverflowMenuItemConfig[] = [];
+  if (!disableActions && onHideProperties) {
+    managementItems.push({ id: 'hide', label: 'Hide properties', icon: 'hide', opensInlineEdit: true });
+  }
+  if (!disableActions && onDeleteAll) {
+    managementItems.push({ id: 'delete-all', label: 'Delete all properties', icon: 'trash', variant: 'danger', separatorBefore: managementItems.length > 0, opensInlineEdit: true });
+  }
   // After mount, so the menu's anchor (the row) exists.
   useEffect(() => {
     if (autoOpen) setIsOpen(true);
@@ -101,21 +110,6 @@ export function AddPropertyRow({
           finishWithChoice();
           onAddCustomProperty(type);
         }}
-        onHideProperties={
-          onHideProperties &&
-          (() => {
-            finishWithChoice();
-            onHideProperties();
-          })
-        }
-        onDeleteAll={
-          onDeleteAll &&
-          (() => {
-            finishWithChoice();
-            onDeleteAll();
-          })
-        }
-        disableActions={disableActions}
       />
     </Overlay>
   );
@@ -156,14 +150,31 @@ export function AddPropertyRow({
           className="property-list__add-button"
           variant="ghost"
           size="medium"
-          leading={<AppIcon icon="plus" />}
+          isIconOnly
+          aria-label="Add a property"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
           onClick={() => {
+            setManageOpen(false);
             suppressReturnFocusRef.current = false;
             setIsOpen(true);
           }}
         >
-          Add a property
+          <AppIcon icon="plus" />
         </Button>
+        <OverflowMenu
+          items={managementItems}
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          onSelect={(id) => {
+            if (id === 'hide') onHideProperties?.();
+            else if (id === 'delete-all') onDeleteAll?.();
+          }}
+          icon="moreHorizontal"
+          buttonSize="medium"
+          alignment="start"
+          buttonProps={{ className: 'property-list__add-button', variant: 'ghost', 'aria-label': 'Manage properties' }}
+        />
       </div>
       {menu}
     </>

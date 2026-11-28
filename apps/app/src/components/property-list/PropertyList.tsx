@@ -230,14 +230,12 @@ export function PropertyList({
                   {/* Replaces the type icon while the name is hovered
                     (PropertyList.css) — only when there is something to do. */}
                   {(item.onClear ||
-                    item.onRemove ||
                     item.onDelete ||
                     (canReorder && item.orderKey !== undefined)) && (
                     <PropertyMenu
                       name={item.name}
                       actions={{
                         onClear: item.onClear,
-                        onRemove: item.onRemove,
                         onDelete: item.onDelete,
                       }}
                       move={

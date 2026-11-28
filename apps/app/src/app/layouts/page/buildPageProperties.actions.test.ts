@@ -62,22 +62,19 @@ describe('buildPageProperties — each property’s menu actions', () => {
     expect(row('Last edited').onClear).toBeUndefined();
   });
 
-  it('no system property can be deleted', () => {
-    const { row } = setup(ALL);
-
-    for (const name of ['Tags', 'Aliases', 'Created', 'Last edited']) {
-      expect(row(name).onDelete).toBeUndefined();
-    }
+  it('system deletion is not offered by the custom property handler alone', () => {
+    const items = buildPageProperties(pageFrom(ALL), { onDeleteProperty: vi.fn() });
+    expect(items.every(item => item.onDelete === undefined)).toBe(true);
   });
 
-  it('a custom property can be cleared and deleted, by its actual key — and has no Remove', () => {
+  it('a custom property can be cleared and deleted, by its actual key', () => {
     const { handlers, row } = setup('Due date: 2026-10-01');
 
     row('Due date').onDelete!();
 
     expect(handlers.onDeleteProperty).toHaveBeenCalledExactlyOnceWith('Due date');
     expect(typeof row('Due date').onClear).toBe('function');
-    expect(row('Due date').onRemove).toBeUndefined();
+    expect(handlers.onRemoveSystemProperty).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -104,16 +101,18 @@ describe('buildPageProperties — each property’s menu actions', () => {
     expect(handlers.onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', []);
   });
 
-  it('every system property can be removed by its canonical key; custom properties offer no Remove', () => {
+  it('every system property can be deleted by its canonical key through the existing facade', () => {
     const { handlers, row } = setup(`priority: high\n${ALL}`);
 
-    row('Tags').onRemove!();
-    row('Aliases').onRemove!();
-    row('Created').onRemove!();
-    row('Last edited').onRemove!();
+    row('Tags').onDelete!();
+    row('Aliases').onDelete!();
+    row('Created').onDelete!();
+    row('Last edited').onDelete!();
 
     expect(handlers.onRemoveSystemProperty.mock.calls).toEqual([['tags'], ['aliases'], ['created'], ['modified']]);
-    expect(row('priority').onRemove).toBeUndefined();
+    expect(handlers.onDeleteProperty).not.toHaveBeenCalled();
+    row('priority').onDelete!();
+    expect(handlers.onDeleteProperty).toHaveBeenCalledExactlyOnceWith('priority');
   });
 
   it('an action is offered only when the host supplies its write', () => {
@@ -122,16 +121,16 @@ describe('buildPageProperties — each property’s menu actions', () => {
     for (const item of items) {
       expect(item.onClear).toBeUndefined();
       expect(item.onDelete).toBeUndefined();
-      expect(item.onRemove).toBeUndefined();
     }
   });
 
-  it('Remove alone is offered when only unlisting is supplied', () => {
+  it('system deletion alone is offered when only its handler is supplied', () => {
     const items = buildPageProperties(pageFrom(`priority: high\n${ALL}`), { onRemoveSystemProperty: vi.fn() });
 
     const system = items.filter((item) => item.name !== 'priority');
-    expect(system.every((item) => typeof item.onRemove === 'function')).toBe(true);
-    expect(items.every((item) => item.onClear === undefined && item.onDelete === undefined)).toBe(true);
+    expect(system.every((item) => typeof item.onDelete === 'function')).toBe(true);
+    expect(items.every((item) => item.onClear === undefined)).toBe(true);
+    expect(items.find(item => item.name === 'priority')?.onDelete).toBeUndefined();
   });
 
   it('an archived page offers no actions at all', () => {
@@ -140,7 +139,6 @@ describe('buildPageProperties — each property’s menu actions', () => {
     for (const item of items) {
       expect(item.onClear).toBeUndefined();
       expect(item.onDelete).toBeUndefined();
-      expect(item.onRemove).toBeUndefined();
     }
   });
 
@@ -187,7 +185,6 @@ describe('buildPageProperties — effectively archived (a page inside an archive
     for (const item of items) {
       expect(item.onClear, item.name).toBeUndefined();
       expect(item.onDelete, item.name).toBeUndefined();
-      expect(item.onRemove, item.name).toBeUndefined();
       expect(item.onRename, item.name).toBeUndefined();
     }
   });

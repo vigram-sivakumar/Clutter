@@ -8,8 +8,8 @@ import type { PropertyActions } from './PropertyList.types';
 /**
  * A Property's menu: the horizontal-dots button shown in its icon's place
  * while its name is hovered (PropertyList.css). It lists the actions the
- * adapter supplies — Move up / Move down (when the row can be reordered), Clear, then after a divider Remove (a system
- * Property, unlisted but kept) or Delete (a custom one, gone for good) —
+ * adapter supplies — Move up / Move down (when the row can be reordered),
+ * Clear value, then after a divider Delete property —
  * the divider only when something precedes it, and nothing at all renders
  * when there are none.
  */
@@ -38,17 +38,13 @@ export function PropertyMenu({
   }
 
   if (actions.onClear) {
-    items.push({ id: 'clear', label: 'Clear', icon: 'dismiss', separatorBefore: items.length > 0 });
-  }
-
-  if (actions.onRemove) {
-    items.push({ id: 'remove', label: 'Remove', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
+    items.push({ id: 'clear', label: 'Clear value', icon: 'dismiss', separatorBefore: items.length > 0 });
   }
 
   if (actions.onDelete) {
     // Destructive, so set apart — the same divider-before-Delete
     // convention every other menu here uses.
-    items.push({ id: 'delete', label: 'Delete', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
+    items.push({ id: 'delete', label: 'Delete property', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
   }
 
   return (
@@ -67,8 +63,6 @@ export function PropertyMenu({
           move?.down?.();
         } else if (id === 'clear') {
           actions.onClear?.();
-        } else if (id === 'remove') {
-          actions.onRemove?.();
         } else if (id === 'delete') {
           actions.onDelete?.();
         }

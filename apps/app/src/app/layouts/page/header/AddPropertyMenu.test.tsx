@@ -51,12 +51,12 @@ describe('AddPropertyMenu — one picker', () => {
     expect(itemLabels()).not.toContain('Tags');
   });
 
-  it('is one flat list under a single "Type" title: the system properties not listed, then the custom types', () => {
+  it('groups the system properties separately from the custom types', () => {
     renderMenu({ systemProperties: [aliases, created, lastEdited] });
 
     expect(itemLabels()).toEqual(['Aliases', 'Created', 'Last edited', ...customTypeLabels]);
     const menu = screen.getByRole('menu', { name: 'Add properties' });
-    expect([...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent)).toEqual(['Type']);
+    expect([...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent)).toEqual(['System properties', 'Custom properties']);
     // No "Hidden" / "Properties" groups of any kind.
     expect(screen.queryByText('Hidden')).toBeNull();
     expect(screen.queryByText('Properties')).toBeNull();
@@ -96,55 +96,35 @@ describe('AddPropertyMenu — one picker', () => {
   );
 });
 
-describe('AddPropertyMenu — actions', () => {
-  it('without the actions, the menu is only the "Type" title and the list', () => {
+describe('AddPropertyMenu — creation only', () => {
+  it('with no system group there is only the Custom properties heading and list', () => {
     renderMenu();
-
     expect(screen.queryByRole('separator')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(screen.getByText('Custom properties')).toBeInTheDocument();
     expect(itemLabels()).not.toContain('Hide properties');
-    expect(itemLabels()).not.toContain('Delete all');
+    expect(itemLabels()).not.toContain('Delete all properties');
   });
 
-  it('shows Hide properties and Delete all disabled with disableActions, calling neither', () => {
-    const onHideProperties = vi.fn();
-    const onDeleteAll = vi.fn();
-    renderMenu({ onHideProperties, onDeleteAll, disableActions: true });
-
-    expect(itemLabels().slice(-2)).toEqual(['Hide properties', 'Delete all']);
-    for (const name of ['Hide properties', 'Delete all']) {
-      const item = screen.getByRole('menuitem', { name });
-      expect(item).toHaveAttribute('aria-disabled', 'true');
-      fireEvent.click(item);
-    }
-    expect(onHideProperties).not.toHaveBeenCalled();
-    expect(onDeleteAll).not.toHaveBeenCalled();
+  it('has no system heading when the host cannot add system properties', () => {
+    renderMenu({ onAddSystemProperty: undefined, systemProperties: [created] });
+    expect(screen.queryByText('System properties')).toBeNull();
+    expect(screen.queryByRole('separator')).toBeNull();
+    expect(itemLabels()).toEqual(customTypeLabels);
   });
 
-  it('puts the "Type" title and the list first, then a divider, then Hide properties and Delete all', () => {
-    renderMenu({ onHideProperties: vi.fn(), onDeleteAll: vi.fn() });
-
-    expect(itemLabels().slice(-3)).toEqual(['Multi-select', 'Hide properties', 'Delete all']);
+  it('separates system and custom groups with one divider', () => {
+    renderMenu({ systemProperties: [created] });
     const menu = screen.getByRole('menu', { name: 'Add properties' });
     const order = [...menu.querySelectorAll('[role=menuitem], [role=separator], .menu__group-title')].map(
       (node) => node.getAttribute('role') ?? node.textContent
     );
-    expect(order[0]).toBe('Type');
-    expect(order.slice(-3)).toEqual(['separator', 'menuitem', 'menuitem']);
+    expect(order.slice(0, 5)).toEqual(['System properties', 'menuitem', 'separator', 'Custom properties', 'menuitem']);
   });
 
-  it('each action reports itself only, and adds nothing', () => {
-    const onHideProperties = vi.fn();
-    const onDeleteAll = vi.fn();
-    const { onAddCustomProperty, onAddSystemProperty } = renderMenu({ onHideProperties, onDeleteAll });
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
-    expect(onHideProperties).toHaveBeenCalledOnce();
-    expect(onDeleteAll).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all' }));
-    expect(onDeleteAll).toHaveBeenCalledOnce();
-    expect(onAddCustomProperty).not.toHaveBeenCalled();
-    expect(onAddSystemProperty).not.toHaveBeenCalled();
+  it('contains no management action even when system properties are available', () => {
+    renderMenu({ systemProperties: [created] });
+    expect(itemLabels()).toEqual(['Created', ...customTypeLabels]);
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete all properties' })).toBeNull();
   });
 });

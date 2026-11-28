@@ -79,20 +79,19 @@ describe('buildPageProperties — what the note shows', () => {
     expect(names('Due date: 2026-10-01\npriority: high\nmood: ok')).toEqual(['Due date', 'priority', 'mood']);
   });
 
-  it('a system property’s menu offers Remove; only Tags and Aliases can also be Cleared', () => {
+  it('a system property’s menu offers Delete property; only Tags and Aliases can also be cleared', () => {
     const items = buildPageProperties(pageFrom('tags: []\naliases: []\ncreated: true\nmodified: true'), {
       onRemoveSystemProperty: vi.fn(),
       onCommitTags: vi.fn(),
       aliases: { onCommit: vi.fn() },
     });
 
-    expect(items.map((item) => [item.name, typeof item.onRemove, typeof item.onClear])).toEqual([
+    expect(items.map((item) => [item.name, typeof item.onDelete, typeof item.onClear])).toEqual([
       ['Tags', 'function', 'function'],
       ['Aliases', 'function', 'function'],
       ['Created', 'function', 'undefined'],
       ['Last edited', 'function', 'undefined'],
     ]);
-    expect(items.every((item) => item.onDelete === undefined)).toBe(true);
   });
 
   it('visibility is separate from editability: a shown property is editable only when the host allows it', () => {
@@ -116,7 +115,7 @@ describe('buildPageProperties — what the note shows', () => {
 
     expect(items.map((item) => item.name)).toEqual(['priority', 'Tags']);
     expect(items.every((item) => item.editable === false)).toBe(true);
-    expect(items.every((item) => item.onRemove === undefined && item.onDelete === undefined)).toBe(true);
+    expect(items.every((item) => item.onDelete === undefined)).toBe(true);
   });
 
   it('drafts are listed after the shown properties', () => {

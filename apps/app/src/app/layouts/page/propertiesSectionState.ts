@@ -10,7 +10,7 @@ export type PropertiesControlMode = 'add' | 'show';
 export interface PropertiesSectionState {
   /** Whether the Properties section is on screen. */
   readonly isDisplayed: boolean;
-  /** Whether the section ends with its "+ Add a property" button. */
+  /** Whether the section ends with its property controls. */
   readonly showsAddRow: boolean;
   /**
    * Whether the note has anything to show: a listed system property or a
@@ -46,8 +46,8 @@ export interface PropertiesSectionState {
  * ```text
  * nothing to show           title: Add a property        (no section, no add button)
  *   ↓ add a property          — the section appears with it
- * something to show         title: (no item)             section + "+ Add a property"
- *   ↓ Hide properties         — in the section's menu; only `showProperties: false` is written
+ * something to show         title: (no item)             section + icon-only Add / Manage controls
+ *   ↓ Hide properties         — in the section's management menu; only `showProperties: false` is written
  * hidden                    title: Show properties
  *   ↓ Show properties         — the override is removed
  * something to show         …as before

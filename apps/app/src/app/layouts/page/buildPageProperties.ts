@@ -71,7 +71,6 @@ function withActions(item: PropertyListItem, actions: PropertyActions): Property
   return {
     ...item,
     ...(actions.onClear && { onClear: actions.onClear }),
-    ...(actions.onRemove && { onRemove: actions.onRemove }),
     ...(actions.onDelete && { onDelete: actions.onDelete }),
   };
 }
@@ -273,15 +272,14 @@ export function buildPageProperties(
     /**
      * Deletes a custom property from the frontmatter
      * (PageOperations.deleteCustomProperty), by its actual key. Present
-     * (and the page not archived): a custom Property's menu offers Delete.
-     * System Properties are never deletable.
+     * (and the page not archived): custom rows offer Delete property.
      */
     onDeleteProperty?(key: string): void;
     /**
      * Removes a system property from the list
      * (PageOperations.removeSystemProperty), by canonical key. Present (and
-     * the page not archived): every system row's menu offers Remove, which
-     * only unlists it — its value is kept.
+     * the page not archived): system rows offer Delete property, retracting the
+     * declaration and stored value (ADR-058).
      */
     onRemoveSystemProperty?(key: PageSystemPropertyKey): void;
     /**
@@ -416,9 +414,9 @@ export function buildPageProperties(
   };
 
   // What the section lists, in the order readPropertySequence gives: system and custom properties
-  // together, then any property being added. Every system row can be removed from the list (its value is
-  // kept); Tags and Aliases can also be cleared. Created and Last edited are system-maintained, so they
-  // can't be cleared, and no system property can be deleted.
+  // together, then any property being added. Deleting a system property retracts its declaration
+  // and stored value (ADR-058); Tags and Aliases can also be cleared. Created and Last edited are
+  // system-maintained, so their displayed values cannot be cleared.
   const systemClear: Partial<Record<PageSystemPropertyKey, () => void>> = {
     tags: onCommitTags && (() => onCommitTags([])),
     aliases: aliasActions && (() => aliasActions.onCommit([])),
@@ -432,7 +430,7 @@ export function buildPageProperties(
         {
           ...withActions(systemRows[ref.key], {
             onClear: systemClear[ref.key],
-            onRemove: onRemoveSystemProperty && (() => onRemoveSystemProperty(ref.key)),
+            onDelete: onRemoveSystemProperty && (() => onRemoveSystemProperty(ref.key)),
           }),
           id: `system:${ref.key}`,
           orderKey: ref.key,

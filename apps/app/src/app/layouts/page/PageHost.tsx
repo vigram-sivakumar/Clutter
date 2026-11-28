@@ -2962,7 +2962,7 @@ export function PageHost({
       propertiesConfirmation.request({
         title: 'Delete all properties?',
         message:
-          'All custom properties will be permanently deleted. This action cannot be undone',
+          'All listed properties and their values will be permanently deleted. This action cannot be undone.',
         confirmLabel: 'Delete all',
         onConfirm: () => {
           propertyDrafts.clear();
@@ -2987,8 +2987,7 @@ export function PageHost({
           propertyDrafts.add(type);
           setStartingPropertyPageId(null);
         }}
-        // Always listed, but disabled while there is nothing to hide or delete
-        // (the first property is only being started).
+        // Management is offered only once there are properties to manage.
         onHideProperties={hidePropertiesSection}
         onDeleteAll={requestDeleteAllProperties}
         disableActions={!sectionState.hasProperties}

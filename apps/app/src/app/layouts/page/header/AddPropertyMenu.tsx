@@ -27,22 +27,12 @@ export interface AddPropertyMenuProps {
   onAddSystemProperty?(key: PageSystemPropertyKey): void;
   /** Adds a new, unnamed custom Property of the chosen type; the user names it next. */
   onAddCustomProperty(type: CustomPropertyType): void;
-  /** Hides the whole Properties section (its properties are kept). Omitted: no "Hide Properties" action. */
-  onHideProperties?(): void;
-  /** Starts removing every property from the note (the host confirms first). Omitted: no "Delete all" action. */
-  onDeleteAll?(): void;
-  /** Shows Hide properties and Delete all but disabled — for a page with no properties yet, where neither has anything to act on. */
-  disableActions?: boolean;
 }
 
 /**
- * What can be added to the page's Properties, as one list under a single
- * "Type" title: the system properties not currently listed (in the canonical
- * system order), then every custom type — then a divider and the optional
- * actions (Hide Properties, Delete all). The custom types come from the
- * property type registry (customPropertyTypeOptions), so this menu holds no
- * list of its own. Hosted by the Properties section's "+ Add a property"
- * button (AddPropertyRow), which closes it after a choice.
+ * Creation only: unlisted system properties in their own group, then every
+ * custom type from the property type registry. AddPropertyRow owns the
+ * separate management menu and closes this picker after a choice.
  *
  * Choosing a system property just declares it (its key joins the note's
  * frontmatter; an existing value is untouched). Choosing a custom type adds
@@ -53,13 +43,9 @@ export function AddPropertyMenu({
   systemProperties = [],
   onAddSystemProperty,
   onAddCustomProperty,
-  onHideProperties,
-  onDeleteAll,
-  disableActions = false,
 }: AddPropertyMenuProps) {
   const showSystem =
     Boolean(onAddSystemProperty) && systemProperties.length > 0;
-  const hasActions = Boolean(onHideProperties || onDeleteAll);
 
   return (
     <Menu
@@ -67,20 +53,25 @@ export function AddPropertyMenu({
       aria-label="Add properties"
       className="add-property-menu"
     >
-      <MenuGroupTitle>Type</MenuGroupTitle>
-      {showSystem &&
-        systemProperties.map((property) => (
-          <MenuItem
-            key={property.id}
-            leading={<AppIcon icon={property.icon} />}
-            onClick={(event) => {
-              event.stopPropagation();
-              onAddSystemProperty?.(property.id);
-            }}
-          >
-            {property.label}
-          </MenuItem>
-        ))}
+      {showSystem && (
+        <>
+          <MenuGroupTitle>System properties</MenuGroupTitle>
+          {systemProperties.map((property) => (
+            <MenuItem
+              key={property.id}
+              leading={<AppIcon icon={property.icon} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAddSystemProperty?.(property.id);
+              }}
+            >
+              {property.label}
+            </MenuItem>
+          ))}
+          <div className="menu__divider" role="separator" />
+        </>
+      )}
+      <MenuGroupTitle>Custom properties</MenuGroupTitle>
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}
@@ -93,32 +84,6 @@ export function AddPropertyMenu({
           {option.label}
         </MenuItem>
       ))}
-      {hasActions && <div className="menu__divider" role="separator" />}
-      {onHideProperties && (
-        <MenuItem
-          leading={<AppIcon icon="hide" />}
-          disabled={disableActions}
-          onClick={(event) => {
-            event.stopPropagation();
-            onHideProperties();
-          }}
-        >
-          Hide properties
-        </MenuItem>
-      )}
-      {onDeleteAll && (
-        <MenuItem
-          variant="danger"
-          leading={<AppIcon icon="trash" />}
-          disabled={disableActions}
-          onClick={(event) => {
-            event.stopPropagation();
-            onDeleteAll();
-          }}
-        >
-          Delete all
-        </MenuItem>
-      )}
     </Menu>
   );
 }

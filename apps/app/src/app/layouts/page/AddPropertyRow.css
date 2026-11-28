@@ -9,6 +9,7 @@
      the menu opens and closes doesn't move anything below. */
   display: flex;
   align-items: center;
+  gap: var(--space-4);
   height: var(--height-lg);
 }
 
