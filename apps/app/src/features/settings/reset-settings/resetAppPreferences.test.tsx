@@ -71,13 +71,6 @@ import {
   readDateFormatChoice,
   writeDateFormatChoice,
 } from '@shared/helpers/time/dateFormatPreference';
-import {
-  DEFAULT_SIDEBAR_TAB,
-  readDefaultSidebarTab,
-  readUseLastSidebarTab,
-  writeDefaultSidebarTab,
-  writeUseLastSidebarTab,
-} from '../sidebar-setting/defaultSidebarTab';
 import { DEFAULT_STARTUP_BEHAVIOR, readStartupBehavior, writeStartupBehavior } from '../startup-setting/startupPreference';
 import {
   DEFAULT_ENABLE_EMOJI_LISTS,
@@ -118,8 +111,8 @@ afterEach(() => {
 /** Every app-wide preference, moved away from its default. */
 function customizeEveryPreference() {
   writeStartupBehavior('last-opened-note');
-  writeDefaultSidebarTab('tasks');
-  writeUseLastSidebarTab(false);
+  localStorage.setItem('clutter-default-sidebar-tab', 'tasks');
+  localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
   writeWeekStart('sunday');
   writeDateFormatChoice('ymd');
   writeFolderItemLimitChoice(20);
@@ -160,8 +153,8 @@ describe('resetAppPreferences', () => {
     resetAppPreferences();
 
     expect(readStartupBehavior()).toBe(DEFAULT_STARTUP_BEHAVIOR);
-    expect(readDefaultSidebarTab()).toBe(DEFAULT_SIDEBAR_TAB);
-    expect(readUseLastSidebarTab()).toBe(true);
+    expect(localStorage.getItem('clutter-default-sidebar-tab')).toBeNull();
+    expect(localStorage.getItem('clutter-use-last-sidebar-tab')).toBeNull();
     expect(readWeekStart()).toBe(DEFAULT_WEEK_START);
     expect(readDateFormatChoice()).toBe(DEFAULT_DATE_FORMAT_CHOICE);
     expect(readFolderItemLimitChoice()).toBe(DEFAULT_FOLDER_ITEM_LIMIT_CHOICE);
