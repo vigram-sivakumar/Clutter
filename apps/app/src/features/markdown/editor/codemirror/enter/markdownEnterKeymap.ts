@@ -24,7 +24,7 @@ import {
   isPendingBreak,
 } from '../highlight/hardBreakMarkerDecoration';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
-import { computeListItemFold } from '../fold/listItemFoldService';
+import { computeListItemDescendantRange } from '../list/listItemDescendantRange';
 import { emojiMarkerSize } from '../../../../../core/vault/ingest/grammar/emojiListSyntax';
 import { isQuoteNodeName, quotePrefixOf, type QuoteToken } from '../../../../../core/vault/ingest/grammar/quoteNodes';
 import { classifyMarkerNode, classifyMarkerText, firstSameLineListMark, listItemMarker, separatorRangeAfter } from '../list/listMarkerDecoration';
@@ -1565,15 +1565,15 @@ function listItemStartingAt(state: EditorState, pos: number): SyntaxNode | null 
  * `ListItem`/`Task` node's own `.to` can extend past its real, visible
  * content via CommonMark lazy continuation (an unrelated, zero-indent
  * sibling line with no blank line before it, silently absorbed as more of
- * the same node), the identical boundary problem `listItemFoldService.ts`
- * exists to correct for folding. `computeListItemFold` re-derives the
+ * the same node), the identical boundary problem `listItemDescendantRange.ts`
+ * exists to correct for structural list editing. `computeListItemDescendantRange` re-derives the
  * true boundary via the same physical-line indentation scan; `null` means
  * no genuine descendant past the marker's own line, so that line's own
  * end is the item's real content end either way.
  */
 function correctedListItemEnd(state: EditorState, item: SyntaxNode): number {
   const markerLine = state.doc.lineAt(item.from);
-  return computeListItemFold(state, markerLine)?.to ?? markerLine.to;
+  return computeListItemDescendantRange(state, markerLine)?.to ?? markerLine.to;
 }
 
 function exactListItemSelectionRun(
