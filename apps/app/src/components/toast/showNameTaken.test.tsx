@@ -3,7 +3,7 @@
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resetNameTakenToast, showNameTaken } from './showNameTaken';
+import { acceptRename, resetNameTakenToast, showNameTaken } from './showNameTaken';
 import type { ToastApi, ToastInput } from './ToastProvider';
 
 function fakeToast() {
@@ -85,5 +85,20 @@ describe('showNameTaken', () => {
     showNameTaken(api, 'Headings');
 
     expect(shown.map(textOf)).toEqual(['The name “Paragraph” is already taken', 'The name “Headings” is already taken']);
+  });
+});
+
+describe('acceptRename', () => {
+  it('accepts an available name without showing a toast', () => {
+    const { api, shown } = fakeToast();
+    expect(acceptRename(api, 'Fresh', true)).toBe(true);
+    expect(shown).toEqual([]);
+  });
+
+  it('rejects an unavailable name with the existing deduplicated feedback', () => {
+    const { api, shown } = fakeToast();
+    expect(acceptRename(api, 'Taken', false)).toBe(false);
+    expect(acceptRename(api, 'Taken', false)).toBe(false);
+    expect(shown.map(textOf)).toEqual(['The name “Taken” is already taken']);
   });
 });

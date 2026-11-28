@@ -53,7 +53,8 @@ import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { useToast } from '@components/toast/ToastProvider';
-import { showNameTaken } from '@components/toast/showNameTaken';
+import { acceptRename } from '@components/toast/showNameTaken';
+import { buildNoteFolderMoveActions } from '../helpers/buildMoveDropActions';
 import { archiveFolderWithUndo, archiveResourceWithUndo } from '../helpers/archiveWithUndo';
 import { reportMoveFailure } from '../helpers/reportMoveFailure';
 import { downloadResource } from '@shared/helpers/downloadResource';
@@ -306,13 +307,8 @@ export function Notes({
     }),
 
     // Same synchronous pre-check role as onNoteTitleCommit above.
-    onFolderTitleCommit: (folderId, value) => {
-      if (folderOperations.canRename(folderId, value)) {
-        return undefined;
-      }
-      showNameTaken(toast, value);
-      return false;
-    },
+    onFolderTitleCommit: (folderId, value) =>
+      acceptRename(toast, value, folderOperations.canRename(folderId, value)) ? undefined : false,
     onFolderTitleEdit: (folderId, value) =>
       folderOperations.commitName(folderId, value),
     onFolderTitleFlush: (folderId) =>
@@ -362,32 +358,7 @@ export function Notes({
         moveZoneFor('folder', { moveZone: membershipSelector.getMoveZoneOfFolder(folderId) })
       ),
     // Returns the promise (the picker ignores it) so a drag-and-drop can observe a rejection.
-    onMoveFolder: async (folderId, destinationFolderId) => {
-      const from = vault.getFolder(folderId)?.parentId ?? null;
-      try {
-        await folderOperations.move(folderId, destinationFolderId);
-      } catch (error) {
-        // Reported here, then rethrown so a drop is rejected (the Move picker settles it).
-        reportMoveFailure(toast, 'folder', error);
-        throw error;
-      }
-      // (Only reached when the move succeeded.)
-      if (from !== destinationFolderId) {
-        onItemLeftLevel?.(from, 'folder', folderId);
-      }
-    },
-    onMoveNote: async (pageId, destinationFolderId) => {
-      const from = vault.getPage(pageId)?.parentId ?? null;
-      try {
-        await pageOperations.move(pageId, destinationFolderId);
-      } catch (error) {
-        reportMoveFailure(toast, 'note', error);
-        throw error;
-      }
-      if (from !== destinationFolderId) {
-        onItemLeftLevel?.(from, 'note', pageId);
-      }
-    },
+    ...buildNoteFolderMoveActions({ vault, pageOperations, folderOperations }, toast, onItemLeftLevel),
     canMoveFolderInto: (folderId, destinationFolderId) =>
       folderOperations.canMove(folderId, destinationFolderId),
     canMoveNoteInto: (pageId, destinationFolderId) => pageOperations.canMove(pageId, destinationFolderId),
@@ -606,7 +577,6 @@ export function Notes({
         }
       >
         <FolderTree
-          query={query}
           membershipSelector={membershipSelector}
           workspace={workspace}
           parentId={null}

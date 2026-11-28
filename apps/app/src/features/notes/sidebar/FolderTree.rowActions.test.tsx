@@ -261,14 +261,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
 }
 
 function renderTree(
-  query: VaultQuery,
   membershipSelector: MembershipSelector,
   workspace: Workspace,
   rowActions: SidebarRowActions
 ) {
   return render(
     <FolderTree
-      query={query}
       membershipSelector={membershipSelector}
       workspace={workspace}
       parentId={null}
@@ -303,10 +301,10 @@ function overflowButtonFor(rowTitle: string): HTMLElement {
 describe('FolderTree row overflow menu: the owning row stays fully hover-styled while its menu is open', () => {
   it('a note row gets entry-force-hover — Entry\'s class for forcing every hover-driven affordance — while its menu is open', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const row = screen.getByText('Note').closest('.entry');
     expect(row).toHaveClass('entry-force-hover');
@@ -314,10 +312,10 @@ describe('FolderTree row overflow menu: the owning row stays fully hover-styled 
 
   it('a note row has no entry-force-hover class when its menu is closed', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: null });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const row = screen.getByText('Note').closest('.entry');
     expect(row).not.toHaveClass('entry-force-hover');
@@ -325,10 +323,10 @@ describe('FolderTree row overflow menu: the owning row stays fully hover-styled 
 
   it('a folder row gets entry-force-hover while its menu is open', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const row = screen.getByText('Projects').closest('.entry');
     expect(row).toHaveClass('entry-force-hover');
@@ -336,10 +334,10 @@ describe('FolderTree row overflow menu: the owning row stays fully hover-styled 
 
   it('a note row\'s .entry__actions are visible (not hover-gated hidden) while its menu is open, even without the mouse over it', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const row = screen.getByText('Note').closest('.entry') as HTMLElement;
     const actionsEl = row.querySelector('.entry__actions') as HTMLElement;
@@ -351,10 +349,10 @@ describe('FolderTree row overflow menu: the owning row stays fully hover-styled 
 describe('FolderTree row overflow menu: open/close', () => {
   it('clicking the overflow button opens a menu anchored to that row', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to archive')).toBeInTheDocument();
@@ -365,13 +363,12 @@ describe('FolderTree row overflow menu: open/close', () => {
 
   it('clicking the overflow button calls onOpenMenu with the row id, not onFolderClick/onPageClick', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions, spies } = buildRowActions();
     const onPageClick = vi.fn();
 
     render(
       <FolderTree
-        query={query}
         membershipSelector={membershipSelector}
         workspace={workspace}
         parentId={null}
@@ -395,20 +392,20 @@ describe('FolderTree row overflow menu: open/close', () => {
 
   it('a closed row (openMenuId does not match) renders no menu content', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: 'some-other-id' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
   });
 
   it('Escape closes an open menu (via onCloseMenu)', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions, spies } = buildRowActions({ openMenuId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     expect(screen.getByText('Rename')).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -418,10 +415,10 @@ describe('FolderTree row overflow menu: open/close', () => {
 
   it('an outside click closes an open menu (via onCloseMenu)', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions, spies } = buildRowActions({ openMenuId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const backdrop = document.querySelector('.overlay__backdrop');
     if (!backdrop) {
@@ -437,10 +434,10 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
   it('only the row matching openMenuId renders its items — the actual single-open-at-a-time guarantee lives in the openMenuId owner (Sidebar.Notes.tsx), asserted separately', () => {
     const folderA = makeFolder('folder-a', `${ROOT}/A`, null);
     const folderB = makeFolder('folder-b', `${ROOT}/B`, null);
-    const { query, workspace, membershipSelector } = setup([], [folderA, folderB]);
+    const { workspace, membershipSelector } = setup([], [folderA, folderB]);
     const { actions } = buildRowActions({ openMenuId: 'folder-a' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     // Both rows' Archive items would render identically, so distinguish by
     // querying each row's own overlay/menu presence via its DOM subtree —
@@ -453,12 +450,12 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
 describe('FolderTree row overflow menu: note actions dispatch to PageOperations', () => {
   it('Archive calls pageOperations.archive for a persisted note', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const { workspace, membershipSelector, pageOperations } = setup([page]);
     const archiveSpy = vi.spyOn(pageOperations, 'archive').mockResolvedValue(undefined);
     const { actions } = buildRowActions({ openMenuId: page.id });
     const rowActions: SidebarRowActions = { ...actions, onArchiveNote: (id) => void pageOperations.archive(id) };
 
-    renderTree(query, membershipSelector, workspace, rowActions);
+    renderTree(membershipSelector, workspace, rowActions);
     fireEvent.click(screen.getByText('Move to archive'));
 
     expect(archiveSpy).toHaveBeenCalledWith(page.id);
@@ -472,7 +469,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
   it('Duplicate calls pageOperations.duplicate for a persisted note (ADR-028)', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const { workspace, membershipSelector, pageOperations } = setup([page]);
     const duplicateSpy = vi
       .spyOn(pageOperations, 'duplicate')
       .mockResolvedValue('page-duplicate');
@@ -482,7 +479,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
       onDuplicateNote: (id) => void pageOperations.duplicate(id),
     };
 
-    renderTree(query, membershipSelector, workspace, rowActions);
+    renderTree(membershipSelector, workspace, rowActions);
     fireEvent.click(screen.getByText('Duplicate'));
 
     expect(duplicateSpy).toHaveBeenCalledWith(page.id);
@@ -490,7 +487,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
   it("shows 'Add to favorites' for a non-favorited note and dispatches updateMetadata({ favorite: true }) on click", () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const { workspace, membershipSelector, pageOperations } = setup([page]);
     const updateMetadataSpy = vi
       .spyOn(pageOperations, 'updateMetadata')
       .mockResolvedValue(undefined);
@@ -500,7 +497,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
         void pageOperations.updateMetadata(id, { favorite: !isFavorite }),
     });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Add to favorites')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Add to favorites'));
@@ -510,7 +507,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
   it("shows 'Remove from favorites' for an already-favorited note and dispatches updateMetadata({ favorite: false }) on click", () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`, null, { favorite: true });
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const { workspace, membershipSelector, pageOperations } = setup([page]);
     const updateMetadataSpy = vi
       .spyOn(pageOperations, 'updateMetadata')
       .mockResolvedValue(undefined);
@@ -520,7 +517,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
         void pageOperations.updateMetadata(id, { favorite: !isFavorite }),
     });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Remove from favorites')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Remove from favorites'));
@@ -530,7 +527,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
   it('Rename calls onStartRename, then switches the row into edit mode and drives commitTitle/requestTitleSave', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const { workspace, membershipSelector, pageOperations } = setup([page]);
     const commitTitleSpy = vi.spyOn(pageOperations, 'commitTitle');
     const requestTitleSaveSpy = vi
       .spyOn(pageOperations, 'requestTitleSave')
@@ -542,7 +539,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
       onNoteTitleFlush: (id) => void pageOperations.requestTitleSave(id),
     });
 
-    const { rerender } = renderTree(query, membershipSelector, workspace, actions);
+    const { rerender } = renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Rename'));
 
     expect(spies.onStartRename).toHaveBeenCalledWith(page.id);
@@ -551,7 +548,6 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     const editingActions: SidebarRowActions = { ...actions, editingId: page.id, openMenuId: null };
     rerender(
       <FolderTree
-        query={query}
         membershipSelector={membershipSelector}
         workspace={workspace}
         parentId={null}
@@ -577,13 +573,12 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
   it('a row in rename mode does not fire onPageClick when clicked', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ editingId: page.id });
     const onPageClick = vi.fn();
 
     render(
       <FolderTree
-        query={query}
         membershipSelector={membershipSelector}
         workspace={workspace}
         parentId={null}
@@ -608,12 +603,12 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
 describe('FolderTree row overflow menu: a draft note has no menu at all', () => {
   it('a draft offers no menu items — nothing is available yet (no Vault entry to rename/archive/delete)', async () => {
-    const { query, workspace, membershipSelector, pageOperations } = setup();
+    const { workspace, membershipSelector, pageOperations } = setup();
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
 
     const { actions } = buildRowActions({ openMenuId: workspace.activePageId ?? null });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
     expect(screen.queryByText('Move to archive')).not.toBeInTheDocument();
@@ -621,11 +616,11 @@ describe('FolderTree row overflow menu: a draft note has no menu at all', () => 
   });
 
   it('a draft row renders no overflow button (OverflowMenu renders nothing for an empty item list)', async () => {
-    const { query, workspace, membershipSelector, pageOperations } = setup();
+    const { workspace, membershipSelector, pageOperations } = setup();
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
 
     const { actions } = buildRowActions();
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const row = screen.getByText('My Draft').closest('.entry');
     if (!row) {
@@ -646,10 +641,10 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
   it('folder menu has an Archive item for an active folder (ADR-026)', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to archive')).toBeInTheDocument();
@@ -676,20 +671,20 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
         originalParentId: null,
       },
     };
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Move to archive')).not.toBeInTheDocument();
   });
 
   it('Archive calls onArchiveFolder', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Move to archive'));
 
     expect(spies.onArchiveFolder).toHaveBeenCalledWith('folder-1');
@@ -697,10 +692,10 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
   it("shows 'Add to favorites' for a non-favorited folder and calls onToggleFavoriteFolder(id, false)", () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Add to favorites')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Add to favorites'));
@@ -727,10 +722,10 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
         originalParentId: null,
       },
     };
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Remove from favorites')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Remove from favorites'));
@@ -740,7 +735,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
   it('Rename calls onFolderTitleEdit through FolderOperations.commitName while editing', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector, folderOperations } = setup([], [folder]);
+    const { workspace, membershipSelector, folderOperations } = setup([], [folder]);
     const commitNameSpy = vi.spyOn(folderOperations, 'commitName');
 
     const { actions } = buildRowActions({
@@ -748,7 +743,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
       onFolderTitleEdit: (id, value) => folderOperations.commitName(id, value),
     });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const field = screen.getByRole('textbox');
     fireEvent.input(field, { target: { textContent: 'Renamed Folder' } });
@@ -760,10 +755,10 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 describe('FolderTree rename edit buffer seeding', () => {
   it('opens rename with an empty buffer and New note placeholder for an auto-generated note name', () => {
     const page = buildPersistedPage(`${ROOT}/Untitled.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ editingId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const field = screen.getByRole('textbox');
     expect(field.textContent).toBe('');
@@ -772,10 +767,10 @@ describe('FolderTree rename edit buffer seeding', () => {
 
   it('opens rename with the actual name and no placeholder for a user-defined note name', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector } = setup([page]);
+    const { workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ editingId: page.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const field = screen.getByRole('textbox');
     expect(field.textContent).toBe('Note');
@@ -784,10 +779,10 @@ describe('FolderTree rename edit buffer seeding', () => {
 
   it('opens rename with an empty buffer and New folder placeholder for an auto-generated folder name', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Untitled`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ editingId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const field = screen.getByRole('textbox');
     expect(field.textContent).toBe('');
@@ -796,10 +791,10 @@ describe('FolderTree rename edit buffer seeding', () => {
 
   it('opens rename with the actual name and no placeholder for a user-defined folder name', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ editingId: 'folder-1' });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const field = screen.getByRole('textbox');
     expect(field.textContent).toBe('Projects');

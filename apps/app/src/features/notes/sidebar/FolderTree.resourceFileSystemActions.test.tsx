@@ -159,14 +159,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
 }
 
 function renderTree(
-  query: VaultQuery,
   membershipSelector: MembershipSelector,
   workspace: Workspace,
   rowActions: SidebarRowActions
 ) {
   return render(
     <FolderTree
-      query={query}
       membershipSelector={membershipSelector}
       workspace={workspace}
       parentId={null}
@@ -186,10 +184,10 @@ function renderTree(
 describe('FolderTree — resource location actions (Reveal in Finder / Copy path)', () => {
   it('an image resource row shows Reveal in Finder and Copy path', () => {
     const resource = makeResource({ id: 'img-1', kind: 'image', name: 'photo.png' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
@@ -197,10 +195,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('a pdf resource row ALSO shows Reveal in Finder and Copy path — the global pipeline gives image/pdf full parity', () => {
     const resource = makeResource({ id: 'pdf-1', kind: 'pdf', name: 'contract.pdf' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
@@ -208,10 +206,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('selecting Reveal in Finder calls onRevealResourceInFinder with the resource id', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions, spies } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Reveal in Finder'));
 
     expect(spies.onRevealResourceInFinder).toHaveBeenCalledWith('img-1');
@@ -219,10 +217,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('clicking Copy path opens a submenu of From vault / Full path / As Markdown, with the parent menu still visible', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Copy path'));
 
     expect(screen.getByText('From vault')).toBeInTheDocument();
@@ -236,10 +234,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('selecting "From vault" calls onCopyResourcePath with the resource id and the at-vault format', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions, spies } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Copy path'));
     fireEvent.click(screen.getByText('From vault'));
 
@@ -248,10 +246,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('selecting "Full path" calls onCopyResourcePath with the full-path format', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions, spies } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Copy path'));
     fireEvent.click(screen.getByText('Full path'));
 
@@ -260,10 +258,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('selecting "As Markdown" calls onCopyResourcePath with the as-markdown format', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions, spies } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Copy path'));
     fireEvent.click(screen.getByText('As Markdown'));
 
@@ -272,10 +270,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('the image resource row still shows Rename/Move to/Archive alongside the new actions', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
@@ -284,10 +282,10 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
   it('Archive renders last, after Reveal in Finder and Copy path', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     const menu = screen.getByRole('menu');
     const labels = Array.from(
@@ -308,30 +306,30 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 describe('FolderTree — resource Download action', () => {
   it('an image resource row shows Download', () => {
     const resource = makeResource({ id: 'img-1', kind: 'image' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.getByText('Download')).toBeInTheDocument();
   });
 
   it('a pdf resource row does NOT show Download', () => {
     const resource = makeResource({ id: 'pdf-1', kind: 'pdf', name: 'contract.pdf' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Download')).not.toBeInTheDocument();
   });
 
   it('selecting Download calls onDownloadResource with the resource id', () => {
     const resource = makeResource({ id: 'img-1' });
-    const { query, workspace, membershipSelector } = setup([resource]);
+    const { workspace, membershipSelector } = setup([resource]);
     const { actions, spies } = buildRowActions({ openMenuId: resource.id });
 
-    renderTree(query, membershipSelector, workspace, actions);
+    renderTree(membershipSelector, workspace, actions);
     fireEvent.click(screen.getByText('Download'));
 
     expect(spies.onDownloadResource).toHaveBeenCalledWith('img-1');

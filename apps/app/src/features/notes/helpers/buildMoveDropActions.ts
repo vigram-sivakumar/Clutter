@@ -1,4 +1,4 @@
-import type { DropActions } from '@features/notes/sidebar/executeDrop';
+import type { DropActions, MoveOptions } from '@features/notes/sidebar/executeDrop';
 import { forgetInLevelOrder, levelOrderContextFor, placeSiblingInLevel } from '@features/notes/sidebar/sidebarOrderActions';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
@@ -7,6 +7,49 @@ import type { CollectionViewConfigStore } from '@core/application/collection/Col
 import type { Vault } from '@core/vault/models/Vault';
 import type { ToastApi } from '@components/toast/ToastProvider';
 import { reportMoveFailure } from './reportMoveFailure';
+
+/**
+ * Shared UI move orchestration for note/folder menus and drops. Facades still own
+ * the move; only a successful cross-parent move forgets a saved position when
+ * the caller owns level ordering. Menus settle the promise, drops observe it.
+ */
+export function buildNoteFolderMoveActions(
+  { vault, pageOperations, folderOperations }: {
+    readonly vault: Pick<Vault, 'getPage' | 'getFolder'>;
+    readonly pageOperations: Pick<PageOperations, 'move'>;
+    readonly folderOperations: Pick<FolderOperations, 'move'>;
+  },
+  toast: ToastApi,
+  onItemLeftLevel?: (parentId: string | null, kind: 'note' | 'folder', id: string) => void
+) {
+  async function move(kind: 'note' | 'folder', id: string, destinationFolderId: string | null, options?: MoveOptions): Promise<void> {
+    const from = onItemLeftLevel
+      ? (kind === 'note' ? vault.getPage(id) : vault.getFolder(id))?.parentId ?? null
+      : null;
+    try {
+      if (kind === 'note') {
+        await pageOperations.move(id, destinationFolderId);
+      } else {
+        await folderOperations.move(id, destinationFolderId);
+      }
+    } catch (error) {
+      if (!options?.silent) {
+        reportMoveFailure(toast, kind, error);
+      }
+      throw error;
+    }
+    if (from !== destinationFolderId) {
+      onItemLeftLevel?.(from, kind, id);
+    }
+  }
+
+  return {
+    onMoveNote: (id: string, destinationFolderId: string | null, options?: MoveOptions) =>
+      move('note', id, destinationFolderId, options),
+    onMoveFolder: (id: string, destinationFolderId: string | null, options?: MoveOptions) =>
+      move('folder', id, destinationFolderId, options),
+  };
+}
 
 /**
  * What a drop does, for a drag that began OUTSIDE the sidebar tree (a Collection View's card or note row): the
@@ -23,40 +66,13 @@ export function buildMoveDropActions(application: {
   readonly membershipSelector: MembershipSelector;
   readonly collectionViewConfigStore: CollectionViewConfigStore;
 }, toast: ToastApi): DropActions {
-  const { vault, pageOperations, folderOperations, membershipSelector, collectionViewConfigStore: store } = application;
+  const { pageOperations, folderOperations, membershipSelector, collectionViewConfigStore: store } = application;
   const levelOrder = levelOrderContextFor(store, membershipSelector);
 
   return {
-    onMoveNote: async (pageId, destinationFolderId, options) => {
-      const from = vault.getPage(pageId)?.parentId ?? null;
-      try {
-        await pageOperations.move(pageId, destinationFolderId);
-      } catch (error) {
-        // Reported here, then rethrown so the drop is rejected and nothing after it runs.
-        if (!options?.silent) {
-          reportMoveFailure(toast, 'note', error);
-        }
-        throw error;
-      }
-      // (Only reached when the move succeeded.)
-      if (from !== destinationFolderId) {
-        forgetInLevelOrder(store, from, 'note', pageId);
-      }
-    },
-    onMoveFolder: async (folderId, destinationFolderId, options) => {
-      const from = vault.getFolder(folderId)?.parentId ?? null;
-      try {
-        await folderOperations.move(folderId, destinationFolderId);
-      } catch (error) {
-        if (!options?.silent) {
-          reportMoveFailure(toast, 'folder', error);
-        }
-        throw error;
-      }
-      if (from !== destinationFolderId) {
-        forgetInLevelOrder(store, from, 'folder', folderId);
-      }
-    },
+    ...buildNoteFolderMoveActions(application, toast, (parentId, kind, id) =>
+      forgetInLevelOrder(store, parentId, kind, id)
+    ),
     canMoveFolderInto: (folderId, destinationFolderId) => folderOperations.canMove(folderId, destinationFolderId),
     canMoveNoteInto: (pageId, destinationFolderId) => pageOperations.canMove(pageId, destinationFolderId),
     canReorderLevel: (parentId) => levelOrder.getSort(parentId)?.key === 'manual',

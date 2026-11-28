@@ -6,10 +6,10 @@ import type { NoteRowActions } from '../sidebar/FolderTree';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
 import { createFolderInZone } from './createFolderInZone';
 import type { ToastApi } from '@components/toast/ToastProvider';
-import { showNameTaken } from '@components/toast/showNameTaken';
+import { acceptRename } from '@components/toast/showNameTaken';
 import { archivePageWithUndo } from './archiveWithUndo';
 import { createLocationActions } from './createLocationActions';
-import { reportMoveFailure } from './reportMoveFailure';
+import { buildNoteFolderMoveActions } from './buildMoveDropActions';
 
 export interface BuildNoteRowActionsDeps {
   readonly vault: Vault;
@@ -88,16 +88,10 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     // (onNoteTitleEdit/onNoteTitleFlush) already persists; this exists so
     // Enter/blur-changed on a colliding title rejects immediately (stay
     // open, shake) instead of waiting on the debounced save to fail.
-    onNoteTitleCommit: (pageId, value) => {
-      if (pageOperations.canRename(pageId, value)) {
-        return undefined;
-      }
-      showNameTaken(toast, value);
-      return false;
-    },
+    onNoteTitleCommit: (pageId, value) =>
+      acceptRename(toast, value, pageOperations.canRename(pageId, value)) ? undefined : false,
     onDraftTitleCommit: (pageId, value) => {
-      if (!pageOperations.canRename(pageId, value)) {
-        showNameTaken(toast, value);
+      if (!acceptRename(toast, value, pageOperations.canRename(pageId, value))) {
         return false;
       }
 
@@ -121,14 +115,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     createFolderInZone: (zone) => createFolderInZone(folderOperations, membershipSelector, zone),
     // Reports a failed move, then rethrows it, so a drag-and-drop still observes the rejection (and does not
     // go on as if the item had moved). The picker ignores the promise (see settleMove).
-    onMoveNote: async (pageId, destinationFolderId) => {
-      try {
-        await pageOperations.move(pageId, destinationFolderId);
-      } catch (error) {
-        reportMoveFailure(toast, 'note', error);
-        throw error;
-      }
-    },
+    onMoveNote: buildNoteFolderMoveActions(deps, toast).onMoveNote,
     // Same flow as the topbar's Move (PageHost.tsx): root-level creation
     // via the existing FolderOperations.create(), the same operation the
     // Notes sidebar's "+" button already uses.

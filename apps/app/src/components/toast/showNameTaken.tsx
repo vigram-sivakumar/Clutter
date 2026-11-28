@@ -31,6 +31,14 @@ export function showNameTaken(toast: ToastApi, name: string): void {
   });
 }
 
+/** Adapts a facade's synchronous rename check to the field's rejection contract. */
+export function acceptRename(toast: ToastApi, name: string, available: boolean): boolean {
+  if (!available) {
+    showNameTaken(toast, name);
+  }
+  return available;
+}
+
 /** Forgets the last toast, so a test starts without one. */
 export function resetNameTakenToast(): void {
   lastShown = null;

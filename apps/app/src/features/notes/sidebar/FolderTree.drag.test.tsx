@@ -148,7 +148,6 @@ function renderTree(env: ReturnType<typeof setup>, extra: { rowActions?: Sidebar
   const onFolderClick = vi.fn();
   const utils = render(
     <FolderTree
-      query={env.query}
       membershipSelector={env.membershipSelector}
       workspace={env.workspace}
       parentId={null}
@@ -522,7 +521,6 @@ describe('FolderTree drag: existing behavior is preserved', () => {
     const onFolderClick = vi.fn();
     render(
       <FolderTree
-        query={env.query}
         membershipSelector={env.membershipSelector}
         workspace={env.workspace}
         parentId={null}
@@ -582,7 +580,6 @@ describe('FolderTree drag: notes', () => {
     const onPageClick = vi.fn();
     render(
       <FolderTree
-        query={env.query}
         membershipSelector={env.membershipSelector}
         workspace={env.workspace}
         parentId={null}
@@ -610,7 +607,6 @@ describe('FolderTree drag: notes', () => {
     const onPageClick = vi.fn();
     render(
       <FolderTree
-        query={env.query}
         membershipSelector={env.membershipSelector}
         workspace={env.workspace}
         parentId={null}

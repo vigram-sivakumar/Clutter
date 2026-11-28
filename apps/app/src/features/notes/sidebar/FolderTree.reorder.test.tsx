@@ -160,7 +160,6 @@ function renderOrdered(
 ) {
   const tree = () => (
     <FolderTree
-      query={env.query}
       membershipSelector={env.membershipSelector}
       workspace={env.workspace}
       parentId={null}

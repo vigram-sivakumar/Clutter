@@ -495,14 +495,10 @@ export class FolderOperations {
   }
 
   /**
-   * Synchronous pre-check for the interactive "New Folder" inline-creation
-   * row (NewFolderRow, via Sidebar.Notes' handleCommitNewFolder) — the
-   * create-side counterpart to canRename() above, sharing the same
-   * hasSiblingFolder() collision primitive. Only this one interactive entry
-   * point uses it: every other create call (FolderPathResolver's own
-   * createFolderPath, used by the ordinary create() below, the Move
-   * picker's "Create ..." row, and page/folder move) keeps its existing
-   * auto-suffix behavior untouched — this method never calls create()
+   * Synchronous pre-check for interactive New folder creation (sidebar inline
+   * row and global/collection dialogs), sharing the rename collision lookup.
+   * The ordinary create() and Move picker still use the collision-free
+   * destination resolver and its auto-suffix behavior. This never calls create()
    * itself and has no bearing on it. An empty/whitespace name is never a
    * collision here, same reasoning as canRename(): it resolves through the
    * existing "Untitled" auto-generation on actual create(), not a reject.
@@ -516,11 +512,11 @@ export class FolderOperations {
 
     const parentPath = resolveFolderPathOrRoot(this.vault, parentId);
 
-    return !this.hasSiblingFolder(parentPath, trimmedName);
+    return !this.findSiblingFolder(parentPath, trimmedName);
   }
 
   /**
-   * The one exact-collision predicate behind canCreate() and (via
+   * The one exact-collision lookup behind canCreate() and (via
    * findRenameCollision below) canRename()/rename() — same folder scope,
    * same "own current path is not a collision with itself" exclusion
    * FolderPathResolver.resolveMoveDestination() already uses, but never
@@ -530,31 +526,22 @@ export class FolderOperations {
    * unchanged for an actual move or any other create call — see
    * move()/create(), below) — this is a distinct, narrower check.
    */
-  private hasSiblingFolder(
+  private findSiblingFolder(
     parentPath: string,
     trimmedName: string,
     excludeFolderId?: string
-  ): boolean {
+  ): Folder | undefined {
     const occupant = this.vault.getFolderByPathCaseInsensitive(`${parentPath}/${trimmedName}`);
 
-    return occupant !== undefined && occupant.id !== excludeFolderId;
+    return occupant && occupant.id !== excludeFolderId ? occupant : undefined;
   }
 
-  /**
-   * findRenameCollision() additionally needs the colliding Folder itself
-   * (for rename()'s error message), so it fetches directly rather than
-   * going through hasSiblingFolder()'s boolean — same rule, same
-   * parentPath/trimmedName/exclusion shape either way.
-   */
   private findRenameCollision(folder: Folder, trimmedName: string): Folder | undefined {
     if (!trimmedName) {
       return undefined;
     }
 
-    const parentPath = VaultPath.parentDirectory(folder.path);
-    const occupant = this.vault.getFolderByPathCaseInsensitive(`${parentPath}/${trimmedName}`);
-
-    return occupant && occupant.id !== folder.id ? occupant : undefined;
+    return this.findSiblingFolder(VaultPath.parentDirectory(folder.path), trimmedName, folder.id);
   }
 
   /** `folderId`'s own WikiLink folder-link target (`Projects/`), or a page's ordinary target (`Projects/Roadmap`). */

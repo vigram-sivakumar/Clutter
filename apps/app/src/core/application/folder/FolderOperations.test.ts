@@ -321,6 +321,18 @@ describe('FolderOperations.create()', () => {
 });
 
 describe('FolderOperations.canCreate() (interactive "New folder" row pre-check)', () => {
+  it('shares case-insensitive sibling lookup with rename while excluding only the renamed folder', () => {
+    const parent = makeFolder('parent', `${ROOT}/Parent`);
+    const first = makeFolder('first', `${ROOT}/Parent/First`, 'parent');
+    const second = makeFolder('second', `${ROOT}/Parent/Second`, 'parent');
+    const { folderOperations } = setup([parent, first, second]);
+
+    expect(folderOperations.canCreate('  FIRST  ', 'parent')).toBe(false);
+    expect(folderOperations.canRename('first', '  FIRST  ')).toBe(true);
+    expect(folderOperations.canRename('second', '  FIRST  ')).toBe(false);
+    expect(folderOperations.canCreate('  FIRST  ', null)).toBe(true);
+  });
+
   it('returns false for a name that already exists at the vault root', () => {
     const existing = makeFolder('folder-existing', `${ROOT}/Projects`);
     const { folderOperations } = setup([existing]);

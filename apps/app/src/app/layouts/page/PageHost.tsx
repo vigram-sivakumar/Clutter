@@ -140,7 +140,7 @@ import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useToast } from '@components/toast/ToastProvider';
-import { showNameTaken } from '@components/toast/showNameTaken';
+import { acceptRename, showNameTaken } from '@components/toast/showNameTaken';
 import { waitForImage } from '@shared/helpers/waitForImage';
 import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
 import { createTaskActions } from '@features/tasks/helpers/createTaskActions';
@@ -205,7 +205,8 @@ import {
   toCollectionViewConfig,
 } from '@core/presentation/collection/resolveCollectionView';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
-import { buildMoveDropActions } from '@features/notes/helpers/buildMoveDropActions';
+import { buildMoveDropActions, buildNoteFolderMoveActions } from '@features/notes/helpers/buildMoveDropActions';
+import { settleMove } from '@features/notes/sidebar/executeDrop';
 import { RestoreNeedsDestinationError } from '@core/vault/persistence/PagePersistenceCoordinator';
 import type { RestoreDestinationRequest } from '@app/layouts/page/restoreDestination';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
@@ -1392,17 +1393,11 @@ export function PageHost({
       .catch((error: unknown) =>
         toast.fail('Couldn’t delete this folder', error)
       );
+  const menuMoveActions = buildNoteFolderMoveActions(application, toast);
   const movePage = (pageId: string, destinationFolderId: string | null): void =>
-    void application.pageOperations
-      .move(pageId, destinationFolderId)
-      .catch((error: unknown) => reportMoveFailure(toast, 'note', error));
-  const moveFolder = (
-    folderId: string,
-    destinationFolderId: string | null
-  ): void =>
-    void application.folderOperations
-      .move(folderId, destinationFolderId)
-      .catch((error: unknown) => reportMoveFailure(toast, 'folder', error));
+    settleMove(menuMoveActions.onMoveNote(pageId, destinationFolderId));
+  const moveFolder = (folderId: string, destinationFolderId: string | null): void =>
+    settleMove(menuMoveActions.onMoveFolder(folderId, destinationFolderId));
 
   // What the shared More actions menu runs for a resource other than the open one's own state (see
   // `buildResourceMenuOptions`): one set, used by the topbar below and by the Collection View's
@@ -1662,20 +1657,10 @@ export function PageHost({
   // changed it). A name another note already has is refused here, before any save is attempted: returning `false`
   // makes the title field shake and stay open on Enter, or revert on blur, and the toast says why. The title channel
   // would otherwise refuse the same name later as a save failure.
-  const onCommitPageTitle = (pageId: string, title: string): boolean => {
-    if (application.pageOperations.canRename(pageId, title)) {
-      return true;
-    }
-    showNameTaken(toast, title);
-    return false;
-  };
-  const onCommitFolderName = (folderId: string, name: string): boolean => {
-    if (application.folderOperations.canRename(folderId, name)) {
-      return true;
-    }
-    showNameTaken(toast, name);
-    return false;
-  };
+  const onCommitPageTitle = (pageId: string, title: string): boolean =>
+    acceptRename(toast, title, application.pageOperations.canRename(pageId, title));
+  const onCommitFolderName = (folderId: string, name: string): boolean =>
+    acceptRename(toast, name, application.folderOperations.canRename(folderId, name));
 
   const onEditFolderName = (folderId: string, name: string): void => {
     application.folderOperations.commitName(folderId, name);
