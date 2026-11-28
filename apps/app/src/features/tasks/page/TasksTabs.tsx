@@ -29,8 +29,8 @@ interface TasksTabsProps {
 }
 
 /**
- * The tab strip below the Tasks page title (the title section's `tabs` slot). Controlled: the page owns the selected
- * tab and shows the matching dataset (`TASKS_TAB_VIEW`) in the list below.
+ * The tab strip below the Tasks page title (the title section's `tabs` slot). Controlled: the selected tab comes from the view configuration store;
+ * the page shows the matching dataset (`TASKS_TAB_VIEW`) in the list below.
  */
 export function TasksTabs({ value, onValueChange }: TasksTabsProps) {
   return (
