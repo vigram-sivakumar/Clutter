@@ -279,7 +279,12 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc.replace('Designer', 'Des<br>igner'));
     // Static/read-only projection has the same break and no nested editor.
     const readonly = mount(view.state.doc.toString(), true);
-    expect(host(readonly, 1, 1).querySelectorAll('br')).toHaveLength(1);
+    // Read-only projections intentionally omit data-table-engine-cells.
+    const readonlyCell = readonly.dom.querySelector<HTMLElement>('.cm-table-widget [data-cell="1,1"]');
+    expect(readonlyCell).not.toBeNull();
+    expect(readonlyCell!.querySelectorAll('br')).toHaveLength(1);
+    expect(readonlyCell!.textContent).toBe('Designer');
+    expect(readonly.dom.querySelector('.cm-table-widget .cm-editor')).toBeNull();
     expect(readonly.plugin(tableCellEditor)?.nested ?? null).toBeNull();
   });
 
