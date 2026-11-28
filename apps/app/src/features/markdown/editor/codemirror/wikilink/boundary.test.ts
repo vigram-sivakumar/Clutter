@@ -80,9 +80,13 @@ describe('Shared semantic-token mechanism boundary: no Vault/application-layer i
     // this boundary check doesn't cover (they live under codemirror/highlight/,
     // not codemirror/semanticToken/, and are already free of Vault imports
     // by construction — they only ever see EditorState/SyntaxNodeRef).
+    // The semantic selection-snap extension was retired in Phase 3A;
+    // selection remains owned by CodeMirror. Keep the dynamic boundary
+    // assertions below for every existing (and future) source file.
     expect(files).toEqual(
-      expect.arrayContaining(['tokenEngagement.ts', 'tokenMouseHandlers.ts', 'tokenSelectionSnap.ts'])
+      expect.arrayContaining(['tokenEngagement.ts', 'tokenMouseHandlers.ts'])
     );
+    expect(files).not.toContain('tokenSelectionSnap.ts');
   });
 
   it.each(files)('%s does not import or reference Vault/VaultQuery/EffectivePageState/PageOperations', (file) => {
