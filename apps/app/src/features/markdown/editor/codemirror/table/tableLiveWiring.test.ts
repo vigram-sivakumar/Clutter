@@ -220,9 +220,10 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('Enter edits vertically in the same column without changing source or history', () => {
+  it('Enter edits vertically at the end of the destination cell without changing source or history', () => {
     const source = doc.replace('| Vik | Designer |', '| Vik | Designer |\n| Sam | Writer |');
     const view = mount(source, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     const controller = view.plugin(tableCellEditor)!;
     const depth = undoDepth(view.state);
     const redo = redoDepth(view.state);
@@ -232,7 +233,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
       key(controller.nested!.contentDOM, 'Enter', backwards);
       expect(controller.nested!.state.doc.toString()).toBe(expected);
       expect(controller.nested!.state.selection.main.empty).toBe(true);
-      expect(controller.nested!.state.selection.main.head).toBe(0);
+      expect(controller.nested!.state.selection.main.head).toBe(expected.length);
       expect(selected(view)).toEqual([]);
       expect(document.activeElement).toBe(controller.nested!.contentDOM);
     }
@@ -240,6 +241,49 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(source);
     expect(undoDepth(view.state)).toBe(depth);
     expect(redoDepth(view.state)).toBe(redo);
+  });
+
+  it.each(['', 'First<br>Last', 'Designer'])('Enter lands at the editable end and typing appends: %s', destination => {
+    const source = doc.replace('| Vik | Designer |', '| Vik | ' + destination + ' |');
+    const view = mount(source, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Role'));
+    const controller = view.plugin(tableCellEditor)!;
+    const depth = undoDepth(view.state);
+    key(controller.nested!.contentDOM, 'Enter');
+    const nested = controller.nested!;
+    expect(nested.state.doc.toString()).toBe(destination);
+    expect(nested.state.selection.main.empty).toBe(true);
+    expect(nested.state.selection.main.head).toBe(destination.length);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
+    nested.dispatch({ ...nested.state.replaceSelection('!'), userEvent: 'input.type' });
+    expect(nested.state.doc.toString()).toBe(destination + '!');
+    expect(view.state.doc.toString()).toBe(source.replace('| Vik | ' + destination + ' |', '| Vik | ' + destination + '! |'));
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+  });
+
+  it('Enter from a caret-free cell goes down to the end; selected Shift-Enter still goes up to the start', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Name'));
+    const controller = view.plugin(tableCellEditor)!;
+    const depth = undoDepth(view.state);
+    key(controller.nested!.contentDOM, 'Tab');
+    expect(selected(view)).toEqual(['0,1']);
+    key(host(view, 0, 1), 'Enter');
+    expect(controller.nested!.state.doc.toString()).toBe('Designer');
+    expect(controller.nested!.state.selection.main.head).toBe('Designer'.length);
+    key(controller.nested!.contentDOM, 'Escape');
+    expect(selected(view)).toEqual(['1,1']);
+    key(host(view, 1, 1), 'Enter', true);
+    expect(controller.nested!.state.doc.toString()).toBe('Role');
+    expect(controller.nested!.state.selection.main.head).toBe(0);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(depth);
   });
 
   it('preserves the editing cell, caret and source at the last row on Enter', () => {

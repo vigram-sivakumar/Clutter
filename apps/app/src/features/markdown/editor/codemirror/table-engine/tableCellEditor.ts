@@ -375,7 +375,7 @@ export class TableCellEditor {
     const next = { row: cell.row + (backwards ? -1 : 1), col: cell.col };
     if (isValidCell(next, shape)) {
       this.cancelDrag();
-      return this.enterCell(from, next, 'start');
+      return this.enterCell(from, next, backwards ? 'start' : 'end');
     }
     // Consume the boundary key too: preserve the current selection/editor.
     return true;
