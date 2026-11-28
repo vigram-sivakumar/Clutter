@@ -250,8 +250,6 @@ export function Sidebar({
               folderId,
               sort
             );
-            // The store is the source of truth; this just re-renders the tree to read it again.
-            setSortRevision((revision) => revision + 1);
           }}
           onToggleFolderCap={(key) =>
             setExpandedFolders((prev) =>
