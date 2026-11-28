@@ -80,7 +80,7 @@ describe('Controls creation launcher', () => {
     renderControls();
     const create = screen.getByRole('button', { name: 'Create' });
     expect(create.querySelector('[data-icon="notePencil"]')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'New note', exact: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New note' })).toBeNull();
     expect(create).toHaveAttribute('title', 'Create');
     expect(create).toHaveAttribute('aria-expanded', 'false');
   });
