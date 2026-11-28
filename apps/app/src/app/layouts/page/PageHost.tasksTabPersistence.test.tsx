@@ -97,6 +97,7 @@ const TASKS = [
   '- [ ] Due yesterday task @' + new Date(Date.now() - 86400000).toISOString().slice(0, 10),
   '- [ ] Due today task @' + new Date().toISOString().slice(0, 10),
   '- [ ] Due later task @2999-01-01',
+  '- [x] Completed task',
 ].join('\n');
 
 async function boot(fileSystem: InMemoryVaultFileSystem) {
@@ -194,6 +195,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     ['Today', ['Due yesterday task', 'Due today task']],
     ['Upcoming', ['Due later task']],
     ['Unplanned', ['Plain undated task']],
+    ['Completed', ['Completed task']],
   ])('after choosing %s and restarting, the page reopens on it with its list', async (label, expected) => {
     const fileSystem = new InMemoryVaultFileSystem();
 
@@ -211,6 +213,67 @@ describe('Tasks page tab selection persists across an app restart', () => {
 
     expect(activeTab()).toBe(label);
     expect(listedTasks()).toEqual(expected);
+  });
+
+  it('reflects store updates immediately without a second local selection', async () => {
+    const application = await boot(new InMemoryVaultFileSystem());
+    const store = application.tasksViewConfigStore;
+    render(<AppLayout application={application} />);
+    await flush();
+    expect(activeTab()).toBe('Today');
+
+    act(() => store.update({ selectedTab: 'upcoming' }));
+    await flush();
+    expect(activeTab()).toBe('Upcoming');
+    expect(listedTasks()).toEqual(['Due later task']);
+
+    act(() => store.update({ hiddenGroups: ['overdue'], showCompleted: false, autoSortCompleted: true }));
+    await flush();
+    expect(activeTab()).toBe('Upcoming');
+    expect(listedTasks()).toEqual(['Due later task']);
+
+    fireEvent.click(tab('Completed'));
+    await flush();
+    expect(activeTab()).toBe('Completed');
+    expect(listedTasks()).toEqual(['Completed task']);
+    expect(store.get()).toMatchObject({
+      selectedTab: 'completed', hiddenGroups: ['overdue'], showCompleted: false, autoSortCompleted: true,
+    });
+
+    act(() => store.update({ selectedTab: 'overdue' }));
+    await flush();
+    expect(activeTab()).toBe('Today');
+    expect(listedTasks()).toEqual(['Due yesterday task', 'Due today task']);
+    await flushWorkspaceStateWrites();
+  });
+
+  it('uses the current Application store when switching between separately saved Spaces', async () => {
+    const firstFiles = new InMemoryVaultFileSystem();
+    const secondFiles = new InMemoryVaultFileSystem();
+    const first = await boot(firstFiles);
+    const second = await boot(secondFiles);
+    first.tasksViewConfigStore.update({ selectedTab: 'upcoming' });
+    second.tasksViewConfigStore.update({ selectedTab: 'unscheduled' });
+    await flushWorkspaceStateWrites();
+
+    const view = render(<AppLayout key="first" application={first} />);
+    await flush();
+    expect(activeTab()).toBe('Upcoming');
+
+    view.rerender(<AppLayout key="second" application={second} />);
+    await flush();
+    expect(activeTab()).toBe('Unplanned');
+    expect(listedTasks()).toEqual(['Plain undated task']);
+    fireEvent.click(tab('Completed'));
+    await flush();
+    expect(second.tasksViewConfigStore.get().selectedTab).toBe('completed');
+    expect(first.tasksViewConfigStore.get().selectedTab).toBe('upcoming');
+
+    view.rerender(<AppLayout key="first" application={first} />);
+    await flush();
+    expect(activeTab()).toBe('Upcoming');
+    expect(listedTasks()).toEqual(['Due later task']);
+    await flushWorkspaceStateWrites();
   });
 
   it('the latest selection wins and the selected tab is remembered', async () => {
