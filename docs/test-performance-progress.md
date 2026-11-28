@@ -11,3 +11,7 @@ Owner's hardware: 14 logical CPUs, 48 GiB RAM. Supplied logs (checkout SHA and C
 - Forks 10: same counts, 217.58s.
 - Forks 12: same counts, 213.28s.
 Single runs, not a statistical benchmark; eight workers selected for modest system headroom, not fastest observed. Fixed eight is a repository-wide default, including CI unless overridden by CLI; performance on smaller machines unmeasured. No test changes. Full default-command regression and build on exact candidate required to verify configuration; native behaviour unaffected by test-only options, native gate not applicable to this change. Pending sidebar candidates remain isolated; full verification and explicit promotion approval still required. Expected development baseline 17,998 based on independent suites, not observed combined count; do not attribute the 17,999 benchmark to exact SHA without confirmation.
+
+## Candidate — pending gate
+
+Configuration checkpoint f22bf82cd46f90894a76fd1e21b8375c3fcbbd2b. Source/diff review: only three lines added to existing test configuration (comment, pool, maxWorkers), plus this ledger. No production source, tests, scripts or dependency changes. Local execution unavailable. Run build and npm run test:run (no overriding flags) on the exact candidate; record results before promotion. No native gate for test-only configuration. No shared branch modifications.
