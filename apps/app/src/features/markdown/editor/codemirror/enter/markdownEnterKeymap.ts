@@ -20,12 +20,14 @@ import { keymap, type Command } from '@codemirror/view';
 import {
   deleteAroundHardBreakBackward,
   deleteAroundHardBreakForward,
+  hardBreakBackslashEndingLine,
+  isPendingBreak,
 } from '../highlight/hardBreakMarkerDecoration';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeListItemFold } from '../fold/listItemFoldService';
 import { emojiMarkerSize } from '../../../../../core/vault/ingest/grammar/emojiListSyntax';
 import { isQuoteNodeName, quotePrefixOf, type QuoteToken } from '../../../../../core/vault/ingest/grammar/quoteNodes';
-import { classifyMarkerText, firstSameLineListMark, listItemMarker } from '../list/listMarkerDecoration';
+import { classifyMarkerNode, classifyMarkerText, firstSameLineListMark, listItemMarker, separatorRangeAfter } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import {
   isRiskyRenumberRewrite,
@@ -1195,7 +1197,92 @@ const continueEmojiListItem: StateCommand = ({ state, dispatch }) => {
  * Returning false delegates to whatever sits below — in the real editor,
  * `defaultKeymap`'s `insertNewlineAndIndent`.
  */
+/**
+ * Explicit hard-break continuations are part of the list item's text, unlike
+ * ordinary source-indented continuation paragraphs. Enter splits that item
+ * using its existing marker and the same ordered-tail safety policy as the
+ * marker-line commands. A still-empty pending break is replaced, not left as
+ * a literal backslash on the preceding item.
+ */
+const continueHardBreakListItem: StateCommand = ({ state, dispatch }) => {
+  const { selection, doc } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+  const pos = selection.main.head;
+  const line = doc.lineAt(pos);
+  if (line.number <= 1) {
+    return false;
+  }
+  const previous = doc.line(line.number - 1);
+  const hardBreak = hardBreakBackslashEndingLine(state, previous.from, previous.to);
+  if (!hardBreak) {
+    return false;
+  }
+  const pending = isPendingBreak(state, previous.from, previous.to);
+
+  // A break within a quote/code child of a list belongs to that child,
+  // not to the enclosing list. A list inside a quote still owns its text.
+  const itemAt = (at: number, side: -1 | 1): SyntaxNode | null => {
+    for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(at, side); node; node = node.parent) {
+      if (isQuoteNodeName(node.name) || NO_SOFT_BREAK_ANCESTORS.has(node.name)) {
+        return null;
+      }
+      if (node.name === 'ListItem') {
+        return node;
+      }
+    }
+    return null;
+  };
+  const item = itemAt(previous.to, -1);
+  const marker = item && listItemMarker(item);
+  if (!item || !marker) {
+    return false;
+  }
+  const markerLine = doc.lineAt(marker.from);
+  if (markerLine.number >= line.number) {
+    return false;
+  }
+  if (!pending) {
+    const current = itemAt(pos, pos === line.from ? 1 : -1) ?? itemAt(pos, 1);
+    if (!current || current.from !== item.from || current.to !== item.to) {
+      return false;
+    }
+  }
+
+  const markerKind = classifyMarkerNode(marker, state);
+  const separator = separatorRangeAfter(state, marker);
+  if (!markerKind || !separator) {
+    return false;
+  }
+  const indent = doc.sliceString(markerLine.from, marker.from);
+  // Same-line collapsed marker chains have a separate, first-marker policy.
+  // Do not copy an earlier invisible list marker as indentation.
+  if (quotePrefixOf(indent).end !== indent.length && /\S/.test(indent)) {
+    return false;
+  }
+  const task = taskMarkerOfListItem(item, state);
+  const contentStart = task ? taskContentBoundaryAfter(state, task) : separator.to;
+  const markerText = doc.sliceString(marker.from, marker.to);
+  const { insertMarkerText, tailShiftEdits } = markerKind === 'ordered'
+    ? nextOrderedMarker(state, item, markerText, marker.from, contentStart)
+    : { insertMarkerText: markerText, tailShiftEdits: [] as RenumberEdit[] };
+  const insert = state.lineBreak + indent + insertMarkerText
+    + doc.sliceString(separator.from, separator.to) + (task ? '[ ] ' : '');
+  const from = pending ? hardBreak.from : pos;
+  const to = pending ? line.to : pos;
+  const changes = [{ from, to, insert }, ...tailShiftEdits].sort((a, b) => a.from - b.from);
+  dispatch(state.update({
+    changes,
+    selection: EditorSelection.cursor(from + insert.length),
+    scrollIntoView: true,
+    userEvent: 'input',
+  }));
+  return true;
+};
+
 export const markdownEnterCommand: StateCommand = (target) =>
+  continueHardBreakListItem(target) ||
   exitEmptyBlockquoteContinuation(target) ||
   continueClutterQuote(target) ||
   continueEmojiListItem(target) ||
@@ -1607,7 +1694,17 @@ function softBreakInsert(state: EditorState): { from: number; to: number; insert
     return null;
   }
 
-  const { from, to } = selection.main;
+  let { from, to } = selection.main;
+  // Both caret positions around a concealed existing hard-break marker mean
+  // the same visual end of line. Split before it so it remains on the moved
+  // continuation, rather than reusing it and producing a normal blank line.
+  if (from === to) {
+    const line = state.doc.lineAt(from);
+    const existing = hardBreakBackslashEndingLine(state, line.from, line.to);
+    if (existing && from === existing.to) {
+      from = to = existing.from;
+    }
+  }
   // The text on either side of the cursor: at the start of a line only the following side is paragraph text.
   const sides = [-1, 1] as const;
   const inParagraph = sides.some((side) => {
@@ -1619,6 +1716,10 @@ function softBreakInsert(state: EditorState): { from: number; to: number; insert
     ) {
       if (NO_SOFT_BREAK_ANCESTORS.has(node.name)) {
         return false;
+      }
+      if (node.name === 'Task') {
+        const marker = node.getChild('TaskMarker');
+        paragraph ||= marker !== null && from >= taskContentBoundaryAfter(state, marker);
       }
       paragraph ||= node.name === 'Paragraph';
     }
