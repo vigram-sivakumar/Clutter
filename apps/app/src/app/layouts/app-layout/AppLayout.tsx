@@ -190,12 +190,9 @@ export function AppLayout({
   // The Tasks page's selected tab — persisted in the same store (merged into
   // the same `tasksViewConfig` entry, so other stored collection state is never overwritten),
   // so the page reopens on the tab it was left on, across restarts.
-  const [tasksTab, setTasksTab] = useState<TasksTabValue>(() =>
-    resolveTasksTab(application.tasksViewConfigStore.get().selectedTab)
-  );
+  const tasksTab = resolveTasksTab(persistedTasksViewConfig.selectedTab);
 
   function updateTasksTab(next: TasksTabValue): void {
-    setTasksTab(next);
     application.tasksViewConfigStore.update({ selectedTab: next });
   }
 
