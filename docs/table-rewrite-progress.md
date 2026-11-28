@@ -836,3 +836,53 @@ Owner supplied exact-checkout git grep -lE results at 938ec7a4. The legacy colum
 ### Legacy cleanup — full regression passed; native security gate next (2026-11-28)
 
 Owner supplied full application regression at local HEAD `c8a1d5b6af9a735a4e71770ab3320ea4b1192854`: 17,913/17,913 tests, 967/967 files, 252.17s, start 08:45:45, no reported unhandled errors. The remote testing-branch HEAD was independently confirmed at the same SHA. The count matches the cleanup candidate's expectation. The excerpt does not separately show build/type, focused editor or diff-check results; record or confirm those checks before declaring the entire mandatory gate complete. Owner reconfirmed native strikethrough verification. No production changes in this documentation checkpoint. Next: effective packaged CSP verification on the tested runtime using the native inspector or an approved isolated release-mode harness, preserving production security configuration; record nonce presence/equality (not values), applied CodeMirror styles and relevant security-policy violations during cell activation. Debug/devUrl evidence is insufficient. Real non-English IME remains unverified and no deferral has been granted. No integration, merge or release until mandatory gates and owner approval are resolved.
+
+
+### Native CSP verification procedure — isolated inspector candidate (2026-11-28)
+
+Remote ChatGPT can read and update the repository but cannot run the owner's macOS WKWebView. Use a separate, explicitly non-distributable release-mode inspector bundle from the verified runtime tree, with a temporary build target and distinct identity. Tauri supports enabling its dependency feature `tauri/devtools` for a local release build; the macOS inspector uses private APIs and must never be included in a shipping bundle. No source/CSP/capability changes, no automation plugin, no real Spaces. This is a proposed local command, not an executed build.
+
+From a clean tracked checkout of this testing branch (documentation-only descendants of c8a1d5b6 are acceptable):
+
+```bash
+git pull --ff-only origin testing/table-wikilink-transport
+git status --short
+git rev-parse HEAD
+qa_dir=$(mktemp -d "${TMPDIR%/}/clutter-csp.XXXXXX")
+CARGO_TARGET_DIR="$qa_dir/target" npm run tauri --workspace=apps/app -- build --bundles app --features tauri/devtools --config '{"productName":"Clutter CSP QA","identifier":"com.clutter.cspqa"}' &&
+open "$qa_dir/target/release/bundle/macos/Clutter CSP QA.app"
+```
+
+Do not distribute or install the QA bundle; create a fresh disposable Space, a note with prose and a two-column Markdown table. Open native Web Inspector (Cmd+Option+I), inspect console messages without sharing nonce values. In Console install the following diagnostic, which keeps only directive names and reports booleans/counts:
+
+```js
+(() => {
+  const violations = [];
+  document.addEventListener('securitypolicyviolation', e => {
+    violations.push({ directive: e.effectiveDirective, disposition: e.disposition });
+  });
+  window.clutterCspReport = () => {
+    const styles = [...document.querySelectorAll('style')];
+    const first = styles.find(s => /html\[data-theme/.test(s.textContent || ''));
+    const rules = s => [...(s.sheet?.cssRules || [])].map(r => r.cssText).join('\n');
+    const cm = styles.filter(s => s !== first &&
+      /\.cm-(editor|content|scroller|announced)\b|\.ͼ[\da-z]+/i.test((s.textContent || '') + rules(s)));
+    const editors = [...document.querySelectorAll('.cm-editor')].map(el => ({
+      nested: !!el.closest('[data-cell]'),
+      display: getComputedStyle(el).display,
+      position: getComputedStyle(el).position
+    }));
+    return {
+      pageNoncePresent: !!first?.nonce,
+      cmStyleCount: cm.length,
+      cmNoncesMatch: !!first?.nonce && cm.length > 0 && cm.every(s => s.nonce === first.nonce),
+      cmRulesPresent: cm.length > 0 && cm.every(s => rules(s).length > 0),
+      editors,
+      violations: violations.slice()
+    };
+  };
+  return window.clutterCspReport();
+})()
+```
+
+Run `clutterCspReport()` while a table cell is actively editing, after changing cells, and again after leaving the table; check both root and nested computed styles (expected flex/relative for CM base theme), at least one matching injected stylesheet with actual CSS rules, and no relevant style-policy violations or missing-nonce errors in the inspector console including startup. The event listener measures only violations after installation, so startup console evidence must be checked separately. Do not mistake a missing nested editor or empty list for a passing assertion. Record outputs, exact HEAD, build result and any discrepancy. The inspector-only build is native packaged evidence for unchanged frontend/CSP configuration, not a distribution candidate. Real IME and earlier build/focused/diff summaries remain outstanding until evidenced. No merge or promotion.
