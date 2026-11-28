@@ -19,3 +19,7 @@ Source/diff review: 19 commits ahead, zero behind the base before this ledger up
 ## Regression and native acceptance — 2026-11-28
 
 Owner supplied full-suite tail: 17,992/17,992 tests across 967/967 files passed, 213.84s, no reported failed tests or unhandled errors. Test count reflects intentional retirement of old fixed-tab preference coverage and replacement session contracts. Owner reported manual test passed. Candidate checkpoint at recording: 4e3d201698e04610abfefbacf0272588cf02da1f; runtime/test tree 14c1f2e7. Log tail does not independently include checkout SHA, earlier targeted test summary or build summary; these would have succeeded if the supplied chained command was run without modification. Request confirmation of the build and targeted run and explicit development promotion approval before changing any shared branch. No runtime changes in this ledger update. Main remains bb181321. Tasks tab consolidation not started.
+
+## Owner acceptance and development promotion approval
+
+Owner explicitly confirmed targeted tests and build validation passed, approved promotion to development/table-editor, and requested separate Tasks tab state consolidation. Full regression and manual acceptance recorded above. The accepted runtime/test tree is 14c1f2e7; subsequent commits are ledger-only. Main must remain unchanged; Search/Create remains a separate unverified candidate. Authorised promotion is fast-forward only.
