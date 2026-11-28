@@ -14,6 +14,9 @@
  */
 export const LEGACY_COVER_POSITION_KEY = 'clutter-default-cover-position';
 export const LEGACY_AUTO_DELETE_ARCHIVED_KEY = 'clutter-auto-delete-archived';
+// Retired startup-tab preferences: never read, removed only on explicit reset.
+const LEGACY_DEFAULT_SIDEBAR_TAB_KEY = 'clutter-default-sidebar-tab';
+const LEGACY_USE_LAST_SIDEBAR_TAB_KEY = 'clutter-use-last-sidebar-tab';
 
 /** The old app-wide cover position, or undefined when there was none (the old default, Right, had no stored value). */
 export function readLegacyCoverPosition(): 'above' | undefined {
@@ -42,6 +45,8 @@ export function clearLegacyAppSettings(): void {
   try {
     localStorage.removeItem(LEGACY_COVER_POSITION_KEY);
     localStorage.removeItem(LEGACY_AUTO_DELETE_ARCHIVED_KEY);
+    localStorage.removeItem(LEGACY_DEFAULT_SIDEBAR_TAB_KEY);
+    localStorage.removeItem(LEGACY_USE_LAST_SIDEBAR_TAB_KEY);
   } catch {
     // Nothing to do: an unwritable store cannot hold the values either.
   }
