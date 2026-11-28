@@ -80,7 +80,7 @@ describe('global shortcuts, through the real layout', () => {
     expect([...sidebar.querySelectorAll('.sidebar--tabs .tab')].map(tab => tab.getAttribute('data-testid'))).toEqual([
       'sidebar.tab.notes', 'sidebar.tab.daily-notes', 'sidebar.tab.tasks', 'sidebar.tab.tags',
     ]);
-    const search = screen.getByRole('button', { name: 'Search', exact: true });
+    const search = screen.getByRole('button', { name: 'Search' });
     expect(search.closest('.sidebar--tabs')).toBeNull();
     search.focus();
     fireEvent.click(search);
