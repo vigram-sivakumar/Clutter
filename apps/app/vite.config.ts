@@ -69,6 +69,9 @@ export default defineConfig({
   },
 
   test: {
+    // Timezone tests change process.env.TZ; use processes rather than worker threads.
+    pool: 'forks',
+    maxWorkers: 8,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     setupFiles: ['./vitest.setup.ts'],
