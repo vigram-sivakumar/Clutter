@@ -306,8 +306,8 @@
  * th/td (including padding), not its content wrapper. An inset outline
  * does not alter border metrics, layout, hit testing or selection state. */
 .cm-editor .cm-table-widget[data-table-engine-cells='true'] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor) {
-  outline: 1px solid var(--border-focus);
-  outline-offset: -1px;
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
 }
 
 /* The active cell's own nested `EditorView` (`TableActiveCellController`,

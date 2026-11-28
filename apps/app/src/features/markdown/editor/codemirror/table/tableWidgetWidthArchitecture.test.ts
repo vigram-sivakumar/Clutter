@@ -130,8 +130,8 @@ describe('automatic table sizing stylesheet', () => {
 
   it('paints the active editing cell with an inset accent outline and no layout changes', () => {
     const active = rule('.cm-editor .cm-table-widget[data-table-engine-cells="true"] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor)');
-    expect(active).toContain('outline: 1px solid var(--border-focus)');
-    expect(active).toContain('outline-offset: -1px');
+    expect(active).toContain('outline: 2px solid var(--border-focus)');
+    expect(active).toContain('outline-offset: -2px');
     expect(active).not.toMatch(/;\s*(?:border|padding|margin|width|height|position|background|pointer-events)\s*:/);
   });
 
