@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { history } from '@codemirror/commands';
+import { history, undo, redo } from '@codemirror/commands';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { imageLivePreview } from './imageLivePreview';
@@ -172,6 +172,28 @@ describe('presentation-update flicker fix', () => {
 
     expect(view.dom.querySelector('.cm-invalid-embed__content')).toBeNull();
     expect(getImg(view)).not.toBeNull();
+  });
+
+  it('restores the stored mode from native Markdown image history on undo and redo', () => {
+    const prefix = 'Before.\n\n';
+    const source = prefix + IMAGE_MD;
+    const fit = prefix + '![Photo|fit](https://example.com/a.jpg)';
+    const view = mountView(source);
+    try {
+      selectMode(view, prefix.length, view.state.doc.length, 'fit');
+      expect(view.state.doc.toString()).toBe(fit);
+      expect(getImageUiState(view.state, prefix.length).displayMode).toBe('fit');
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(source);
+      expect(getImageUiState(view.state, prefix.length).displayMode).toBe('fill');
+      expect(getImageUiState(view.state, prefix.length, view.state.doc.length).displayMode).toBe('fill');
+      expect(redo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(fit);
+      expect(getImageUiState(view.state, prefix.length).displayMode).toBe('fit');
+      expect(getImageUiState(view.state, prefix.length, view.state.doc.length).displayMode).toBe('fit');
+    } finally {
+      view.destroy();
+    }
   });
 
   it('Markdown is updated in place — no duplicate metadata is appended', () => {

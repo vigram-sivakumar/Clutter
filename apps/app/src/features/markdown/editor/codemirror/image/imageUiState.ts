@@ -525,19 +525,34 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
           },
         });
       });
+      const restoringHistory = tr.isUserEvent('undo') || tr.isUserEvent('redo');
       for (const { from, to } of freshNodes) {
         // Same `f !== from` adjacency guard as the `broken` block's own
         // existing-entry lookup below — two directly-adjacent
         // Image/Embed nodes share a boundary point the instant either one
         // has any stored entry, and `RangeSet.between`'s point query at
         // that shared point visits both.
-        let hasEntry = false;
-        next.between(from, from, (f) => {
+        const entries: Array<{ to: number; state: ImageUiState }> = [];
+        next.between(from, from, (f, t, value) => {
           if (f === from) {
-            hasEntry = true;
+            entries.push({ to: t, state: value.state });
+            return false;
           }
         });
-        if (!hasEntry) {
+        const existing = entries[0];
+        if (existing && restoringHistory) {
+          // History restores the Markdown, not the menu's ephemeral
+          // setImageUiState effect. Refresh only the persisted mode for
+          // this affected occurrence; preserve its mapped span and all
+          // source-editing, first-leave, collapse and load-state flags.
+          const mode = getImagePresentation(tr.state, to).mode;
+          if (existing.state.displayMode !== mode) {
+            next = next.update({
+              filter: (f) => f !== from,
+              add: [new ImageUiValue({ ...existing.state, displayMode: mode }).range(from, existing.to)],
+            });
+          }
+        } else if (!existing) {
           // Seeds `displayMode` from whatever the just-completed node's own
           // `|token,...` presentation segment already says (resize
           // milestone; syntax later reworked to the Obsidian-style
