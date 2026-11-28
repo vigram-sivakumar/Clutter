@@ -781,6 +781,24 @@ describe('createEditorView — fold-state persistence (serializeFoldState + rest
     ]);
   });
 
+  it('restoreFoldJSON drops retired list folds but preserves an existing heading fold', () => {
+    const doc = '1. Parent\n   Child\n\n# Heading\nbody';
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const listEnd = doc.indexOf('\n');
+    const childEnd = doc.indexOf('\n\n');
+    const headingEnd = doc.lastIndexOf('\n');
+    const view = createEditorView({
+      doc,
+      parent,
+      extensions: [markdownLanguageExtension()],
+      restoreFoldJSON: { doc, fold: [listEnd, childEnd, headingEnd, doc.length] },
+    });
+    expect(readFoldedRanges(view)).toEqual([{ from: headingEnd, to: doc.length }]);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.dom.querySelector('.cm-content')?.textContent).toContain('Child');
+  });
+
   it('a note with no persisted fold entry opens with no folds (default, unfolded)', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
