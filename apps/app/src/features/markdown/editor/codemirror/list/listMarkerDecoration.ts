@@ -610,7 +610,12 @@ export function listMarkerDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        // Keep marker rendering in sync with the same tree as list-line geometry,
+        // including parser-only updates that leave the document unchanged.
+        if (
+          update.docChanged || update.viewportChanged ||
+          syntaxTree(update.startState) !== syntaxTree(update.state)
+        ) {
           this.decorations = buildDecorations(update.view);
         }
       }
