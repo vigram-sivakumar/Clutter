@@ -26,6 +26,7 @@ afterEach(() => {
 
 function renderControls() {
   const handlers = {
+    onOpenSearch: vi.fn(),
     onNewNote: vi.fn(),
     onOpenDailyNote: vi.fn(),
     onNewTask: vi.fn(),
@@ -64,6 +65,20 @@ describe('Controls no longer renders the sidebar-toggle button (moved to Sidebar
     const { container } = renderControls();
 
     expect(container.querySelector('.sidebar-toggle')).toBeNull();
+  });
+});
+
+describe('Controls Search launcher', () => {
+  it('renders Search before the existing Create split control and dispatches only Search', () => {
+    const handlers = renderControls();
+    const buttons = [...handlers.container.querySelectorAll('.controls button')];
+    expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(['Search', 'New note', 'Create']);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(handlers.onOpenSearch).toHaveBeenCalledTimes(1);
+    for (const handler of [handlers.onNewNote, handlers.onOpenDailyNote, handlers.onNewTask, handlers.onNewFolder, handlers.onNewTag, handlers.onNewTemplate, handlers.onUpload]) {
+      expect(handler).not.toHaveBeenCalled();
+    }
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 });
 
