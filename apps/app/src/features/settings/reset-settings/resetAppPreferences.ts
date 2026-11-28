@@ -27,7 +27,6 @@ import {
 import { DEFAULT_SHOW_TAG_EMOJIS, writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { DEFAULT_TASK_ITEM_LIMIT_CHOICE, writeTaskItemLimitChoice } from '@shared/helpers/taskItemLimitPreference';
 import { DEFAULT_DATE_FORMAT_CHOICE, writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
-import { resetDefaultSidebarTab } from '../sidebar-setting/defaultSidebarTab';
 import { resetStartupBehavior } from '../startup-setting/startupPreference';
 
 /**
@@ -47,7 +46,6 @@ export function resetAppPreferences(): void {
   resetThemePreference();
   // Startup
   resetStartupBehavior();
-  resetDefaultSidebarTab();
   // Calendar and dates
   resetWeekStart();
   writeDateFormatChoice(DEFAULT_DATE_FORMAT_CHOICE);
@@ -71,6 +69,6 @@ export function resetAppPreferences(): void {
   writePreserveBulletStyle(DEFAULT_PRESERVE_BULLET_STYLE);
   writeEnableEmojiLists(DEFAULT_ENABLE_EMOJI_LISTS);
   writePreferClutterQuoteSyntax(DEFAULT_PREFER_CLUTTER_QUOTE_SYNTAX);
-  // The old app-wide values a Space with no setting of its own would be seeded from again.
+  // The old app-wide settings, including retired sidebar startup preferences.
   clearLegacyAppSettings();
 }
