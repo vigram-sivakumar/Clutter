@@ -23,7 +23,7 @@ import { inlinePreviewExtensions, inlineTokenMouseExtensions, refreshInlinePrese
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { handleProjectedTokenPress, paintInlineMarkdown, renderInlineMarkdown } from '../table/renderInlineMarkdown';
 import { createCellTransaction, editableCell, type CellAddress } from './tableCellTransaction';
-import { logicalCellText, tableCellTransport } from './tableCellTransport';
+import { cellLineBreaks, insertCellLineBreak, logicalCellText, tableCellTransport } from './tableCellTransport';
 import { readTable, TableEngineError } from './tableModel';
 import { createTableTransaction, validatedRootEdit } from './tableTransaction';
 import type { TableCommand } from './tableCommands';
@@ -391,6 +391,10 @@ export class TableCellEditor {
     const backwards = direction === 'left' || direction === 'up';
     if (horizontal && (!sel.empty || sel.head !== (backwards ? 0 : this.nested.state.doc.length))) return false;
     if (!sel.empty) return false;
+    // Within a multiline cell CM6 owns visual vertical caret movement.
+    // Only at the first/last explicit line do arrows retain cell navigation.
+    if (!horizontal && cellLineBreaks(this.nested.state.doc.toString()).some(range =>
+      backwards ? range.to <= sel.head : range.from >= sel.head)) return false;
     const shape = this.shape(tableFrom);
     const next = horizontal
       ? focusCell(tabInteraction(this.interaction, shape, backwards))
@@ -912,7 +916,7 @@ export class TableCellEditor {
           // decline during the popup's interaction delay; don't navigate
           // away from the cell in that case.
           { key: 'Enter', run: view => completionStatus(view.state) === 'active' || this.navigateEnter(false) },
-          { key: 'Shift-Enter', run: () => this.navigateEnter(true) },
+          { key: 'Shift-Enter', run: insertCellLineBreak },
           { key: 'Mod-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
           { key: 'Ctrl-a', run: () => this.select(tableFrom, { kind: 'table', cell }) },
           { key: 'Escape', run: () => this.exitEdit() },

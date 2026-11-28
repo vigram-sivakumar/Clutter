@@ -1,5 +1,7 @@
 import { ChangeSet, EditorSelection, EditorState, StateField, Text, type ChangeSpec, type Extension, type Transaction, type TransactionSpec } from '@codemirror/state';
-import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
+import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
+import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
+import { tableCellBreakRanges } from '../../../render/inlineSpan';
 import { encodeWikiLinkTableSource } from '@core/vault/ingest/grammar/wikiLinkScanner';
 import { recordInternalClipboardText } from '../paste/externalPaste';
 
@@ -37,13 +39,65 @@ export function logicalCellText(raw: string): string {
   return p.canonical ? p.logical : raw;
 }
 
+/** Visual line breaks are derived from the same parsed cell source used by
+ * the static renderer, never a second editable string or physical newline. */
+export function cellLineBreaks(raw: string): { from: number; to: number }[] {
+  return /<br[\s/>]/i.test(raw) ? tableCellBreakRanges(sharedMarkdownParser.parse(raw).topNode, raw) : [];
+}
+
+class CellLineBreakWidget extends WidgetType {
+  get lineBreaks(): number { return 1; }
+  toDOM(view: EditorView): HTMLElement {
+    const span = view.dom.ownerDocument.createElement('span');
+    span.className = 'cm-table-cell-line-break';
+    span.appendChild(span.ownerDocument.createElement('br'));
+    return span;
+  }
+}
+const cellBreakWidget = new CellLineBreakWidget();
+
 function buildDecorationSets(raw: string): { hidden: DecorationSet; atomic: DecorationSet } {
   const p = projection(raw);
-  if (!p.canonical) return { hidden: Decoration.none, atomic: Decoration.none };
-  return {
-    hidden: Decoration.set([...p.hidden].map(from => Decoration.replace({}).range(from, from + 1)), true),
-    atomic: Decoration.set([...p.hidden].map(from => Decoration.mark({}).range(from, from + 2)), true),
-  };
+  const breaks = cellLineBreaks(raw);
+  const hidden = breaks.map(({ from, to }) => Decoration.replace({ widget: cellBreakWidget }).range(from, to));
+  const atomic = breaks.map(({ from, to }) => Decoration.mark({}).range(from, to));
+  if (p.canonical) {
+    for (const from of p.hidden) {
+      hidden.push(Decoration.replace({}).range(from, from + 1));
+      atomic.push(Decoration.mark({}).range(from, from + 2));
+    }
+  }
+  return { hidden: Decoration.set(hidden, true), atomic: Decoration.set(atomic, true) };
+}
+
+function snapBreakSelection(tr: Transaction): TransactionSpec | readonly TransactionSpec[] {
+  if (!tr.selection) return tr;
+  const breaks = cellLineBreaks(tr.newDoc.toString());
+  if (!breaks.length) return tr;
+  function snap(pos: number, forward: boolean): number {
+    const hit = breaks.find(({ from, to }) => pos > from && pos < to);
+    return hit ? (forward ? hit.to : hit.from) : pos;
+  }
+  const selection = EditorSelection.create(tr.newSelection.ranges.map(range => {
+    if (range.empty) return EditorSelection.cursor(snap(range.head, range.head >= tr.startState.selection.main.head), range.assoc);
+    const from = snap(range.from, false), to = snap(range.to, true);
+    return range.anchor <= range.head ? EditorSelection.range(from, to) : EditorSelection.range(to, from);
+  }), tr.newSelection.mainIndex);
+  return selection.eq(tr.newSelection) ? tr : [tr, { selection, sequential: true }];
+}
+
+export function insertCellLineBreak(view: EditorView): boolean {
+  if (view.composing) return false;
+  if (view.state.readOnly) return true;
+  const { from, to } = view.state.selection.main;
+  const tag = '<br>';
+  const raw = view.state.doc.toString();
+  const proposed = raw.slice(0, from) + tag + raw.slice(to);
+  // Do not insert a literal tag inside code, a semantic token or an escaped
+  // context where it would not actually be presented as a line break.
+  if (!cellLineBreaks(proposed).some(range => range.from === from && range.to === from + tag.length)) return true;
+  view.dispatch({ ...view.state.replaceSelection(tag), userEvent: 'input.type.lineBreak' });
+  return true;
 }
 
 const transportRanges = StateField.define({
@@ -175,6 +229,8 @@ function normalizeInput(tr: Transaction): TransactionSpec | readonly Transaction
 export function tableCellTransport(): Extension {
   return [
     transportRanges,
+    // Filters execute in reverse order: pipe mapping first, break snapping last.
+    EditorState.transactionFilter.of(snapBreakSelection),
     EditorState.transactionFilter.of(normalizeInput),
     EditorView.clipboardOutputFilter.of((text, state) => {
       const p = projection(state.doc.toString());

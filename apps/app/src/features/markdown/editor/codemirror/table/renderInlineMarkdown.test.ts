@@ -26,6 +26,26 @@ describe('renderInlineMarkdown', () => {
     expect(renderInlineMarkdown('a < b & c')).toBe('a &lt; b &amp; c');
   });
 
+  it.each(['<br>', '<br/>', '<BR />'])('renders only a parsed attribute-free break: %s', tag => {
+    expect(renderInlineMarkdown('A' + tag + 'B')).toBe('A<br>B');
+    expect(paint('A' + tag + 'B').querySelectorAll('br')).toHaveLength(1);
+  });
+
+  it('renders consecutive, leading and trailing breaks without exposing HTML', () => {
+    expect(renderInlineMarkdown('<br>A<br><br>')).toBe('<br>A<br><br>');
+    expect(paint('<br>').querySelectorAll('br')).toHaveLength(1);
+    expect(paint('**A<br>B**').querySelector('strong br')).not.toBeNull();
+  });
+
+  it('does not execute or conceal other HTML, escaped breaks or code', () => {
+    const escaped = paint('A\\<br>B');
+    expect(escaped.querySelector('br')).toBeNull();
+    expect(paint('A `<br>` B').querySelector('br')).toBeNull();
+    const unsafe = paint('A<br onclick="alert(1)">B');
+    expect(unsafe.querySelector('br')).toBeNull();
+    expect(unsafe.textContent).toContain('onclick');
+  });
+
   it('renders bold text as <strong>', () => {
     expect(renderInlineMarkdown('**Bold**')).toBe('<strong>Bold</strong>');
   });

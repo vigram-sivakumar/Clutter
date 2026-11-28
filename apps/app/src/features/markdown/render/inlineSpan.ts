@@ -66,6 +66,8 @@ export interface TokenizeInlineOptions {
   readonly preserveDestinationlessLinks?: boolean;
   /** Also record each Image's raw destination as `src` — see `InlineSpan`'s image variant. */
   readonly includeImageSrc?: boolean;
+  /** Only table cells project an attribute-free HTML break as a visual newline. */
+  readonly includeTableBreaks?: boolean;
 }
 
 /**
@@ -83,6 +85,31 @@ export const STYLED_CONTAINER_NODES: Readonly<Record<string, { kind: StyledSpan[
   Strikethrough: { kind: 'strikethrough', markName: 'StrikethroughMark' },
   Highlight: { kind: 'highlight', markName: 'HighlightMark' },
 };
+
+/** Table cells preserve the literal HTML break in Markdown. Only the parsed,
+ * attribute-free break tag is recognised; code, escaped text, and semantic
+ * tokens keep their existing ownership. A lone break can parse as HTMLBlock. */
+function isTableCellBreak(node: SyntaxNode, text: string): boolean {
+  if (node.name !== 'HTMLTag' && node.name !== 'HTMLBlock') return false;
+  if (!/^<br[ \t]*\/?>$/i.test(text.slice(node.from, node.to))) return false;
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (['Link', 'Image', 'Autolink', 'InlineCode', 'CodeBlock', 'FencedCode', 'HTMLBlock'].includes(parent.name)) return false;
+  }
+  return true;
+}
+
+export function tableCellBreakRanges(node: SyntaxNode, text: string): { from: number; to: number }[] {
+  const ranges: { from: number; to: number }[] = [];
+  function visit(n: SyntaxNode): void {
+    if (isTableCellBreak(n, text)) {
+      ranges.push({ from: n.from, to: n.to });
+      return;
+    }
+    for (let child = n.firstChild; child; child = child.nextSibling) visit(child);
+  }
+  visit(node);
+  return ranges;
+}
 
 export function markedInnerText(node: SyntaxNode, text: string, markName: string): string {
   const open = node.firstChild;
@@ -338,6 +365,12 @@ function tokenizeChildren(
   }
 
   function visit(n: SyntaxNode): void {
+    if (options.includeTableBreaks && isTableCellBreak(n, text)) {
+      pushText(cursor, n.from);
+      spans.push({ kind: 'text', value: '\n' });
+      cursor = n.to;
+      return;
+    }
     if (STRUCTURAL_MARKER_NODE_NAMES.has(n.name)) {
       pushText(cursor, n.from);
       cursor = n.to;

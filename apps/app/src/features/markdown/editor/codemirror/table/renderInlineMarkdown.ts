@@ -62,7 +62,7 @@ export function handleProjectedTokenPress(
  * resolver output or live widgets. On-screen cells use paintInlineMarkdown. */
 export function renderInlineMarkdown(text: string): string {
   const tree = sharedMarkdownParser.parse(text);
-  const spans = tokenizeInline(tree.topNode, text, undefined, { preserveDestinationlessLinks: true, wikiLinkContext: 'table' });
+  const spans = tokenizeInline(tree.topNode, text, undefined, { preserveDestinationlessLinks: true, wikiLinkContext: 'table', includeTableBreaks: true });
   return renderSpans(spans, false);
 }
 
@@ -80,7 +80,7 @@ export function paintInlineMarkdown(
   host: HTMLElement, text: string, view: EditorView, resolvers: Partial<ParticipantResolvers> = {},
 ): void {
   const tree = sharedMarkdownParser.parse(text);
-  const options: TokenizeInlineOptions = { includeSemanticSource: true, includeActivationSource: true, includePresentationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table' };
+  const options: TokenizeInlineOptions = { includeSemanticSource: true, includeActivationSource: true, includePresentationSource: true, preserveDestinationlessLinks: true, wikiLinkContext: 'table', includeTableBreaks: true };
   const spans = tokenizeInline(tree.topNode, text, undefined, options);
   const nodes: HTMLElement[] = [];
   const renderLeaf: RenderLeaf = span => {
@@ -191,7 +191,7 @@ function renderSpan(span: InlineSpan, styled: boolean, renderLeaf?: RenderLeaf, 
   };
   switch (span.kind) {
     case 'text':
-      return wrapStrike(escapeHtml(span.value));
+      return wrapStrike(escapeHtml(span.value).replace(/\n/g, '<br>'));
     case 'bold':
       return container('strong', 'StrongEmphasis', span.children);
     case 'italic':

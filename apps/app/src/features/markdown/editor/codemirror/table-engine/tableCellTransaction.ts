@@ -66,7 +66,7 @@ export function createCellTransaction(
     !after.cells[address.row]?.[address.col]) {
     throw new TableEngineError('Cell edit would alter table structure');
   }
-  return validatedRootEdit(state, mapped, expectedDoc, userEvent, false, effect);
+  return validatedRootEdit(state, mapped, expectedDoc, userEvent, userEvent === 'input.type.lineBreak', effect);
 }
 
 /** Compute the minimal contiguous change between two cell strings. */

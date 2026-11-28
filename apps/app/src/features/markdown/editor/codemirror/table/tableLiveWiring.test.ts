@@ -220,7 +220,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('Enter and Shift-Enter edit vertically in the same column without changing source or history', () => {
+  it('Enter edits vertically in the same column without changing source or history', () => {
     const source = doc.replace('| Vik | Designer |', '| Vik | Designer |\n| Sam | Writer |');
     const view = mount(source, false);
     const controller = view.plugin(tableCellEditor)!;
@@ -228,7 +228,7 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     const redo = redoDepth(view.state);
     clickCell(findCell(view, 'Role'));
     const initial = controller.nested!;
-    for (const [backwards, expected] of [[false, 'Designer'], [false, 'Writer'], [true, 'Designer'], [true, 'Role']] as const) {
+    for (const [backwards, expected] of [[false, 'Designer'], [false, 'Writer']] as const) {
       key(controller.nested!.contentDOM, 'Enter', backwards);
       expect(controller.nested!.state.doc.toString()).toBe(expected);
       expect(controller.nested!.state.selection.main.empty).toBe(true);
@@ -242,25 +242,56 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     expect(redoDepth(view.state)).toBe(redo);
   });
 
-  it.each([false, true])('preserves an editing cell, caret and source at a vertical boundary (backwards=%s)', backwards => {
+  it('preserves the editing cell, caret and source at the last row on Enter', () => {
     const view = mount(TABLE, false);
-    clickCell(findCell(view, backwards ? 'Name' : 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     const controller = view.plugin(tableCellEditor)!;
     const nested = controller.nested!;
     nested.dispatch({ selection: { anchor: 1 } });
     const depth = undoDepth(view.state);
-    expect(key(nested.contentDOM, 'Enter', backwards)).toBe(false);
+    expect(key(nested.contentDOM, 'Enter')).toBe(false);
     expect(controller.nested).toBe(nested);
     expect(nested.state.selection.main.head).toBe(1);
     expect(selected(view)).toEqual([]);
     expect(view.state.doc.toString()).toBe(TABLE);
     expect(undoDepth(view.state)).toBe(depth);
-    key(nested.contentDOM, 'Enter', !backwards);
-    expect(controller.nested!.state.doc.toString()).toBe(backwards ? 'Vik' : 'Name');
-    expect(controller.nested!.state.selection.main.head).toBe(0);
-    expect(selected(view)).toEqual([]);
-    expect(view.state.doc.toString()).toBe(TABLE);
-    expect(undoDepth(view.state)).toBe(depth);
+  });
+
+  it('Shift-Enter inserts a visual break in the current cell, keeps exact source and root history', () => {
+    const view = mount(doc, false);
+    clickCell(findCell(view, 'Designer'));
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: 3 } });
+    const depth = undoDepth(view.state);
+    expect(key(nested.contentDOM, 'Enter', true)).toBe(false);
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.doc.toString()).toBe('Des<br>igner');
+    expect(nested.state.selection.main.head).toBe(7);
+    expect(nested.dom.querySelectorAll('.cm-table-cell-line-break br')).toHaveLength(1);
+    expect(view.state.doc.toString()).toBe(doc.replace('Designer', 'Des<br>igner'));
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc.replace('Designer', 'Des<br>igner'));
+    // Static/read-only projection has the same break and no nested editor.
+    const readonly = mount(view.state.doc.toString(), true);
+    expect(host(readonly, 1, 1).querySelectorAll('br')).toHaveLength(1);
+    expect(readonly.plugin(tableCellEditor)?.nested ?? null).toBeNull();
+  });
+
+  it('Shift-Enter replaces a selection, and Backspace removes the break atomically', () => {
+    const view = mount(doc, false);
+    clickCell(findCell(view, 'Designer'));
+    const nested = view.plugin(tableCellEditor)!.nested!;
+    nested.dispatch({ selection: { anchor: 3, head: 5 } });
+    key(nested.contentDOM, 'Enter', true);
+    expect(nested.state.doc.toString()).toBe('Des<br>ner');
+    expect(nested.state.selection.main.head).toBe(7);
+    key(nested.contentDOM, 'Backspace');
+    expect(nested.state.doc.toString()).toBe('Desner');
+    expect(view.state.doc.toString()).toBe(doc.replace('Designer', 'Desner'));
   });
 
   it.each(['|-|', '| - |'])('selects the entire table created by %s + Space, with one undo and redo', trigger => {
