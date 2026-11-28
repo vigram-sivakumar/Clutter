@@ -20,6 +20,7 @@ import {
   setCachedEditorSession,
 } from './editorHistoryCache';
 import { markdownLanguageExtension } from './markdownLanguage';
+import { getFoldRange } from './fold/foldSemantics';
 
 describe('createEditorView — initial cursor position', () => {
   it('places a collapsed selection at doc.length, not position 0', () => {
@@ -731,72 +732,62 @@ describe('createEditorView — fold-state persistence (serializeFoldState + rest
     expect(serializeFoldState(view).fold).toEqual([]);
   });
 
+  function mountFoldDoc(doc: string, restoreFoldJSON?: unknown): EditorView {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = createEditorView({ doc, parent, extensions: [markdownLanguageExtension()], restoreFoldJSON });
+    forceParsing(view);
+    return view;
+  }
+
+  function foldAtLine(view: EditorView, n: number): { from: number; to: number } {
+    const range = getFoldRange(view.state, view.state.doc.line(n));
+    expect(range).not.toBeNull();
+    view.dispatch({ effects: foldEffect.of(range!) });
+    return range!;
+  }
+
   it('restoreFoldJSON restores a single folded region into a freshly-constructed view', () => {
-    const doc = 'line0\nline1\nline2\nline3\nline4';
-
-    const closingParent = document.createElement('div');
-    document.body.appendChild(closingParent);
-    const closingView = createEditorView({ doc, parent: closingParent });
-    closingView.dispatch({ effects: [foldEffect.of({ from: 6, to: 11 })] });
-    const persisted = serializeFoldState(closingView);
-    closingView.destroy();
-
-    const reopeningParent = document.createElement('div');
-    document.body.appendChild(reopeningParent);
-    const reopenedView = createEditorView({
-      doc,
-      parent: reopeningParent,
-      restoreFoldJSON: persisted,
-    });
-
-    expect(readFoldedRanges(reopenedView)).toEqual([{ from: 6, to: 11 }]);
+    const doc = '# Heading\nbody';
+    const closing = mountFoldDoc(doc);
+    const range = foldAtLine(closing, 1);
+    const persisted = serializeFoldState(closing);
+    closing.destroy();
+    expect(readFoldedRanges(mountFoldDoc(doc, persisted))).toEqual([range]);
   });
 
   it('restoreFoldJSON restores multiple independently-folded regions', () => {
-    const doc = 'line0\nline1\nline2\nline3\nline4\nline5';
-
-    const closingParent = document.createElement('div');
-    document.body.appendChild(closingParent);
-    const closingView = createEditorView({ doc, parent: closingParent });
-    closingView.dispatch({
-      effects: [
-        foldEffect.of({ from: 0, to: 5 }),
-        foldEffect.of({ from: 18, to: 23 }),
-      ],
-    });
-    const persisted = serializeFoldState(closingView);
-    closingView.destroy();
-
-    const reopeningParent = document.createElement('div');
-    document.body.appendChild(reopeningParent);
-    const reopenedView = createEditorView({
-      doc,
-      parent: reopeningParent,
-      restoreFoldJSON: persisted,
-    });
-
-    expect(readFoldedRanges(reopenedView)).toEqual([
-      { from: 0, to: 5 },
-      { from: 18, to: 23 },
-    ]);
+    const doc = '# First\nbody\n# Second\n~~~ts\ncode\n~~~';
+    const closing = mountFoldDoc(doc);
+    const heading = foldAtLine(closing, 1);
+    const code = foldAtLine(closing, 4);
+    const persisted = serializeFoldState(closing);
+    closing.destroy();
+    expect(readFoldedRanges(mountFoldDoc(doc, persisted))).toEqual([heading, code]);
   });
 
-  it('restoreFoldJSON drops retired list folds but preserves an existing heading fold', () => {
-    const doc = '1. Parent\n   Child\n\n# Heading\nbody';
-    const parent = document.createElement('div');
-    document.body.appendChild(parent);
-    const listEnd = doc.indexOf('\n');
-    const childEnd = doc.indexOf('\n\n');
-    const headingEnd = doc.lastIndexOf('\n');
-    const view = createEditorView({
+  it('restoreFoldJSON drops retired list and paragraph folds but preserves an existing heading fold', () => {
+    const doc = '1. Parent\n   Child\n\nParagraph\n    Indented child\n\n# Heading\nbody';
+    const view = mountFoldDoc(doc);
+    const heading = getFoldRange(view.state, view.state.doc.line(7))!;
+    expect(heading).not.toBeNull();
+    const docLine = (n: number) => view.state.doc.line(n).to;
+    const persisted = {
       doc,
-      parent,
-      extensions: [markdownLanguageExtension()],
-      restoreFoldJSON: { doc, fold: [listEnd, childEnd, headingEnd, doc.length] },
-    });
-    expect(readFoldedRanges(view)).toEqual([{ from: headingEnd, to: doc.length }]);
-    expect(view.state.doc.toString()).toBe(doc);
-    expect(view.dom.querySelector('.cm-content')?.textContent).toContain('Child');
+      fold: [docLine(1), docLine(2), docLine(4), docLine(5), heading.from, heading.to],
+    };
+    view.destroy();
+    const reopened = mountFoldDoc(doc, persisted);
+    expect(readFoldedRanges(reopened)).toEqual([heading]);
+    expect(reopened.state.doc.toString()).toBe(doc);
+    expect(reopened.dom.querySelector('.cm-content')?.textContent).toContain('Indented child');
+  });
+
+  it('restoreFoldJSON rejects a mismatched or out-of-bounds range even on an eligible heading', () => {
+    const doc = '# Heading\nbody';
+    const reopened = mountFoldDoc(doc, { doc, fold: [0, 9, 9, 12, -1, 5, 9, 1000] });
+    expect(readFoldedRanges(reopened)).toEqual([]);
+    expect(reopened.state.doc.toString()).toBe(doc);
   });
 
   it('a note with no persisted fold entry opens with no folds (default, unfolded)', () => {
@@ -808,60 +799,22 @@ describe('createEditorView — fold-state persistence (serializeFoldState + rest
   });
 
   it('restoreFoldJSON is silently ignored when the persisted doc no longer matches the current content — no stale fold positions are restored onto changed content', () => {
-    const closingParent = document.createElement('div');
-    document.body.appendChild(closingParent);
-    const closingView = createEditorView({
-      doc: 'line0\nline1\nline2\nline3',
-      parent: closingParent,
-    });
-    closingView.dispatch({ effects: [foldEffect.of({ from: 6, to: 11 })] });
-    const persisted = serializeFoldState(closingView);
-    closingView.destroy();
-
-    // Content changed externally (e.g. a task toggle, or an edit made in a
-    // prior session) between capture and this reopen — the persisted
-    // positions no longer necessarily correspond to the same section.
-    const reopeningParent = document.createElement('div');
-    document.body.appendChild(reopeningParent);
-    const reopenedView = createEditorView({
-      doc: 'a completely different line0\nline1\nline2\nline3',
-      parent: reopeningParent,
-      restoreFoldJSON: persisted,
-    });
-
-    expect(readFoldedRanges(reopenedView)).toEqual([]);
+    const closing = mountFoldDoc('# Heading\nbody');
+    foldAtLine(closing, 1);
+    const persisted = serializeFoldState(closing);
+    closing.destroy();
+    expect(readFoldedRanges(mountFoldDoc('# Changed heading\nbody', persisted))).toEqual([]);
   });
 
   it('two notes maintain independent fold state — restoring one never leaks folds into the other', () => {
-    const docA = 'lineA0\nlineA1\nlineA2';
-    const docB = 'lineB0\nlineB1\nlineB2';
-
-    const closingParentA = document.createElement('div');
-    document.body.appendChild(closingParentA);
-    const closingViewA = createEditorView({ doc: docA, parent: closingParentA });
-    closingViewA.dispatch({ effects: [foldEffect.of({ from: 0, to: 6 })] });
-    const persistedA = serializeFoldState(closingViewA);
-    closingViewA.destroy();
-
-    // Note B was never folded — nothing to persist for it.
-    const parentB = document.createElement('div');
-    document.body.appendChild(parentB);
-    const reopenedB = createEditorView({
-      doc: docB,
-      parent: parentB,
-      restoreFoldJSON: undefined,
-    });
-
-    const parentA = document.createElement('div');
-    document.body.appendChild(parentA);
-    const reopenedA = createEditorView({
-      doc: docA,
-      parent: parentA,
-      restoreFoldJSON: persistedA,
-    });
-
-    expect(readFoldedRanges(reopenedA)).toEqual([{ from: 0, to: 6 }]);
-    expect(readFoldedRanges(reopenedB)).toEqual([]);
+    const docA = '# Heading A\nbody A';
+    const docB = '# Heading B\nbody B';
+    const closing = mountFoldDoc(docA);
+    const range = foldAtLine(closing, 1);
+    const persisted = serializeFoldState(closing);
+    closing.destroy();
+    expect(readFoldedRanges(mountFoldDoc(docA, persisted))).toEqual([range]);
+    expect(readFoldedRanges(mountFoldDoc(docB))).toEqual([]);
   });
 });
 
