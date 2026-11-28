@@ -13,3 +13,7 @@ Runtime/test checkpoint 9c5983076462756558a27f0c5db624f549b91648. ADR-051 amende
 ## Regression and native acceptance — 2026-11-28
 
 Owner supplied full-suite tail: 17,995/17,995 tests across 967/967 files passed, 228.24s, no reported failed tests or unhandled errors. Three tests added over verified baseline 17,992, consistent with the new Tasks coverage. Owner reports manual tests passed. Candidate checkpoint at recording 849ac5fdfecdf9393d5063261c2c2c950ce05145; runtime/test tree 9c5983076462756558a27f0c5db624f549b91648. The supplied log tail does not independently show the checkout SHA, targeted test summary or build summary; these would have succeeded if the earlier chained command ran unchanged. Obtain owner confirmation of these checks and explicit approval before promotion to development/table-editor. No runtime changes here. Main remains bb181321 and development remains e1c5edbc; independent Search/Create candidate remains excluded.
+
+## Owner acceptance and promotion approval
+
+Owner explicitly confirmed targeted tests and build validation passed and authorised promotion to development/table-editor. Full regression and native acceptance are recorded above. Runtime/test tree 9c598307 remains unchanged; intervening revisions are ledger-only. Fast-forward only, keep main unchanged and exclude the independent Search/Create candidate.
