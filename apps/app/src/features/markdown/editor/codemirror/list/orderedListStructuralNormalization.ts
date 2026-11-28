@@ -1,16 +1,12 @@
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
+import { syntaxTree } from '@codemirror/language';
 import { EditorState, type ChangeSet, type Extension } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { markdownLanguageExtension } from '../markdownLanguage';
 import {
-  findMovedItems,
-  groupBy,
-  listHasOtherMembers,
-  planDestinationRenumbering,
+  planMovedOrderedListNormalization,
   type OrderedListCandidate,
 } from './orderedListTabNormalization';
-import { renumberSequentialTail, type RenumberEdit } from './orderedListRenumbering';
+import type { RenumberEdit } from './orderedListRenumbering';
 
 /**
  * The transaction-level counterpart to Tab/Shift-Tab's own
@@ -236,108 +232,7 @@ function collectStructuralCandidates(state: EditorState, changes: ChangeSet): Or
  * the same digit run.
  */
 export function planStructuralOrderedListNormalization(state: EditorState, changes: ChangeSet): RenumberEdit[] {
-  const candidates = collectStructuralCandidates(state, changes);
-  if (candidates.length === 0) {
-    return [];
-  }
-
-  // A throwaway `EditorState` built from *only* the Markdown grammar —
-  // deliberately not `state.update({changes}).state`, which would carry
-  // `state`'s *full* extension config, including this very module's own
-  // `transactionFilter`: `EditorState.update()` runs registered filters
-  // exactly like `dispatch()` does (`resolveTransaction(state, specs,
-  // true)` — confirmed directly against the installed `@codemirror/state`
-  // source, and confirmed to recurse into a filter's *own* body when that
-  // body itself calls `.update()` — `list/listMarkerDecoration.ts`'s
-  // `listMarkerCaretAssoc()` relies on, and self-terminates, exactly this
-  // same recursive behavior). Building this purely-for-reading provisional
-  // tree through the full state would recursively re-invoke this filter
-  // on a transaction this function never intends to dispatch, corrupting
-  // the positions computed next. This tree is only ever read
-  // (`listItemLiteralNumber`, `listItemWithMarkerAt`,
-  // `isRiskyRenumberRewrite` — all via the imported, reused functions),
-  // never itself dispatched, so it only ever needs the same parser every
-  // other consumer of Markdown syntax in this codebase shares
-  // (`markdownLanguageExtension()`) — not history, not keymaps, not this
-  // or any other transaction-level extension.
-  const provisional = EditorState.create({
-    doc: changes.apply(state.doc),
-    extensions: [markdownLanguageExtension()],
-  });
-  ensureSyntaxTree(provisional, provisional.doc.length, 5000);
-
-  const moved = findMovedItems(provisional, changes, candidates);
-  if (moved.length === 0) {
-    return [];
-  }
-
-  const bySourceList = groupBy(moved, (m) => m.candidate.originalOrderedList.from);
-  const byDestinationList = groupBy(moved, (m) => m.newOrderedList.from);
-
-  // Isolated-relocation guard (see `listHasOtherMembers`'s own doc
-  // comment, imported from Tab's module — completely unmodified): if
-  // every source list a group of items left, and every destination list
-  // they joined, contains nothing but the touched items themselves, this
-  // is a closed set relocating with zero external context — never a
-  // genuine departure or join — and must be left completely untouched.
-  // This is also exactly the guard requirement B (a single original
-  // `OrderedList` that is only *partially* affected — some members leave
-  // while others remain) depends on: a source group whose list *does*
-  // still have other members is not suppressed by this check, so its own
-  // gap-closing edit below still runs.
-  const anySourceHasOtherMembers = Array.from(bySourceList.values()).some((group) =>
-    listHasOtherMembers(
-      group[0]!.candidate.originalOrderedList,
-      new Set(group.map((m) => m.candidate.originalMarkerFrom))
-    )
-  );
-  const anyDestinationHasOtherMembers = Array.from(byDestinationList.values()).some((group) =>
-    listHasOtherMembers(group[0]!.newOrderedList, new Set(group.map((m) => m.provisionalMarkerFrom)))
-  );
-  if (!anySourceHasOtherMembers && !anyDestinationHasOtherMembers) {
-    return [];
-  }
-
-  const edits: RenumberEdit[] = [];
-
-  // Source-side: for every distinct original OrderedList that lost one or
-  // more (now-departed) members but still has other members remaining,
-  // close the numbering gap they left behind — reusing
-  // `renumberSequentialTail` completely unmodified, anchored at the last
-  // departed item in that list's own original sibling order. Computed
-  // against `state` (original coordinates), then mapped forward through
-  // `changes` into the shared provisional coordinate space this module's
-  // filter composes everything in.
-  for (const group of bySourceList.values()) {
-    const departedItems = group.map((m) => m.candidate.originalListItem);
-    const lastDeparted = departedItems[departedItems.length - 1]!;
-    for (const edit of renumberSequentialTail(state, lastDeparted, -departedItems.length)) {
-      edits.push({
-        from: changes.mapPos(edit.from, 1),
-        to: changes.mapPos(edit.to, 1),
-        insert: edit.insert,
-      });
-    }
-  }
-
-  // Destination-side: for every distinct new OrderedList that gained one
-  // or more members, plan its own numbering — reusing
-  // `planDestinationRenumbering` (imported from Tab's own module)
-  // completely unmodified in its business logic; only its coordinate
-  // mapper differs from Tab's own call site (identity here, since this
-  // walk already happens directly against `provisional`). Multiple joins
-  // into the *same* destination list are inherently sequenced correctly
-  // by this single left-to-right walk — proven (`CHAINING_CLOSED_REPORT.md`)
-  // to require no separate feed-forward bookkeeping.
-  for (const group of byDestinationList.values()) {
-    const destinationList = group[0]!.newOrderedList;
-    const joinedMarkerFroms = new Set(group.map((m) => m.provisionalMarkerFrom));
-    edits.push(
-      ...planDestinationRenumbering(provisional, (from, to) => ({ from, to }), destinationList, joinedMarkerFroms)
-    );
-  }
-
-  return edits;
+  return planMovedOrderedListNormalization(state, changes, collectStructuralCandidates(state, changes), 'provisional');
 }
 
 /**

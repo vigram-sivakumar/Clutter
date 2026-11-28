@@ -57,5 +57,8 @@ describe('paste handler ownership', () => {
       expect(code).not.toMatch(/readClipboard(?:Table|Grid)\(/);
       expect(code).not.toMatch(/hasRichHtml\(\s*data/);
     }
+    const assets = files.find((file) => file.path === 'codemirror/paste/assetPaste.ts')!.code;
+    expect(assets).not.toMatch(/\b(?:DataTransfer|SUPPORTED_TYPE|hasRichHtml)\b/);
+    expect(assets).not.toMatch(/\.getData\(/);
   });
 });

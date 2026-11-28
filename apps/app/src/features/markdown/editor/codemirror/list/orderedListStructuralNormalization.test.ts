@@ -21,6 +21,7 @@ import {
 import { markdownIndentLess, markdownIndentMore } from '../indent/markdownIndentKeymap';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { insertOrderedListMarkerSeparator } from './orderedListMarkerCreation';
+import { listItemWithMarkerAt, orderedListParent, planMovedOrderedListNormalization } from './orderedListTabNormalization';
 import {
   nearestOrderedListStructural,
   orderedListStructuralNormalization,
@@ -293,6 +294,28 @@ describe('orderedListStructuralNormalization — production regression suite', (
   });
 
   describe('Tab/Shift-Tab immediately after normalization', () => {
+    it('the shared planner produces identical source in original and provisional coordinates', () => {
+      const doc = '1. A\n2. B\n3. C';
+      const markerFrom = doc.indexOf('3. C');
+      const state = makeState(doc, markerFrom);
+      const item = listItemWithMarkerAt(state, markerFrom)!;
+      const list = orderedListParent(item)!;
+      expect(item).not.toBeNull();
+      expect(list).not.toBeNull();
+      const candidate = { originalMarkerFrom: markerFrom, originalListItem: item, originalOrderedList: list };
+      const indent = { from: markerFrom, insert: '    ' };
+      const changes = state.changes(indent);
+      const original = planMovedOrderedListNormalization(state, changes, [candidate], 'original');
+      const provisional = planMovedOrderedListNormalization(state, changes, [candidate], 'provisional');
+      expect(original).not.toHaveLength(0);
+      expect(provisional).not.toHaveLength(0);
+      const together = state.changes([indent, ...original]).apply(state.doc);
+      const sequential = changes.apply(state.doc);
+      const followup = EditorState.create({ doc: sequential }).changes(provisional).apply(sequential);
+      expect(together.toString()).toBe('1. A\n2. B\n    1. C');
+      expect(followup.toString()).toBe(together.toString());
+    });
+
     it('Tab then Shift-Tab round-trips exactly with the structural filter also present', () => {
       const doc = '1. A\n2. B\n3. C';
       const afterTab = pressTab(makeState(doc, doc.length));

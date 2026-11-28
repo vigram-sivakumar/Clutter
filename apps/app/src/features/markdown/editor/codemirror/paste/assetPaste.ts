@@ -5,10 +5,10 @@ import { serializeEmbed } from '../embed/embedSerialize';
 import { syncEmbedObjectSelection } from '../embed/embedObjectSelection';
 
 import { findEnclosingTable } from '../table/tableGeometry';
-import { decodeDataImage, hasRichHtml, htmlToPieces } from './htmlToMarkdown';
+import { decodeDataImage, htmlToPieces } from './htmlToMarkdown';
 import { isBlockMarkdown, normalizeExternalPaste } from './externalPaste';
 import { pasteContextAt } from './pasteContext';
-import { SUPPORTED_TYPE } from './pasteClassification';
+import type { AssetPasteInput } from './pasteClassification';
 
 /** What the editor needs from the app to keep a pasted file: store it, and say what could not be stored. */
 export interface PasteAssets {
@@ -47,11 +47,8 @@ interface Plan {
   readonly block: boolean;
 }
 
-/** The plan for rich HTML: its text keeps its formatting, embedded images are stored where they appeared. Null when the HTML is not worth converting. */
+/** Convert HTML already selected by the classifier; null when no pieces remain. */
 function planFromHtml(html: string): Plan | null {
-  if (!hasRichHtml(html)) {
-    return null;
-  }
 
   const parts: Part[] = htmlToPieces(html).map((piece): Part => {
     if (piece.kind === 'markdown') {
@@ -120,9 +117,10 @@ function blockBoundaries(state: EditorState, at: { readonly from: number; readon
  * If the document changed while the files were being stored, the content goes at the caret instead of the
  * position the paste started at; if the editor was closed (the user left the note), nothing is inserted.
  */
-export function embedPasted(view: EditorView, data: DataTransfer, assets: PasteAssets, strategy: 'files' | 'richHtml'): boolean {
-  const files = Array.from(data.files ?? []).filter((file) => SUPPORTED_TYPE.test(file.type));
-  const plan = strategy === 'files' ? planFromFiles(files, normalizePastedText(data.getData('text/plain'), files)) : planFromHtml(data.getData('text/html'));
+export function embedPasted(view: EditorView, assets: PasteAssets, input: AssetPasteInput): boolean {
+  const plan = input.strategy === 'files'
+    ? planFromFiles(input.files, normalizePastedText(input.text, input.files))
+    : planFromHtml(input.html);
   if (!plan) {
     return false;
   }

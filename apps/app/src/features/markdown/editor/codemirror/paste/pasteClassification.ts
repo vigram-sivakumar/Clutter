@@ -6,7 +6,7 @@ import { hasRichHtml } from './htmlToMarkdown';
 import { type PasteContext, pasteContextAt } from './pasteContext';
 
 /** Image and PDF files are the only files the editor stores and embeds. */
-export const SUPPORTED_TYPE = /^(?:image\/(?:png|jpeg|gif|webp|svg\+xml)|application\/pdf)$/i;
+const SUPPORTED_TYPE = /^(?:image\/(?:png|jpeg|gif|webp|svg\+xml)|application\/pdf)$/i;
 
 /**
  * Which existing paste strategy handles a paste. Exactly one per paste, decided once by `classifyPaste`:
@@ -25,15 +25,20 @@ export interface SkippedFiles {
   readonly reason: 'unsupported' | 'target';
 }
 
-export interface PasteClassification {
-  readonly strategy: PasteStrategy;
+export type AssetPasteInput =
+  | { readonly strategy: 'files'; readonly files: readonly File[]; readonly text: string }
+  | { readonly strategy: 'richHtml'; readonly html: string };
+
+type PasteDecision = AssetPasteInput | { readonly strategy: 'tableCreate' | 'empty' | 'default' };
+
+export type PasteClassification = PasteDecision & {
   /** The grid the clipboard carries, read once (set for every table strategy). */
   readonly table: ClipboardGrid | null;
   /** The block the root caret is in, when it limits what the paste may become. */
   readonly context: PasteContext | null;
   /** The clipboard files the chosen strategy leaves out, to be reported once — null when none (or nothing can report them). */
   readonly skipped: SkippedFiles | null;
-}
+};
 
 export interface PasteEnvironment {
   readonly state: EditorState;
@@ -72,53 +77,52 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
     rejectedGrid = true;
   }
   const nothing = plainText === '' && data.getData('text/uri-list') === '';
-  const fallback: PasteStrategy = nothing ? 'empty' : 'default';
+  const fallback = nothing ? 'empty' : 'default';
 
   const names = (list: readonly File[]): string[] => list.map((file) => file.name || 'file');
-  const result = (strategy: PasteStrategy, skipped: SkippedFiles | null = null): PasteClassification => ({
-    strategy,
+  const result = (decision: PasteDecision, skipped: SkippedFiles | null = null): PasteClassification => ({
+    ...decision,
     table,
     context,
     skipped: env.canEmbed && files.length > 0 ? skipped : null,
   });
 
   if (state.readOnly) {
-    return result('default');
+    return result({ strategy: 'default' });
   }
 
   // A malformed grid at a valid table insertion site must not be interpreted
   // as a different source representation. Code and list/quote contexts still
   // retain ordinary text/file handling.
   if (rejectedGrid && context === null) {
-    return result('empty', { names: names(files), reason: 'target' });
+    return result({ strategy: 'empty' }, { names: names(files), reason: 'target' });
   }
 
   // Rich HTML can be converted here (an importer is wired, not in code, no table where a table would break the block).
-  const htmlTable = hasHtmlTable;
   let richHtmlResult: boolean | undefined;
   const richHtml = (): boolean =>
-    (richHtmlResult ??= env.canEmbed && context !== 'code' && !(htmlTable && (context === 'list' || context === 'quote')) && hasRichHtml(html));
+    (richHtmlResult ??= env.canEmbed && context !== 'code' && !(hasHtmlTable && (context === 'list' || context === 'quote')) && hasRichHtml(html));
 
   // A grid read from the plain text of a clipboard whose HTML holds tables that were not one standalone grid (two tables,
   // a layout table) is the flattened form of that HTML: the HTML is authoritative, so it is converted instead (each table
   // stays a table). Only here: a cell or a selected range has no conversion and keeps filling from the grid.
-  const flattenedHtmlTables = table?.source === 'text' && htmlTable && richHtml();
+  const flattenedHtmlTables = table?.source === 'text' && hasHtmlTable && richHtml();
 
   if (table && context === null && !flattenedHtmlTables) {
     return supported.length > 0
-      ? result('tableCreate', { names: names(files), reason: 'target' })
-      : result('tableCreate', unsupported.length > 0 ? { names: names(unsupported), reason: 'unsupported' } : null);
+      ? result({ strategy: 'tableCreate' }, { names: names(files), reason: 'target' })
+      : result({ strategy: 'tableCreate' }, unsupported.length > 0 ? { names: names(unsupported), reason: 'unsupported' } : null);
   }
 
   const unsupportedNotice = unsupported.length > 0 ? { names: names(unsupported), reason: 'unsupported' as const } : null;
 
   if (env.canEmbed && supported.length > 0) {
-    return result('files', unsupportedNotice);
+    return result({ strategy: 'files', files: supported, text: plainText }, unsupportedNotice);
   }
 
   if (richHtml()) {
-    return result('richHtml', unsupportedNotice);
+    return result({ strategy: 'richHtml', html }, unsupportedNotice);
   }
 
-  return result(fallback, unsupportedNotice);
+  return result({ strategy: fallback }, unsupportedNotice);
 }

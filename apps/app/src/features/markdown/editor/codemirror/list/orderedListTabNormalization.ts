@@ -1,5 +1,5 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { EditorState, type ChangeDesc, type ChangeSpec } from '@codemirror/state';
+import { EditorState, type ChangeDesc, type ChangeSet, type ChangeSpec } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
@@ -353,8 +353,26 @@ export function planOrderedListNormalization(
   }
 
   const phaseAChangeSet = state.changes(phaseAChanges as ChangeSpec[]);
+  return planMovedOrderedListNormalization(state, phaseAChangeSet, candidates, 'original');
+}
+
+/**
+ * Shared membership-change planner for Tab and structural transactions.
+ * Candidate discovery remains trigger-specific. Tab composes edits in
+ * original coordinates; the transaction filter appends a sequential spec
+ * in provisional coordinates. Both use exactly the same membership and
+ * isolated-relocation guards and numbering rules.
+ */
+export function planMovedOrderedListNormalization(
+  state: EditorState,
+  changes: ChangeSet,
+  candidates: readonly OrderedListCandidate[],
+  coordinates: 'original' | 'provisional'
+): RenumberEdit[] {
+  if (candidates.length === 0) return [];
+
   // A throwaway `EditorState` built from *only* the Markdown grammar —
-  // deliberately not `state.update({changes: phaseAChangeSet}).state`,
+  // deliberately not `state.update({changes: changes}).state`,
   // which would carry `state`'s *full* extension config, including
   // `orderedListStructuralNormalization()`'s own `transactionFilter`
   // (2026-08-31) once that's registered alongside this module in the real
@@ -371,12 +389,12 @@ export function planOrderedListNormalization(
   // codebase shares (`markdownLanguageExtension()`) — not history, not
   // keymaps, not this or any other transaction-level extension.
   const provisional = EditorState.create({
-    doc: phaseAChangeSet.apply(state.doc),
+    doc: changes.apply(state.doc),
     extensions: [markdownLanguageExtension()],
   });
   ensureSyntaxTree(provisional, provisional.doc.length, 5000);
 
-  const moved = findMovedItems(provisional, phaseAChangeSet, candidates);
+  const moved = findMovedItems(provisional, changes, candidates);
   if (moved.length === 0) {
     return [];
   }
@@ -406,7 +424,7 @@ export function planOrderedListNormalization(
     return [];
   }
 
-  const inverted = phaseAChangeSet.invert(state.doc);
+  const inverted = coordinates === 'original' ? changes.invert(state.doc) : null;
   const edits: RenumberEdit[] = [];
 
   // Source-side: for every distinct original OrderedList that lost one or
@@ -416,7 +434,13 @@ export function planOrderedListNormalization(
   for (const group of bySourceList.values()) {
     const departedItems = group.map((m) => m.candidate.originalListItem);
     const lastDeparted = departedItems[departedItems.length - 1]!;
-    edits.push(...renumberSequentialTail(state, lastDeparted, -departedItems.length));
+    for (const edit of renumberSequentialTail(state, lastDeparted, -departedItems.length)) {
+      edits.push(coordinates === 'original' ? edit : {
+        from: changes.mapPos(edit.from, 1),
+        to: changes.mapPos(edit.to, 1),
+        insert: edit.insert,
+      });
+    }
   }
 
   // Destination-side: for every distinct new OrderedList that gained one
@@ -429,7 +453,7 @@ export function planOrderedListNormalization(
     edits.push(
       ...planDestinationRenumbering(
         provisional,
-        (from, to) => ({ from: inverted.mapPos(from, 1), to: inverted.mapPos(to, 1) }),
+        (from, to) => inverted ? { from: inverted.mapPos(from, 1), to: inverted.mapPos(to, 1) } : { from, to },
         destinationList,
         joinedMarkerFroms
       )

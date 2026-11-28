@@ -26,7 +26,7 @@ export function pasteRouting(getPasteAssets: () => PasteAssets | undefined): Ext
           break;
         case 'files':
         case 'richHtml':
-          handled = assets !== undefined && embedPasted(view, data, assets, result.strategy);
+          handled = assets !== undefined && embedPasted(view, assets, result);
           break;
         case 'empty':
           handled = true;

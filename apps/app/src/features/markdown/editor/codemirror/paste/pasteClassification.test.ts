@@ -106,6 +106,15 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
 });
 
 describe('classifyPaste — the files a strategy leaves out', () => {
+  it('hands the selected payload to the asset strategy without unsupported files or reclassification', () => {
+    const env = { state: stateAt('Start', 5), canEmbed: true };
+    const files = classifyPaste(clipboard({ files: [png, docx, pdf], text: 'caption' }), env);
+    expect(files).toMatchObject({ strategy: 'files', files: [png, pdf], text: 'caption' });
+    expect(files.skipped).toEqual({ names: ['c.docx'], reason: 'unsupported' });
+    const html = classifyPaste(clipboard({ html: RICH, text: 'x y' }), env);
+    expect(html).toMatchObject({ strategy: 'richHtml', html: RICH });
+  });
+
   const skipped = (payload: Parameters<typeof clipboard>[0], doc = 'Start', caret = 5, options: { canEmbed?: boolean } = {}) =>
     classifyPaste(clipboard(payload), { state: stateAt(doc, caret), canEmbed: options.canEmbed ?? true }).skipped;
 
