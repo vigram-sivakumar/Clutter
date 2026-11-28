@@ -406,6 +406,8 @@ describe('Repeated hard breaks preserve marker-line geometry', () => {
     // A marker row must pull back its whole gutter, not a continuation's source indentation.
     const consumed = marker.style.getPropertyValue('--list-line-consumed-px');
     expect(consumed).toBe('');
+    expect(marker.querySelectorAll('.cm-indent-token')).toHaveLength(0);
+    expect(marker.querySelector('.cm-ordered-list-marker')).not.toBeNull();
   }
 
   it('opens the supplied ordered-item source with an unindented marker and consistent continuation gutters', () => {
