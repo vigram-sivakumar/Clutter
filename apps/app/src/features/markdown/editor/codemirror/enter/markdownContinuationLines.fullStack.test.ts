@@ -408,6 +408,7 @@ describe('Repeated hard breaks preserve marker-line geometry', () => {
     expect(consumed).toBe('');
     expect(marker.querySelectorAll('.cm-indent-token')).toHaveLength(0);
     expect(marker.querySelector('.cm-ordered-list-marker')).not.toBeNull();
+    expect(marker.querySelector('.cm-fold-toggle')).toBeNull();
   }
 
   it('opens the supplied ordered-item source with an unindented marker and consistent continuation gutters', () => {
