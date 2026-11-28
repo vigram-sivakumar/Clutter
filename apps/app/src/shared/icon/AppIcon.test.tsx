@@ -63,3 +63,15 @@ describe('AppIcon stroke', () => {
   });
 });
 
+describe('notePencil', () => {
+  it('uses the shared colour for its outline and visible pencil tip', () => {
+    const { container } = render(<AppIcon icon="notePencil" />);
+    expect(container.querySelector('svg')).toHaveAttribute('viewBox', '0 0 16 16');
+    expect(container.querySelector('path')).toHaveAttribute('stroke', 'currentColor');
+    const tip = container.querySelector('circle');
+    expect(tip).toHaveAttribute('cx', '13.75');
+    expect(tip).toHaveAttribute('cy', '2.25');
+    expect(tip).toHaveAttribute('r', '1');
+    expect(tip).toHaveAttribute('fill', 'currentColor');
+  });
+});
