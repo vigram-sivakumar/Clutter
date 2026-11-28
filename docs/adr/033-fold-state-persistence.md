@@ -150,3 +150,8 @@ It extends fold persistence to embeds using every mechanism this ADR already bui
 ## Third Amendment (product decision, 2026-10-13): no fold controls inside embedded notes
 
 The first amendment is superseded for the embedded document. A note embed's nested view no longer shows heading/list/fenced-code fold toggles (`NoteEmbedWidget.css` hides a toggle that is a direct child of a document line; the embed's own header caret is unaffected and remains the only collapse control). Consequently `NoteEmbedWidget` no longer passes `restoreFoldJSON` and `destroy()` no longer calls `FoldStatePersistence.set` for the embedded page: an embed must never overwrite the saved folds of the note it shows, which belong to that note opened as a page. The nested view still passes `enableFolding: true` because the shared fenced-code hover handlers (Copy / More actions reveal) are installed under that flag. The second amendment (outer collapse, `setEmbedCollapse`) is unchanged.
+
+
+## Amendment (2026-11-28): retired fold ownership
+
+The owner-approved folding scope is now headings and fenced code only; whole-note-embed collapse is unchanged. The persisted `{doc, fold}` schema, storage owner and existing identical-document guard remain. The restoration boundary additionally validates each saved range against the current `foldSemantics.ts` eligible range, skipping retired list/paragraph, malformed, or no-longer-matching ranges. Valid heading and fenced-code ranges restore independently; a stale range must never hide content under the retired UX. The same rules apply to embedded note editors; the separate outer embed-collapse map is untouched. See the 2026-11-28 Fold UX decision in editor-architecture-decisions.md.
