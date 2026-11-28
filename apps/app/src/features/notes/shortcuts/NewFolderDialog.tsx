@@ -11,9 +11,8 @@ interface NewFolderDialogProps
 }
 
 /**
- * The name + description modal — "New folder" for the sidebar top controls (a global entry point, so
- * there is no Notes-panel inline row to use), and, configured with its own `labels`, "Create
- * template". One modal, one layout; callers supply wording and prefilled values.
+ * The shared name + description modal for all standalone New folder entry points, and, configured
+ * with its own `labels`, "Create template". One modal, one layout; callers supply wording and prefilled values.
  */
 export function NewFolderDialog({ open, onClose, ...content }: NewFolderDialogProps) {
   return (

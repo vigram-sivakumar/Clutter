@@ -8,7 +8,6 @@ import { Folder as FolderEntry } from './Folder';
 import { countFolderItems } from '../helpers/countFolderItems';
 import { Note as NoteEntry } from './Note';
 import { Resource as ResourceEntry } from './Resource';
-import { NewFolderRow } from './NewFolderRow';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
@@ -92,12 +91,6 @@ interface SidebarDragItem {
   readonly kind: 'folder' | 'note' | 'asset';
   readonly id: string;
   /** The parent folder it is dragged from (`null` = root). */
-  readonly parentId: string | null;
-}
-
-export interface PendingNewFolder {
-  // The parent under which a not-yet-persisted folder is being named.
-  // null means the vault root.
   readonly parentId: string | null;
 }
 
@@ -335,15 +328,6 @@ interface FolderTreeProps {
    * note scoped to that folder (PageOperations.openDraft({ folderId })).
    */
   onCreateNote(folderId: string): void;
-  /**
-   * At most one folder-creation row is active anywhere in the tree at a
-   * time. Every recursive level checks whether it owns this pending
-   * folder's parentId, so root-level and nested creation share the exact
-   * same mechanism rather than the root being special-cased.
-   */
-  pendingNewFolder: PendingNewFolder | null;
-  onCommitNewFolder(name: string, parentId: string | null): void | boolean;
-  onCancelNewFolder(): void;
   /** Overflow-menu/rename wiring — see SidebarRowActions. */
   rowActions?: SidebarRowActions;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -676,9 +660,6 @@ export function FolderTree({
   onFolderClick,
   onResourceClick,
   onCreateNote,
-  pendingNewFolder,
-  onCommitNewFolder,
-  onCancelNewFolder,
   rowActions,
   resolveWikiLink,
   resolveTag,
@@ -808,9 +789,6 @@ export function FolderTree({
   // Asset files listed in an ordinary folder follow the Show assets in folders setting; the Assets section never reads it.
   const showAssets = useShowAssetsInFolders();
   const rootResources = parentId === null && showAssets ? membershipSelector.getRootResources() : [];
-
-  const isCreatingHere =
-    pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
 
   const renderFolder = (folder: Folder, tailHidden: boolean) => {
         // Every page that should currently be shown as a child of this
@@ -953,9 +931,6 @@ export function FolderTree({
                   onFolderClick={onFolderClick}
                   onResourceClick={onResourceClick}
                   onCreateNote={onCreateNote}
-                  pendingNewFolder={pendingNewFolder}
-                  onCommitNewFolder={onCommitNewFolder}
-                  onCancelNewFolder={onCancelNewFolder}
                   rowActions={rowActions}
                   resolveWikiLink={resolveWikiLink}
                   resolveTag={resolveTag}
@@ -1041,30 +1016,13 @@ export function FolderTree({
     );
   };
 
-  // A nested level shows its new-folder row just before its first visible subfolder (or after the
-  // last item when none is visible), wherever Kind has put the groups.
-  const firstFolderIndex = visibleItems.findIndex((item) => item.kind === 'folder');
-
-  const newFolderRow = isCreatingHere && (
-    <NewFolderRow
-      level={level}
-      onCommit={(name) => onCommitNewFolder(name, parentId)}
-      onCancel={onCancelNewFolder}
-    />
-  );
-
   return (
     <>
-      {/* The root opens with the new-folder row; a nested level shows it after its notes and files,
-          just before its subfolders. */}
-      {parentId === null && newFolderRow}
       {visibleItems.map((item, index) => (
         <Fragment key={item.kind === 'folder' ? item.folder.id : item.kind === 'page' ? item.entry.id : item.resource.id}>
-          {parentId !== null && index === firstFolderIndex && newFolderRow}
           {renderItem(item, index)}
         </Fragment>
       ))}
-      {parentId !== null && firstFolderIndex === -1 && newFolderRow}
       {activeDrag && <DragGhost session={activeDrag.session} />}
       {activeDrag && <DropFeedbackHost store={dropTargetStore} />}
       {items.length > folderItemLimit && (

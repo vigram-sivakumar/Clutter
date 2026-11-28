@@ -29,7 +29,6 @@ import {
   FolderTree,
   getLevelIndex,
   ROOT_FOLDER_CAP_KEY,
-  type PendingNewFolder,
   type SidebarRowActions,
 } from './FolderTree';
 import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
@@ -78,6 +77,8 @@ interface NotesProps {
   getDefaultNoteFolderId?: () => string | undefined;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
+  /** Opens the shared New folder dialog at the vault root. */
+  onRequestNewFolder(): void;
   /**
    * A draft has no Vault entry yet, so onOpen()/pageOperations.open()
    * (which requires one) would throw for it — it's already open via
@@ -129,6 +130,7 @@ export function Notes({
   membershipSelector,
   onOpen,
   onOpenFolder,
+  onRequestNewFolder,
   onOpenDraft,
   onOpenResource,
   revealPageId,
@@ -144,8 +146,6 @@ export function Notes({
 }: NotesProps) {
   const folderItemLimit = useFolderItemLimit();
   const showAssets = useShowAssetsInFolders();
-  const [pendingNewFolder, setPendingNewFolder] =
-    useState<PendingNewFolder | null>(null);
 
   // "Reveal in Clutter" (Tags sidebar) target, once its required ancestor
   // folders have been force-expanded below but before the row they
@@ -442,58 +442,18 @@ export function Notes({
     effectivePageState,
     (folderId) => membershipSelector.getMoveZoneOfFolder(folderId)
   );
-  // A pending (not-yet-persisted) root-level folder counts as non-empty too
-  // — otherwise clicking "+" on an empty section would force it open via
-  // the actions button below, only for the empty-guard here to immediately
-  // hide the very NewFolderRow that click was meant to reveal.
   const isFoldersEmpty =
     membershipSelector.getWorkspaceFolders().length === 0 &&
     membershipSelector.getNotesChildPages(null).length === 0 &&
-    (!showAssets || membershipSelector.getRootResources().length === 0) &&
-    pendingNewFolder?.parentId !== null;
+    (!showAssets || membershipSelector.getRootResources().length === 0);
 
-  // The section's "+": open the section if it
-  // was collapsed, then show the inline name row.
+  // The section's "+" uses the same dialog as global New folder.
   const startNewRootFolder = () => {
     if (!workspace.isSectionExpanded('folders')) {
       workspace.toggleSectionExpanded('folders');
     }
-    setPendingNewFolder({ parentId: null });
+    onRequestNewFolder();
   };
-
-  // A synchronous pre-check only (FolderOperations.canCreate()) — mirrors
-  // onNoteTitleCommit/onFolderTitleCommit above: returning `false` lets
-  // NewFolderRow's own EditableText reject the commit (stay open, shake,
-  // caret at end, typed value preserved) for a duplicate sibling name,
-  // instead of auto-suffixing the way FolderPathResolver.createFolderPath()
-  // does for every other create() caller (unchanged — see canCreate()'s own
-  // doc comment). Only once a unique name passes does the actual create()
-  // call happen, fired-and-forgotten below.
-  function handleCommitNewFolder(
-    name: string,
-    parentId: string | null
-  ): void | boolean {
-    if (!folderOperations.canCreate(name, parentId)) {
-      return false;
-    }
-
-    void createNewFolder(name, parentId);
-  }
-
-  // Only cleared once the Gate call settles (success or failure) — this is
-  // what lets the temporary row stay visible until the real Folder is
-  // ready to take its place via the Vault's own notification flow, rather
-  // than clearing optimistically and leaving a gap.
-  async function createNewFolder(
-    name: string,
-    parentId: string | null
-  ): Promise<void> {
-    try {
-      await folderOperations.create(name, parentId);
-    } finally {
-      setPendingNewFolder(null);
-    }
-  }
 
   const inboxFolder = membershipSelector.getInboxFolder();
 
@@ -555,6 +515,7 @@ export function Notes({
             <Button
               size="xs"
               isIconOnly
+              aria-label="New folder"
               onClick={startNewRootFolder}
             >
               <AppIcon icon="plus" />
@@ -581,9 +542,6 @@ export function Notes({
           workspace={workspace}
           parentId={null}
           level={0}
-          pendingNewFolder={pendingNewFolder}
-          onCommitNewFolder={handleCommitNewFolder}
-          onCancelNewFolder={() => setPendingNewFolder(null)}
           rowActions={rowActions}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}

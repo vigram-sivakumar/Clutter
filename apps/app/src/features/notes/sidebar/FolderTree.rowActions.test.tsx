@@ -275,9 +275,6 @@ function renderTree(
       onDraftPageClick={vi.fn()}
       onFolderClick={vi.fn()}
       onCreateNote={vi.fn()}
-      pendingNewFolder={null}
-      onCommitNewFolder={vi.fn()}
-      onCancelNewFolder={vi.fn()}
       rowActions={rowActions}
     />
   );
@@ -377,9 +374,6 @@ describe('FolderTree row overflow menu: open/close', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         rowActions={actions}
       />
     );
@@ -556,9 +550,6 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         rowActions={editingActions}
       />
     );
@@ -587,9 +578,6 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         rowActions={actions}
       />
     );

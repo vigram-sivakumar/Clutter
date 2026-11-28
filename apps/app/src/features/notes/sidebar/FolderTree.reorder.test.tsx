@@ -168,9 +168,6 @@ function renderOrdered(
       onDraftPageClick={vi.fn()}
       onFolderClick={vi.fn()}
       onCreateNote={vi.fn()}
-      pendingNewFolder={null}
-      onCommitNewFolder={vi.fn()}
-      onCancelNewFolder={vi.fn()}
       rowActions={actionsFor(env)}
       enableDrag
       getFolderSort={(parentId) => store.get(key(parentId))?.sidebarSort}

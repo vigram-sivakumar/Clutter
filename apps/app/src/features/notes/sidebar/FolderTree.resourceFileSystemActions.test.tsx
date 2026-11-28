@@ -173,9 +173,6 @@ function renderTree(
       onDraftPageClick={vi.fn()}
       onFolderClick={vi.fn()}
       onCreateNote={vi.fn()}
-      pendingNewFolder={null}
-      onCommitNewFolder={vi.fn()}
-      onCancelNewFolder={vi.fn()}
       rowActions={rowActions}
     />
   );

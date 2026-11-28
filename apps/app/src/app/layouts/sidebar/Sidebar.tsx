@@ -180,6 +180,7 @@ export function Sidebar({
     'task' | 'tag' | 'folder' | null
   >(null);
   const closeCreationDialog = () => setCreationDialog(null);
+  const newFolder = () => setCreationDialog('folder');
 
   function revealNoteInNotesSidebar(pageId: string): void {
     workspace.setActiveSidebarTab('notes');
@@ -213,6 +214,7 @@ export function Sidebar({
           }
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
+          onRequestNewFolder={newFolder}
           onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
@@ -350,7 +352,6 @@ export function Sidebar({
         type: 'daily-note',
       })
       .catch(() => {});
-  const newFolder = () => setCreationDialog('folder');
   useNativeFileMenu({
     onNewNote: newNote,
     onNewDailyNote: openDailyNote,

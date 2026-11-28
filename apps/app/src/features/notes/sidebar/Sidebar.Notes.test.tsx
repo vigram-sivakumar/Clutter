@@ -237,6 +237,7 @@ function notesElement(
   overrides?: {
     onOpen?(pageId: string): void;
     onOpenFolder?(folderId: string): void;
+    onRequestNewFolder?(): void;
     revealPageId?: string | null;
     onRevealHandled?(): void;
     getFolderSort?: React.ComponentProps<typeof Notes>['getFolderSort'];
@@ -258,6 +259,7 @@ function notesElement(
       membershipSelector={deps.membershipSelector}
       onOpen={overrides?.onOpen ?? vi.fn()}
       onOpenFolder={overrides?.onOpenFolder ?? vi.fn()}
+      onRequestNewFolder={overrides?.onRequestNewFolder ?? vi.fn()}
       onOpenDraft={vi.fn()}
       revealPageId={overrides?.revealPageId}
       onRevealHandled={overrides?.onRevealHandled}
@@ -708,6 +710,19 @@ describe('Sidebar Notes: an empty Folders section explains itself', () => {
     expect(screen.queryByText('New folder')).not.toBeInTheDocument();
   });
 
+  it('requests the shared New folder dialog from the Folders plus without creating an inline row', () => {
+    const deps = setup([]);
+    const onRequestNewFolder = vi.fn();
+    const create = vi.spyOn(deps.folderOperations, 'create');
+    renderNotes(deps, { onRequestNewFolder });
+
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
+
+    expect(onRequestNewFolder).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
   it('is not shown once the section has anything in it', () => {
     renderNotes(setup([makeFolder('folder-a', `${ROOT}/Alpha`)]));
 
@@ -1139,6 +1154,7 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
         membershipSelector={deps.membershipSelector}
         onOpen={vi.fn()}
         onOpenFolder={vi.fn()}
+        onRequestNewFolder={vi.fn()}
         onOpenDraft={vi.fn()}
         onOpenResource={onOpenResource}
       />
@@ -1171,6 +1187,7 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
         membershipSelector={deps.membershipSelector}
         onOpen={vi.fn()}
         onOpenFolder={vi.fn()}
+        onRequestNewFolder={vi.fn()}
         onOpenDraft={vi.fn()}
         onOpenResource={onOpenResource}
       />

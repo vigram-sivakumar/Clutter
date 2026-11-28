@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 
-// No global jest-dom setup exists in this project's vitest config yet
-// (NewFolderRow.test.tsx, the only other component test, doesn't need
-// these matchers) — imported locally rather than adding project-wide
-// config for one test file.
+// Import jest-dom matchers locally.
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -232,9 +229,6 @@ function renderTree(
       onFolderClick={vi.fn()}
       onResourceClick={onResourceClick}
       onCreateNote={vi.fn()}
-      pendingNewFolder={null}
-      onCommitNewFolder={vi.fn()}
-      onCancelNewFolder={vi.fn()}
     />
   );
 }
@@ -257,9 +251,6 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -297,9 +288,6 @@ describe('FolderTree: draft click routing', () => {
         onDraftPageClick={onDraftPageClick}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -335,9 +323,6 @@ describe('FolderTree: draft discard', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -390,9 +375,6 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -415,9 +397,6 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -441,9 +420,6 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onDraftPageClick={onDraftPageClick}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -586,9 +562,6 @@ describe('FolderTree: draft promotion', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -616,9 +589,6 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -642,9 +612,6 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -661,9 +628,6 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -680,9 +644,6 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -707,9 +668,6 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onDraftPageClick={vi.fn()}
         onFolderClick={onFolderClick}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -761,9 +719,6 @@ describe('FolderTree: create note from folder ("+" button)', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={onFolderClick}
         onCreateNote={onCreateNote}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -789,9 +744,6 @@ describe('FolderTree: create note from folder ("+" button)', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={onCreateNote}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -821,9 +773,6 @@ describe('FolderTree: create note from folder ("+" button)', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -1091,9 +1040,6 @@ describe('FolderTree: the 10-item cap per folder', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         expandedFolders={expandedFolders}
         onToggleFolderCap={onToggleFolderCap}
       />
@@ -1140,9 +1086,6 @@ describe('FolderTree: the 10-item cap per folder', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 
@@ -1168,9 +1111,6 @@ describe('FolderTree: the 10-item cap per folder', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         getFolderSort={(id) => (id === 'f1' ? { key: 'name', direction: 'up' } : undefined)}
       />
     );
@@ -1212,9 +1152,6 @@ describe('FolderTree: the Folder items setting', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         expandedFolders={expandedFolders}
         onToggleFolderCap={vi.fn()}
       />
@@ -1449,9 +1386,6 @@ describe('FolderTree: folder count badges', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={onFolderClick}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
 

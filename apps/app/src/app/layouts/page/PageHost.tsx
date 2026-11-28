@@ -46,11 +46,7 @@ import {
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
-import {
-  createAndOpenFolder,
-  DISALLOWED_FOLDER_NAME_MESSAGE,
-  isAllowedFolderName,
-} from '@features/notes/helpers/createAndOpenFolder';
+import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
 import type { Asset } from '@core/vault/models/Asset';
@@ -1055,13 +1051,10 @@ export function PageHost({
       }
       onSubmit={async (name, icon, description) => {
         if (!folderDialog) return;
-        if (!isAllowedFolderName(name)) {
-          throw new Error(DISALLOWED_FOLDER_NAME_MESSAGE);
-        }
         await createAndOpenFolder(
           application.folderOperations,
           name,
-          await folderDialog.resolveParentId(),
+          folderDialog.resolveParentId,
           { icon, description }
         );
       }}

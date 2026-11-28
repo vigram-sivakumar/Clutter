@@ -156,9 +156,6 @@ function renderTree(env: ReturnType<typeof setup>, extra: { rowActions?: Sidebar
       onDraftPageClick={vi.fn()}
       onFolderClick={onFolderClick}
       onCreateNote={vi.fn()}
-      pendingNewFolder={null}
-      onCommitNewFolder={vi.fn()}
-      onCancelNewFolder={vi.fn()}
       enableDrag
       // Positions ("before/after this row") are only offered in a level ordered by hand.
       getFolderSort={() => ({ key: 'manual', direction: 'down' })}
@@ -529,9 +526,6 @@ describe('FolderTree drag: existing behavior is preserved', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={onFolderClick}
         onCreateNote={onCreateNote}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
       />
     );
     const add = rowFor('Alpha').querySelector('.entry__actions button')!;
@@ -588,9 +582,6 @@ describe('FolderTree drag: notes', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         enableDrag
       />
     );
@@ -615,9 +606,6 @@ describe('FolderTree drag: notes', () => {
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
         onCreateNote={vi.fn()}
-        pendingNewFolder={null}
-        onCommitNewFolder={vi.fn()}
-        onCancelNewFolder={vi.fn()}
         enableDrag
       />
     );

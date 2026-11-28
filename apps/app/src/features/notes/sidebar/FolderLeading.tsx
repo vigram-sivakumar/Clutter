@@ -15,7 +15,7 @@ interface FolderLeadingProps {
  * grid overlay (folder__caret and folder__icon share one grid cell,
  * Folder.css crossfades between them on hover) only works when both are
  * rendered inside the exact folder__leading wrapper, so every folder-shaped
- * row (a real Folder, or the in-progress NewFolderRow) renders this instead
+ * row renders this instead
  * of reimplementing the caret+icon markup itself.
  */
 export function FolderLeading({

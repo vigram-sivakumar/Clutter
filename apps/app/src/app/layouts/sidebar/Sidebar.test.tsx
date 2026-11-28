@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '../app-layout/AppLayout';
@@ -447,5 +447,64 @@ describe('Sidebar Tasks tab due-task dot', () => {
     }
     render(<AppLayout application={application} />);
     expect(screen.getByTestId('sidebar.tab.tasks').querySelector('.tab__indicator')).toBeNull();
+  });
+});
+
+describe('Sidebar: shared New folder dialog', () => {
+  function setupFolderDialog() {
+    const application = makeApplication([]);
+    render(<AppLayout application={application} />);
+    switchToNotesTab();
+    const header = screen.getByText('Folders').closest('.section-header')!;
+    fireEvent.click(within(header as HTMLElement).getByRole('button', { name: 'New folder' }));
+    const field = screen.getByPlaceholderText('New folder');
+    return { application, field };
+  }
+
+  it('opens the dialog, creates at root with metadata, and opens its collection', async () => {
+    const { application, field } = setupFolderDialog();
+    const create = vi.spyOn(application.folderOperations, 'create');
+    const update = vi.spyOn(application.folderOperations, 'updateMetadata');
+    const open = vi.spyOn(application.folderOperations, 'open');
+    expect(screen.getByPlaceholderText('Description')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose emoji' })).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: '  Projects  ' } });
+    fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: '  Client work  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument());
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith('Projects', null);
+    const folder = application.vault.getFolderByPath(`${ROOT}/Projects`)!;
+    expect(folder).toBeDefined();
+    expect(update).toHaveBeenCalledWith(folder.id, { description: 'Client work' });
+    expect(open).toHaveBeenCalledWith(folder.id);
+    expect(application.workspace.activeFolderId).toBe(folder.id);
+  });
+
+  it('cancels through Escape without creating or opening a folder', async () => {
+    const { application, field } = setupFolderDialog();
+    const create = vi.spyOn(application.folderOperations, 'create');
+    const open = vi.spyOn(application.folderOperations, 'open');
+    fireEvent.change(field, { target: { value: 'Abandoned' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument());
+    expect(create).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid name before creating anything, and allows correction', async () => {
+    const { application, field } = setupFolderDialog();
+    const create = vi.spyOn(application.folderOperations, 'create');
+    fireEvent.change(field, { target: { value: 'a/b' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('can’t contain'));
+    expect(create).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: 'Valid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument());
+    expect(create).toHaveBeenCalledWith('Valid', null);
   });
 });

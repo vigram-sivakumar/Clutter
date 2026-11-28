@@ -495,8 +495,7 @@ export class FolderOperations {
   }
 
   /**
-   * Synchronous pre-check for interactive New folder creation (sidebar inline
-   * row and global/collection dialogs), sharing the rename collision lookup.
+   * Synchronous pre-check for the New folder dialog, sharing the rename collision lookup.
    * The ordinary create() and Move picker still use the collision-free
    * destination resolver and its auto-suffix behavior. This never calls create()
    * itself and has no bearing on it. An empty/whitespace name is never a

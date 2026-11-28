@@ -3,13 +3,13 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 /**
  * Whether a folder may be named this. Not allowed: "/" and ":" (macOS: path separator; Finder shows ":" as
  * "/"), the Windows-reserved \ * ? " < > |, the NUL character, and a leading "." (a hidden folder — which
- * also rules out "." and ".."). Checked before the folder's own sibling-collision check.
+ * also rules out "." and ".."). Checked before resolving or creating the destination.
  */
-export function isAllowedFolderName(name: string): boolean {
+function isAllowedFolderName(name: string): boolean {
   return !/[/:\\*?"<>|\0]/.test(name) && !name.startsWith('.');
 }
 
-export const DISALLOWED_FOLDER_NAME_MESSAGE =
+const DISALLOWED_FOLDER_NAME_MESSAGE =
   'A folder name can’t contain / : \\ * ? " < > | or start with a period';
 
 /**
@@ -24,9 +24,13 @@ export const DISALLOWED_FOLDER_NAME_MESSAGE =
 export async function createAndOpenFolder(
   folderOperations: FolderOperations,
   name: string,
-  parentId: string | null,
+  parent: string | null | (() => string | null | Promise<string | null>),
   metadata: { readonly icon?: string; readonly description?: string } = {}
 ): Promise<void> {
+  if (!isAllowedFolderName(name)) {
+    throw new Error(DISALLOWED_FOLDER_NAME_MESSAGE);
+  }
+  const parentId = typeof parent === 'function' ? await parent() : parent;
   const { icon, description } = metadata;
   const id = await folderOperations.create(name, parentId);
 
