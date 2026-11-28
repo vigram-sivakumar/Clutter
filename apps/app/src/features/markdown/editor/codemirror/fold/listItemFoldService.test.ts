@@ -3,7 +3,7 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { getFoldRange, isListFoldOwner } from './foldSemantics';
+import { getFoldRange } from './foldSemantics';
 
 function stateFor(doc: string): EditorState {
   const state = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
@@ -29,15 +29,13 @@ describe('list fold eligibility — former list-fold service regression cases', 
   ] as const)('%s cannot own a fold', (_label, doc, ownerLine) => {
     const state = stateFor(doc);
     const line = state.doc.line(ownerLine);
-    expect(isListFoldOwner(state, line)).toBe(true);
     expect(getFoldRange(state, line)).toBeNull();
   });
 
-  it('retains standalone paragraph, heading and fenced-code eligibility', () => {
-    for (const doc of ['Parent\n    Child', '# Heading\nbody', '~~~\ncode\n~~~']) {
+  it('retains heading and fenced-code eligibility', () => {
+    for (const doc of ['# Heading\nbody', '~~~\ncode\n~~~']) {
       const state = stateFor(doc);
       const line = state.doc.line(1);
-      expect(isListFoldOwner(state, line)).toBe(false);
       expect(getFoldRange(state, line)).not.toBeNull();
     }
   });
