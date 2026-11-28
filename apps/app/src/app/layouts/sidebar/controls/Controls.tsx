@@ -26,6 +26,7 @@ import { useRef } from 'react';
  * here creates anything itself, and nothing switches the active sidebar tab.
  */
 interface ControlsProps {
+  readonly onOpenSearch: () => void;
   readonly onNewNote: () => void;
   readonly onOpenDailyNote: () => void;
   readonly onNewTask: () => void;
@@ -36,6 +37,7 @@ interface ControlsProps {
 }
 
 export function Controls({
+  onOpenSearch,
   onNewNote,
   onOpenDailyNote,
   onNewTask,
@@ -60,6 +62,15 @@ export function Controls({
 
   return (
     <div className="controls" data-tauri-drag-region>
+      <Button
+        isIconOnly
+        size="medium"
+        variant="ghost"
+        aria-label="Search"
+        onClick={onOpenSearch}
+      >
+        <AppIcon icon={getSystemLocationPresentation('search').icon} />
+      </Button>
       <div className="create-controls">
         <Button
           isIconOnly
