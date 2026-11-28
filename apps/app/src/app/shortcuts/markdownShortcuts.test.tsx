@@ -218,28 +218,48 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(view.state.doc.toString()).toBe('a\n\nb');
   },
   fold: () => {
-    const view = mount('- a\n    - b\n- c', 1);
-    press(view, PRESSES.fold!);
-    expect(foldedRanges(view.state).size).toBe(1);
-    expect(view.state.doc.toString()).toBe('- a\n    - b\n- c');
+    for (const doc of ['# Heading\nbody', '~~~ts\ncode\n~~~']) {
+      const view = mount(doc, 1);
+      press(view, PRESSES.fold!);
+      expect(foldedRanges(view.state).size).toBe(1);
+      expect(view.state.doc.toString()).toBe(doc);
+    }
+    for (const doc of ['- a\n    - b\n- c', 'Parent\n    Child']) {
+      const view = mount(doc, 1);
+      press(view, PRESSES.fold!);
+      expect(foldedRanges(view.state).size).toBe(0);
+      expect(view.state.doc.toString()).toBe(doc);
+    }
   },
   unfold: () => {
-    const view = mount('- a\n    - b\n- c', 1);
-    press(view, PRESSES.fold!);
-    expect(foldedRanges(view.state).size).toBe(1);
-    press(view, PRESSES.unfold!);
-    expect(foldedRanges(view.state).size).toBe(0);
+    for (const doc of ['# Heading\nbody', '~~~ts\ncode\n~~~']) {
+      const view = mount(doc, 1);
+      press(view, PRESSES.fold!);
+      expect(foldedRanges(view.state).size).toBe(1);
+      press(view, PRESSES.unfold!);
+      expect(foldedRanges(view.state).size).toBe(0);
+      expect(view.state.doc.toString()).toBe(doc);
+    }
   },
   'fold-all': () => {
-    const view = mount('- a\n    - b\n- c\n    - d', 1);
+    const doc = '- a\n    - b\n\nParent\n    Child\n\n~~~ts\ncode\n~~~\n\n# Heading\nbody';
+    const view = mount(doc, 1);
     press(view, PRESSES['fold-all']!);
-    expect(foldedRanges(view.state).size).toBeGreaterThan(0);
+    const owners: number[] = [];
+    foldedRanges(view.state).between(0, view.state.doc.length, from => {
+      owners.push(view.state.doc.lineAt(from).number);
+    });
+    expect(owners).toEqual([7, 11]);
+    expect(view.state.doc.toString()).toBe(doc);
   },
   'unfold-all': () => {
-    const view = mount('- a\n    - b\n- c\n    - d', 1);
+    const doc = '~~~ts\ncode\n~~~\n\n# Heading\nbody';
+    const view = mount(doc, 1);
     press(view, PRESSES['fold-all']!);
+    expect(foldedRanges(view.state).size).toBe(2);
     press(view, PRESSES['unfold-all']!);
     expect(foldedRanges(view.state).size).toBe(0);
+    expect(view.state.doc.toString()).toBe(doc);
   },
   'add-cursor-above': () => {
     const view = mount('abc\ndef', 5);
