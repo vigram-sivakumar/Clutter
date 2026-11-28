@@ -203,6 +203,42 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
   const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
     .map(cell => (cell as HTMLElement).dataset.cell);
 
+  it('derives the active outline target from the mounted editor across mouse, keys and selection', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    const controller = view.plugin(tableCellEditor)!;
+    // Match the stylesheet target, not a second controller flag.
+    const outlined = (root: EditorView) => Array.from(root.dom.querySelectorAll(
+      '.cm-editor .cm-table-widget[data-table-engine-cells="true"] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor)'))
+      .map(cell => cell.querySelector('.cm-table-cell-wrapper')?.getAttribute('data-cell'));
+    expect(outlined(view)).toEqual([]);
+    clickCell(findCell(view, 'Name'));
+    expect(outlined(view)).toEqual(['0,0']);
+    key(controller.nested!.contentDOM, 'Tab');
+    expect(outlined(view)).toEqual(['0,1']);
+    key(controller.nested!.contentDOM, 'Enter');
+    expect(outlined(view)).toEqual(['1,1']);
+    key(controller.nested!.contentDOM, 'Tab', true);
+    expect(outlined(view)).toEqual(['1,0']);
+    key(controller.nested!.contentDOM, 'ArrowRight');
+    expect(outlined(view)).toEqual(['1,1']);
+    key(controller.nested!.contentDOM, 'Escape');
+    expect(outlined(view)).toEqual([]);
+    expect(selected(view)).toEqual(['1,1']);
+    key(host(view, 1, 1), 'F2');
+    expect(outlined(view)).toEqual(['1,1']);
+    expect(selected(view)).toEqual([]);
+    clickCell(findCell(view, 'Role'));
+    expect(outlined(view)).toEqual(['0,1']);
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(outlined(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
+    const readonly = mount(doc, true);
+    clickCell(findCell(readonly, 'Designer'));
+    expect(outlined(readonly)).toEqual([]);
+  });
+
   it('Tab and Shift-Tab edit successive cells at the end, wrap rows, and retain Escape/F2 selection', () => {
     const view = mount(doc, false);
     view.dispatch({ effects: StateEffect.appendConfig.of(history()) });

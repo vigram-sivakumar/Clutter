@@ -302,6 +302,14 @@
   outline: none;
 }
 
+/* The mounted nested editor identifies the active cell. Paint the real
+ * th/td (including padding), not its content wrapper. An inset outline
+ * does not alter border metrics, layout, hit testing or selection state. */
+.cm-editor .cm-table-widget[data-table-engine-cells='true'] :is(th, td):has(> .cm-table-cell-wrapper > .cm-editor) {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
 /* The active cell's own nested `EditorView` (`TableActiveCellController`,
  * mounted via the same `createEditorView()` factory the root document
  * editor uses — `tableActiveCellController.ts`) inherits
