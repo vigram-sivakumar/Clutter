@@ -489,6 +489,28 @@ describe('switching between Manual and the other sorts', () => {
     await build([['Projects', null]], [['Zed', 'Projects'], ['Alpha', 'Projects']], false);
   });
 
+  it('refreshes the visible order through the store alone for both external and sidebar changes', () => {
+    const store = application.collectionViewConfigStore;
+    const notify = vi.fn();
+    const unsubscribe = store.subscribe(notify);
+    try {
+      expect(noteTitles()).toEqual(['Alpha', 'Zed']);
+
+      act(() => store.update(`folder:${ids.Projects!}`, {
+        sidebarSort: { key: 'name', direction: 'down' },
+      }));
+      expect(noteTitles()).toEqual(['Zed', 'Alpha']);
+      expect(notify).toHaveBeenCalledTimes(1);
+
+      chooseSort('Projects', 'Name');
+      expect(noteTitles()).toEqual(['Alpha', 'Zed']);
+      expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'name', direction: 'up' });
+      expect(notify).toHaveBeenCalledTimes(2);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   it('the first time Manual is chosen it starts from what is drawn, so nothing moves', () => {
     expect(noteTitles()).toEqual(['Alpha', 'Zed']);
     chooseSort('Projects', 'Manual');
