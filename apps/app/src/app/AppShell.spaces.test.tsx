@@ -3345,6 +3345,21 @@ describe('AppShell: the sidebar across a Space switch', () => {
     return created[0]!;
   }
 
+  it('never forwards a fixed tab override on Space switch or rollback', async () => {
+    localStorage.setItem('clutter-default-sidebar-tab', 'tasks');
+    localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
+    localStorage.setItem('clutter-startup-behavior', 'last-opened-note');
+    await openFirst();
+    openFails.add('/Other');
+    await act(async () => screen.getByText('switch-other').click());
+    await waitFor(() => expect(created.length).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(created.at(-1)!.open).toHaveBeenCalled());
+    expect(created.map(app => app.vault.root)).toEqual(['/web-dev-vault', '/Other', '/web-dev-vault']);
+    for (const app of created) {
+      expect(app.open).toHaveBeenCalledWith({ startup: 'last-opened-note' });
+    }
+  });
+
   it('does not touch the sidebar of the first Space it opens', async () => {
     const first = await openFirst();
     expect(first.workspace.setSidebarVisible).not.toHaveBeenCalled();
