@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Extension } from '@codemirror/state';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
+import { forceParsing, syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 
 import { blockquoteLineDecoration } from '../highlight/blockquoteLineDecoration';
@@ -535,5 +536,49 @@ describe('listLineDecoration', () => {
       expect(consumedPx(rows[2]!)).toBeGreaterThan(0);
       expect(consumedPx(rows[1]!)).toBeNull();
     });
+  });
+});
+
+
+describe('list geometry and marker rendering follow parser-only changes', () => {
+  it('adds and removes both decorations when the syntax tree changes without a document edit', () => {
+    const doc = '1. first\\\n   second\\\n   third\n2. next';
+    const language = new Compartment();
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc,
+        extensions: [language.of([]), listLineDecoration(), listMarkerDecoration()],
+      }),
+    });
+    try {
+      const initialTree = syntaxTree(view.state);
+      expect(lines(view).map(hasListLine)).toEqual([false, false, false, false]);
+      expect(view.dom.querySelectorAll('.cm-ordered-list-marker')).toHaveLength(0);
+
+      // Deterministically simulate a new published parse without changing the
+      // source or selection. Do not depend on a timed background parse.
+      view.dispatch({ effects: language.reconfigure(markdownLanguageExtension()) });
+      forceParsing(view);
+      expect(syntaxTree(view.state)).not.toBe(initialTree);
+      expect(view.state.doc.toString()).toBe(doc);
+      const rows = lines(view);
+      expect(rows.map(hasListLine)).toEqual([true, true, true, true]);
+      expect(indentPx(rows[1]!)).toBe(indentPx(rows[0]!));
+      expect(indentPx(rows[2]!)).toBe(indentPx(rows[0]!));
+      expect(rows[0]!.style.getPropertyValue('--list-line-consumed-px')).toBe('');
+      expect(rows[3]!.style.getPropertyValue('--list-line-consumed-px')).toBe('');
+      expect(view.dom.querySelectorAll('.cm-ordered-list-marker')).toHaveLength(2);
+
+      view.dispatch({ effects: language.reconfigure([]) });
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(lines(view).map(hasListLine)).toEqual([false, false, false, false]);
+      expect(view.dom.querySelectorAll('.cm-ordered-list-marker')).toHaveLength(0);
+    } finally {
+      view.destroy();
+      parent.remove();
+    }
   });
 });
