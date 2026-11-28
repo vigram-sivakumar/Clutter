@@ -1,8 +1,18 @@
 # Production table rewrite progress
 
-Last updated 26 November 2026 (Asia/Kolkata).
+Last updated 28 November 2026 (Asia/Kolkata).
 
 ## Current status and resume point
+
+**Table implementation and main integration complete (2026-11-28).** M1–M13, architecture stabilisation, shared-editor parity/retirement, native CSP and Japanese IME acceptance, UX-1–UX-4, and all four boundary regression issues plus the neutral-focus outline refinement are accepted. No outstanding table implementation milestone is recorded. The active stable runtime is `560e07ad`; full regression 17,949/17,949 across 967 files in 196.44s, no reported failures or unhandled errors. Native acceptance is owner-reported.
+
+- Owner approved main integration after the final cumulative preflight. Main was fast-forwarded from `53103827` to `f30df48c` without force; GitHub confirmed main and development/table-editor identical with zero divergence. The latter is two documentation-only commits beyond the tested runtime.
+- Final build and affected editor checks succeeded as inferred from the supplied command chain; individual summaries were not supplied. CI required-check/branch-protection enforcement was not verified; no combined statuses or PR-triggered workflow runs were returned in preflight.
+- Next milestone: production package/release verification only after separate owner approval. No version increment, release, upload or distribution authorised. Do not introduce further enhancements without a new scoped owner request and §7 gate.
+
+This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Historical checkpoints below are retained as evidence; the current status above and the latest dated acceptance entries supersede their pending items.
+
+### Historical resume snapshot — superseded
 
 **Active development checkpoint (2026-11-26):** The architecture stability checkpoint on `development/table-editor` passed automated verification and owner-reported native acceptance. The Assets contract discrepancy has been resolved by owner-approved ADR-079; see the acceptance and integration decision at the end of this ledger. See the [stabilisation record](#architecture-stabilisation-on-developmenttable-editor-2026-11-26).
 
@@ -16,7 +26,6 @@ Last updated 26 November 2026 (Asia/Kolkata).
 - Earlier intermittent note-embed teardown and whole-table deletion failures remain unroot-caused; latest broad suite passed cleanly. M10 manual checks were owner-reported (all passed with arrow/padding correction); M11 native checklist subsequently owner-reported pass; exact individual IME procedure was not captured.
 - Local worktree: `$HOME/Documents/ChatGPT/Clutter Git/production`. Last browser port 5183. Verify renderer identity before native/manual tests.
 
-This is the implementation ledger. Architecture belongs in [ADR-034](adr/034-table-architecture-html-projection-active-cell-editor.md) and range behavior in the [UX contract and prototype comparison](table-range-selection-clipboard-ux-contract.md). Follow [CLAUDE.md](../CLAUDE.md) and the [implementation rules](implementation-rules.md). Every verified milestone updates this file in its implementation commit and is pushed to the development branch. Merging into `main` requires owner approval.
 
 ## Architecture and invariants
 
@@ -69,7 +78,7 @@ node_modules/.bin/tsc --noEmit -p apps/app
 npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault/ingest/grammar markdownLanguage.regression noteEmbed.test MarkdownEditor.paste.fullStack
 ```
 
-## Open issues, roadmap and handoff — current plan
+## Historical roadmap and handoff — superseded
 
 | Milestone | Status | Next actions / acceptance gate |
 | --- | --- | --- |
@@ -77,7 +86,7 @@ npm run test:run -- src/features/markdown/editor/codemirror/table src/core/vault
 | M11 — native macOS | Accepted | Explicitly enable staged editable engine in native development WKWebView; validate caret, IME composition/commit/cancel, non-Latin input, native clipboard, keyboard navigation, history, reorder, automatic sizing, scroll, multiple tables, save/reopen and quit/relaunch. Use disposable test Space, not live data. Verify sandboxed or packaged test configuration before rollout; keep release defaults unchanged. Record build, environment and owner results. |
 | M12 — retirement and rollout | Accepted on candidate; main merge and distribution pending | Remove superseded editable legacy paths only after coverage and compatibility strategy are established. Retain shared renderer/grammar/width/CSS as needed. Establish default engine, run final regression and release checks; main merge requires explicit owner approval. |
 
-### Immediate next milestone — M12 retirement and rollout
+### Historical next milestone — M12 retirement and rollout (completed)
 
 M12a is now accepted at verified code `626b7e9c` and recorded on `candidate/table-engine-m12a`. Continue cleanup on `candidate/table-engine-m12b`. Keep main untouched until explicit approval. Inventory all legacy callers and shared dependencies before deletion. Separate supported-table default routing and exact-source persistence from compatibility rendering; define the unsupported-table editing behavior before removing fallback mutators. Retain grammar, renderer, menu, overlay, layout and legacy width recognition where still required. Remove dev-only opt-in and trace instrumentation from production pathways; keep only justified test seams. Re-run TypeScript, broad regression and full app suite (compare exact named baseline failures; do not claim green unless green), native and sandboxed default-path checks without the feature flag, and packaged release verification. No publishing or merging without approval.
 
@@ -982,3 +991,7 @@ Baseline development ebb50376 (verified runtime 1c0806e0, 17,944/17,944 tests ac
 **Issue 4 automated verification (2026-11-28):** At 560e07ad, full app regression passed 17,949/17,949 across 967/967 files (196.44s), no reported unhandled errors. Final SHA and empty status output consistent with successful chained diff checks and clean checkout. Build and affected editor suite success inferred from reaching the full app suite in the requested chained command; individual summaries not supplied. Native leading-caret acceptance previously confirmed at 2ef54c4a; native neutral-focus outline verification on the latest runtime and explicit development promotion approval remain pending. All four reported issues implemented; development ebb50376 and main 53103827 remain unchanged.
 
 **Issue 4 final manual acceptance and promotion approval (2026-11-28):** Owner explicitly confirmed that the unwanted blue native focus outline is gone and intentional selection borders still work, and approved promotion to development/table-editor with main unchanged. Leading-separator caret already manually accepted. Full regression at 560e07ad passed 17,949/17,949 tests across 967 files; the verified runtime is unchanged by subsequent documentation. All four boundary issues and the neutral-focus refinement accepted; no outstanding issue in this batch. Candidate ancestry and documentation-only delta confirmed before promotion. No main integration or release authorised.
+
+### Final main integration — accepted (2026-11-28)
+
+Following the owner's explicit instruction to proceed after the final preflight, GitHub comparison confirmed main `5310382747e106d3a008f43bc83a22c8f41c2285` is the ancestor of development/table-editor `f30df48c2178965caf425d67449c3178b5b48d28`, 29 commits ahead, zero behind, 25 changed files. Cumulative runtime source review found no new architecture violation: root Markdown/history, existing interaction and projection owners, shared parser, persistence boundaries and derived presentation remain intact; parser cache version 7→8 accompanies the standalone embed boundary fix. No dependency manifests or platform configuration changed. Review was bounded source comparison, not a new exhaustive runtime test or security audit. Full regression evidence remains 17,949/17,949 across 967 files at `560e07ad`, 196.44s; owner native acceptance recorded above. Build and focused regression success inferred from the supplied successful command chain; standalone outputs absent. CI combined statuses and PR-triggered workflow runs returned empty; branch protection not independently verified. Non-forced fast-forward with expected old SHA succeeded; post-update comparisons confirmed main equals `f30df48c` and development/table-editor, no divergence or changed files. This ledger update changes documentation only, with no runtime or test changes. No redundant runtime rerun. Main integration complete; release/distribution remains a separate approval.
