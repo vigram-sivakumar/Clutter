@@ -4,7 +4,7 @@
 
 Base for Phase 2: main `706860852804d31c16bf08ae4d4370fb41565565`. See [sidebar integration ledger](sidebar-final-integration-progress.md): owner-accepted build/native verification and full app regression 18,002/18,002 across 967 files, 214.83s. Remote main confirmed identical. Eight-worker forks configuration retained.
 
-## Phase 2 — Notes and folders (unverified combined candidate)
+## Phase 2 — Notes and folders (regression and native acceptance passed; build/promotion pending)
 
 Owner approved combined implementation and verification. Branch `testing/architecture-phase-2-notes-folders` from the verified base; no main or release change. Post-migration simplification; not a change to the original migration plan.
 
@@ -27,3 +27,7 @@ This is an explicitly authorised UX change, not a weakened regression gate. Comb
 ### Combined automated gate — candidate d707dd3f (owner transcript, 2026-11-28)
 
 Full Vitest run: 18,004 passed, 2 failed of 18,006 tests; 966 passed, 1 failed of 967 files; 210.12s. Both failures were new Sidebar.test.tsx folder dialog tests: the document-wide Create button query matched both the global Create menu trigger and the dialog submit. Neither failing test reached submission. Scope all three submit queries in the new suite to the name field's containing form, preserving assertions and production code. Cancellation passed. Transcript is the test-run tail; the preceding build output and exact local HEAD are not included. No unhandled-error summary was reported. The testing branch remains unverified until the focused rerun and complete gate pass, then native verification and explicit owner approval. No promotion.
+
+### Final combined regression and native acceptance — 2026-11-28
+
+Expected tested candidate: `7a56d8a854e27ebfe218de9668089db56a1aab61` (remote testing branch verified at this SHA). Owner-supplied Vitest transcript: **18,006/18,006 tests, 967/967 files, 204.02s**, start 18:59:34. No failed tests or reported unhandled-error summary. The earlier two ambiguous Create selectors failures are resolved in the final full run. Owner explicitly confirmed all manual checks passed. Exact local HEAD and final production build output are absent from the transcript; do not claim independent verification of either. The earlier regression was invoked after a chained build command, but the final candidate's build is to be confirmed locally before promotion. This checkpoint changes documentation only; no source or tests changed after the reported green run. Phase 2 scope is closed to further enhancements. Next: verify clean local worktree and exact documentation-only successor, run production build, then fast-forward main from `706860852804d31c16bf08ae4d4370fb41565565` with owner approval, and remove the merged testing branch. No release tag. Phase 3 Markdown editor audit begins only after promotion, read-only before implementation approval.
