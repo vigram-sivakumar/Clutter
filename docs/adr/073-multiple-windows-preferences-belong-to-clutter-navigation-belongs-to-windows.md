@@ -37,7 +37,7 @@ When a global Space change affects a window's current Space, that window adapts 
 
 | Kind | Owner and storage | Shared by | Examples |
 |---|---|---|---|
-| **Application preferences** (scalar) | The origin's `localStorage` (one store; no per-window copy) | Every window, live | theme, header separator, editor/typography, date/week/format, list limits, startup behaviour, **sidebar width, default sidebar tab and sidebar visibility**, **view zoom (text size)**, every app-level setting |
+| **Application preferences** (scalar) | The origin's `localStorage` (one store; no per-window copy) | Every window, live | theme, header separator, editor/typography, date/week/format, list limits, startup behaviour, **sidebar width and sidebar visibility**, **view zoom (text size)**, every app-level setting |
 | **Space collection** (structured, concurrently written) | The **Space Coordination Store** (§2), one Rust owner per application process, serialized and durable | Every window, live | the registry (list of Spaces, last-opened Space, pending rename), Space change notices |
 | **Space preferences** | The Space's own `.clutter/*` (unchanged) | Every window that has that Space open, live | Space profile/avatar, collection view config, tasks view config, tag expansion, fold state, references display, preferred templates, default note folder |
 | **Window session (navigation)** | Per-window records, §3 | Only that window | which Space it shows, active view, navigation history, **currently selected sidebar section (tab)**, folder/section expansion, (future) tabs, selection, cursor, window frame |
@@ -390,3 +390,6 @@ Each phase is independently verified and committed, and single-window behaviour 
 | **7 — Expose** | File → New Window (⌥⌘N) with `shortcuts.ts` and accelerator test updated; `app_menu.rs` comment and docs updated (`autosave-*` multi-window notes); this ADR → Accepted; manual matrix on dev, packaged and sandboxed builds | Manual matrix passes |
 
 **Working-tree discipline.** Folder-sync and Trash work stay untouched; every phase commit stages only its own files. Phases 3, 5 and 5b touch `Application.ts`, `AppShell.tsx` and `core/application/space/*`; any uncommitted work in those files should be committed first, or the phase branched from it.
+
+
+**Scope clarification (2026-11-28):** ADR-035's owner-approved retirement of the fixed Default tab setting removes it from the future application preference set. The selected sidebar section remains navigation belonging to the window in this proposal. No multiple-window implementation or storage changes are made by that simplification.
