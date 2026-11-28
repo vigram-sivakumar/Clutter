@@ -497,14 +497,14 @@ describe('switching between Manual and the other sorts', () => {
       expect(noteTitles()).toEqual(['Alpha', 'Zed']);
 
       act(() => store.update(`folder:${ids.Projects!}`, {
-        sidebarSort: { key: 'name', direction: 'down' },
+        sidebarSort: { key: 'name', direction: 'up' },
       }));
       expect(noteTitles()).toEqual(['Zed', 'Alpha']);
       expect(notify).toHaveBeenCalledTimes(1);
 
       chooseSort('Projects', 'Name');
       expect(noteTitles()).toEqual(['Alpha', 'Zed']);
-      expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'name', direction: 'up' });
+      expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'name', direction: 'down' });
       expect(notify).toHaveBeenCalledTimes(2);
     } finally {
       unsubscribe();
