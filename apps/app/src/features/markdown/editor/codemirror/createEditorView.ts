@@ -9,7 +9,7 @@ import {
   isolateHistory,
   undoDepth,
 } from '@codemirror/commands';
-import { codeFolding, foldEffect, foldState, indentUnit } from '@codemirror/language';
+import { codeFolding, foldEffect, foldState, forceParsing, indentUnit } from '@codemirror/language';
 import {
   Annotation,
   Compartment,
@@ -37,7 +37,7 @@ import { foldAwareMoveLineKeymap } from './fold/foldAwareMoveLineKeymap';
 import { foldSemanticsKeymap } from './fold/foldSemanticsKeymap';
 import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
-import { listItemFoldService } from './fold/listItemFoldService';
+import { isListFoldOwner } from './fold/foldSemantics';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
 import {
   metadataHistoryStep,
@@ -363,7 +363,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // native foldGutter() column entirely — see that file's own doc
       // comment for the full division of labor (CM6 owns fold state/
       // mechanics unmodified; this only places/dispatches). Headings/
-      // lists/fenced-code consume exactly the foldNodeProp/foldService
+      // fenced-code consume exactly the foldNodeProp/foldService
       // data markdownLanguageExtension() already gets for free from
       // @codemirror/lang-markdown; indentedParagraphFoldService() (Phase
       // 3) is the one genuinely Clutter-authored fold *detection* surface
@@ -386,7 +386,6 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
         ? [
             codeFolding(),
             indentedParagraphFoldService(),
-            listItemFoldService(),
             foldToggleDecoration(),
             fencedCodeHoverMouseHandlers(),
           ]
@@ -413,9 +412,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // own `foldKeymap` entirely rather than sitting alongside it: the
       // native commands call `foldable()` directly, which can still fall
       // through to the generic, lazy-continuation-corrupted native answer
-      // for a list/task item the moment `listItemFoldService`'s own
-      // registered `foldService` declines — see that file's own doc
-      // comment. `foldSemanticsKeymap`'s commands go through
+      // for a list/task item even though list folding is now retired. `foldSemanticsKeymap`'s commands go through
       // `foldSemantics.ts`'s single authority instead, the same one
       // `foldToggleDecoration.ts` already used exclusively, so the toggle
       // and every keyboard fold command now agree by construction. Gated
@@ -513,15 +510,21 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
   // (editorHistoryCache, session-lifetime only), so one being stale must
   // never suppress restoring the other. Applied as a dispatched effect
   // rather than folded into the fromJSON call above, for the same reason.
-  if (restoreFoldJSON && docTextMatches(restoreFoldJSON, doc)) {
+  if (enableFolding && restoreFoldJSON && docTextMatches(restoreFoldJSON, doc)) {
     const ranges = (restoreFoldJSON as { fold?: unknown }).fold;
 
     if (Array.isArray(ranges) && ranges.length % 2 === 0) {
+      // The saved snapshot may predate removal of list folding. Publish the
+      // current parse before inspecting owner lines; never restore list folds.
+      forceParsing(view, view.state.doc.length);
       const effects: StateEffect<unknown>[] = [];
       for (let i = 0; i < ranges.length; i += 2) {
         const from = ranges[i];
         const to = ranges[i + 1];
-        if (typeof from === 'number' && typeof to === 'number') {
+        if (typeof from === 'number' && typeof to === 'number' &&
+            Number.isInteger(from) && Number.isInteger(to) &&
+            from >= 0 && from < to && to <= view.state.doc.length &&
+            !isListFoldOwner(view.state, view.state.doc.lineAt(from))) {
           effects.push(foldEffect.of({ from, to }));
         }
       }
