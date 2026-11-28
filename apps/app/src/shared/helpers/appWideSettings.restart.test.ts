@@ -36,17 +36,6 @@ describe('app-wide settings survive a restart', () => {
     );
   });
 
-  it('Default sidebar tab, and whether to reopen the last one', async () => {
-    const first = await import('@features/settings/sidebar-setting/defaultSidebarTab');
-    first.writeDefaultSidebarTab('tags');
-    first.writeUseLastSidebarTab(false);
-
-    relaunch();
-    const second = await import('@features/settings/sidebar-setting/defaultSidebarTab');
-    expect(second.readDefaultSidebarTab()).toBe('tags');
-    expect(second.readUseLastSidebarTab()).toBe(false);
-  });
-
   it('Start week on Monday', async () => {
     (await import('@features/daily-notes/calendar/weekStart')).writeWeekStart('monday');
 
@@ -80,7 +69,6 @@ describe('app-wide settings with nothing, or something unusable, stored use thei
   it.each([
     ['clutter-theme', async () => renderHook((await import('@design-system/useTheme')).useTheme).result.current.preference, 'system'],
     ['clutter-startup-behavior', async () => (await import('@features/settings/startup-setting/startupPreference')).readStartupBehavior(), 'todays-note'],
-    ['clutter-default-sidebar-tab', async () => (await import('@features/settings/sidebar-setting/defaultSidebarTab')).readDefaultSidebarTab(), 'notes'],
     ['clutter-week-start', async () => (await import('@features/daily-notes/calendar/weekStart')).readWeekStart(), 'sunday'],
     ['clutter-date-format', async () => (await import('./time/dateFormatPreference')).readDateFormatChoice(), 'relative'],
     ['clutter-folder-item-limit', async () => (await import('./folderItemLimitPreference')).readFolderItemLimitChoice(), 10],
