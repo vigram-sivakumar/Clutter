@@ -2,13 +2,13 @@
 
 Updated 2026-11-28 (Asia/Kolkata).
 
-## Current checkpoint — diagnostic candidate, unverified
+## Current checkpoint — focused regression green; full and native gates pending
 
 - Base: main `ddb97817b5ddbb52c70c59bbadbe7822cd703524`; controlled release v0.0.17, previous full regression 17,949/17,949 (recorded at runtime 560e07ad, not rerun).
 - Branch: `testing/list-soft-breaks`, isolated under implementation rulebook §7; no shared branch or main changes.
-- Diagnostic test commit: `f963ea692376d7b22b22cc23f0814f1b522e727a`. No production code changes.
+- Diagnostic test commit: `f963ea692376d7b22b22cc23f0814f1b522e727a`. Runtime candidate and subsequent verification are recorded below.
 - Owner agreed to investigate retaining Shift+Enter if a small architecture-compliant solution exists; otherwise discuss removing the custom prose behaviour. Separately accepted table-cell behaviour stays unchanged.
-- No automated execution or native WebKit/Tauri access in this session. New tests express proposed behaviour and may fail intentionally on the baseline; this is not an accepted runtime milestone.
+- Owner executed the focused suite on `5b9f5be0`: 132/132 passed; no independent local execution or native verification by agent. This is not yet an accepted runtime milestone.
 
 ## Contract and scope
 
@@ -33,3 +33,8 @@ Run the targeted diagnostic suite on this revision and capture actual failures (
 Owner supplied full-stack test output at diagnostic checkpoint: 63/74 passed, 11 failed, 7.53s; all 61 original tests passed. CSS-like mid-line and before-hidden-backslash cases passed. After-hidden-backslash case failed (inserted a normal blank line). All nine nonempty hard-break sibling cases failed, as did pending-break Enter (left literal backslash and exited indentation). Actual native CSS example remains unverified.
 
 Candidate commits 616b3f1d (keymap) and 3f8c7344 (pending task detection); c3fe50bd adds six edge tests. Normalize caret to before an existing hidden backslash before computing Shift+Enter. In the existing Enter chain, handle explicit backslash continuations using the shared hard-break/pending detector, syntax-tree list owner, marker separator and nextOrderedMarker safety/renumber utilities; collapse a pending break into a sibling in one transaction. Recognise Task text as eligible for hard breaks and pending display. Ordinary continuation indentation is unchanged by intent. No new model, parser, service, CSS, persistence or table changes. First runtime candidate is unverified; no test claims. Remaining scope to assess after focused run: repeated breaks on empty lines, two-space imported hard breaks, continuation selection and nesting/number width boundaries, emoji and native custom quotes, task line spacing, caret/undo/save/reopen. Do not expand complexity without review. Native original example remains a required gate. Main unchanged. No promotion until full applicable gate and owner approval.
+
+
+## 2026-11-28 — focused regression green
+
+Owner's terminal output at 5b9f5be0 confirms 4/4 files, 132/132 tests, 7.82s (80 full-stack continuation, 26 soft-line-break, 18 marker decoration, 8 pending spacing). All 11 diagnostic failures now pass; no production or test changes in this ledger update. Before expanding runtime scope, verify actual native CSS-like reproduction and common list/task keyboard flows, including repeated Shift+Enter on an empty continuation, imported two-space breaks, quoted/emoji and nested items, ordered tails, caret and save/undo. Record source and exact caret for any failures; assess whether a bounded fix is possible rather than accumulating special cases. Full type/build, complete affected regression and full app gate remain outstanding. No promotion, integration or release.
