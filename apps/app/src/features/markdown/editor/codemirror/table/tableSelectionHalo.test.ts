@@ -501,5 +501,15 @@ describe('shared document range paint for rendered tables', () => {
     view.dispatch({ selection: { anchor: view.state.doc.length }, effects: tableDeletionSelectionChanged.of(table.from) });
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
     expect(view.dom.querySelector('.cm-table-widget.cm-block-range-selected')).toBeNull();
+    expect(view.state.selection.main.empty).toBe(true);
+    const armed = view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]');
+    expect(armed?.querySelector(':scope > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    const css = readFileSync(join(__dirname, '../blockRangeSelection.css'), 'utf8');
+    const tint = css.slice(css.indexOf(".cm-editor .cm-table-widget[data-table-root-selected='true']",
+      css.indexOf('/* One tint')), css.indexOf('content:', css.indexOf('/* One tint')));
+    expect(tint).toContain(".cm-editor .cm-table-widget[data-table-root-selected='true']");
+    expect(tint).toContain('.cm-editor .cm-table-widget.cm-block-range-selected');
+    expect(css).toMatch(/background: var\(--selection-surface\);/);
   });
 });

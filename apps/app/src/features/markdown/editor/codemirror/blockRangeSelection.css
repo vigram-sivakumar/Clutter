@@ -1,6 +1,9 @@
-/* Document-range paint, independent of table structural selection and
+/* Document-range and root table deletion-arm paint share one tint,
+ * independent of table structural selection and
  * individual embed-object selection. The table's inner box is exactly the
  * rendered table, not its scroll viewport or reserved add-bar space. */
+.cm-editor .cm-table-widget[data-table-root-selected='true']
+  > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner,
 .cm-editor .cm-table-widget.cm-block-range-selected
   > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner {
   /* The opaque page surface prevents the underlying CodeMirror selection
@@ -20,6 +23,8 @@
 /* One tint on the rendered object, including opaque media and table
  * headers. Override the object-selection pseudo-element rather than
  * stacking a second tint if the two states temporarily coexist. */
+.cm-editor .cm-table-widget[data-table-root-selected='true']
+  > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner::after,
 .cm-editor .cm-table-widget.cm-block-range-selected
   > .cm-table-wrapper > .cm-table-scroll > .cm-table-layout > .cm-table-inner::after,
 .cm-editor .cm-media-block.cm-block-range-selected::after {

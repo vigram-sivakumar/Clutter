@@ -8,6 +8,9 @@ import { findAllTables, type TableInfo } from './tableGeometry';
 /**
  * Whole-table Backspace/Delete, symmetric in both directions:
  *
+ * - **From the start of non-empty text immediately below a table**: the
+ *   first Backspace protects the boundary, the second arms deletion and
+ *   the third deletes only the table, preserving the following text.
  * - **From the blank line immediately below a table**: a first Backspace
  *   marks the table selected (visually, via `tableWidgetField.ts` reading
  *   this module's own field — never by moving the root selection into
@@ -57,10 +60,14 @@ import { findAllTables, type TableInfo } from './tableGeometry';
  * instead of being expressed as a root `EditorSelection` range.
  */
 
-export const tableDeletionSelectionChanged = StateEffect.define<number | null>();
+/** A number is an armed table's source start; the protected first press
+ * is deliberately not armed (and cannot match the projection's numeric
+ * selection check). Both phases belong to the same root intent field. */
+type TableDeletionIntent = number | { readonly tableFrom: number; readonly caret: number } | null;
 
-/** The currently armed-for-deletion table's own `from` position, or `null` — `tableWidgetField.ts`'s own single source of truth for painting the "selected" visual state. */
-export const tableDeletionSelectionField = StateField.define<number | null>({
+export const tableDeletionSelectionChanged = StateEffect.define<TableDeletionIntent>();
+
+export const tableDeletionSelectionField = StateField.define<TableDeletionIntent>({
   create() {
     return null;
   },
@@ -89,6 +96,10 @@ export const tableDeletionSelectionField = StateField.define<number | null>({
     // field from silently outliving the one specific position (below or
     // above) it's valid for.
     if (tr.selection) {
+      // Even a same-position click or selection gesture cancels the
+      // unarmed first press. Explicit arm effects retain the established
+      // adjacent-position validation contract.
+      if (typeof value !== 'number') return null;
       const table = findAllTables(tr.state).find((t) => t.from === value);
       if (!table || !isCaretAdjacentToTable(tr.state, tr.selection.main, table)) {
         return null;
@@ -106,7 +117,7 @@ function isCaretAtLineStartBelowTable(state: EditorState, range: SelectionRange,
   return range.head === line.from && line.number === state.doc.lineAt(table.to).number + 1;
 }
 
-/** Only an empty adjacent line may arm whole-table deletion from below. */
+/** Empty adjacent lines skip the initial boundary-protection press. */
 function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
   return state.doc.lineAt(range.head).length === 0 && isCaretAtLineStartBelowTable(state, range, table);
 }
@@ -131,7 +142,7 @@ function isCaretJustAboveTable(state: EditorState, range: SelectionRange, table:
 
 /** Whether `range` sits adjacent to `table` on either side — the one shared condition both arming and re-validation (and the symmetric "either key completes it" second press) check against. */
 function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
-  return isCaretJustBelowTable(state, range, table) || isCaretJustAboveTable(state, range, table);
+  return isCaretAtLineStartBelowTable(state, range, table) || isCaretJustAboveTable(state, range, table);
 }
 
 /** Resolve a projected table immediately above the caret's line start.
@@ -173,7 +184,7 @@ export function tableWholeDeletionKeymap(): Extension {
    */
   function completePendingDeletion(view: EditorView, sel: SelectionRange): boolean | null {
     const pending = view.state.field(tableDeletionSelectionField, false) ?? null;
-    if (pending === null) {
+    if (typeof pending !== 'number') {
       return null;
     }
     const table = findAllTables(view.state).find((t) => t.from === pending);
@@ -194,13 +205,18 @@ export function tableWholeDeletionKeymap(): Extension {
     if (completed !== null) {
       return completed;
     }
-    // Protect the physical table boundary before the default keymap can
-    // delete its newline. Only an empty adjacent line arms deletion.
+    // Protect the boundary first when text follows the table. Only a
+    // subsequent press at the same position arms deletion. Blank lines
+    // retain the existing two-press behaviour.
     const table = findTableAboveLineStart(view.state, sel);
     if (!table) return false;
-    if (isCaretJustBelowTable(view.state, sel, table)) {
-      view.dispatch({ effects: tableDeletionSelectionChanged.of(table.from) });
-    }
+    const pending = view.state.field(tableDeletionSelectionField, false);
+    const protectedBoundary = pending != null && typeof pending !== 'number' &&
+      pending.tableFrom === table.from && pending.caret === sel.head;
+    view.dispatch({ effects: tableDeletionSelectionChanged.of(
+      isCaretJustBelowTable(view.state, sel, table) || protectedBoundary
+        ? table.from : { tableFrom: table.from, caret: sel.head }
+    ) });
     return true;
   };
 
@@ -225,7 +241,14 @@ export function tableWholeDeletionKeymap(): Extension {
     return true;
   };
 
+  const cancelPending: Command = view => {
+    if (view.state.field(tableDeletionSelectionField, false) == null) return false;
+    view.dispatch({ effects: tableDeletionSelectionChanged.of(null) });
+    return true;
+  };
+
   const bindings: readonly KeyBinding[] = [
+    { key: 'Escape', run: cancelPending },
     { key: 'Backspace', run: backspaceCommand },
     { key: 'Delete', run: deleteCommand },
   ];

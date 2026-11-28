@@ -245,22 +245,13 @@ export class TableCellEditor {
     let bounds: ReturnType<typeof selectionBounds> = null;
     let focus: CellAddress | null = null;
     let full = false;
-    let armedOutline: ReturnType<typeof selectionBounds> = null;
-    const ownsInteraction = this.interactionTable === from && this.interaction.kind !== 'none';
-    const armed = !ownsInteraction && this.root.state.field(tableDeletionSelectionField, false) === from;
-    if (armed || (this.interactionTable === from && this.interaction.kind !== 'editing')) {
+    if (this.interactionTable === from && this.interaction.kind !== 'editing') {
       try {
         const shape = this.shape(from);
-        if (armed) {
-          // Root deletion arming is paint-only. Never make the cell
-          // controller own selection/focus for this root keyboard action.
-          armedOutline = { top: 0, bottom: shape.rows - 1, left: 0, right: shape.cols - 1 };
-        } else {
-          bounds = selectionBounds(this.interaction, shape);
-          full = !!bounds && bounds.top === 0 && bounds.left === 0 &&
-            bounds.bottom === shape.rows - 1 && bounds.right === shape.cols - 1;
-          focus = focusCell(this.interaction);
-        }
+        bounds = selectionBounds(this.interaction, shape);
+        full = !!bounds && bounds.top === 0 && bounds.left === 0 &&
+          bounds.bottom === shape.rows - 1 && bounds.right === shape.cols - 1;
+        focus = focusCell(this.interaction);
       } catch (error) {
         if (!(error instanceof TableEngineError)) throw error;
       }
@@ -292,7 +283,7 @@ export class TableCellEditor {
       ? this.interaction.cell : null;
     const outlineBounds = editingCell
       ? { top: editingCell.row, bottom: editingCell.row, left: editingCell.col, right: editingCell.col }
-      : bounds ?? armedOutline;
+      : bounds;
     widget.firstElementChild?.dispatchEvent(new CustomEvent('table-engine-selection', { detail: outlineBounds }));
   }
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { defaultKeymap, history, undo, redo, undoDepth } from '@codemirror/commands';
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
@@ -61,58 +61,81 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeTruthy();
   });
 
-  it('protects the adjacent non-empty line from default Backspace without arming deletion', () => {
+  it('protects, arms, then deletes from non-empty text without merging or losing it', () => {
+    const doc = TABLE + '\nSomething else.';
+    const start = TABLE.length + 1;
+    const { view, controller } = mountRootView(doc, start, [history(), keymap.of(defaultKeymap)]);
+    const painted = () => view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]');
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
+    expect(painted()).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(start);
+    expect(undoDepth(view.state)).toBe(0);
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toBe(0);
+    expect(painted()).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(view.dom.querySelector('.cm-table-engine-selected')).toBeNull();
+    expect(controller.nested).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(start);
+    expect(undoDepth(view.state)).toBe(0);
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe('\nSomething else.');
+    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+    expect(painted()).toBeNull();
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(painted()).toBeNull();
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('\nSomething else.');
+  });
+
+  it('cancels either pending phase on Escape and restarts at the protected boundary', () => {
     const doc = TABLE + '\nSomething else.';
     const start = TABLE.length + 1;
     const { view } = mountRootView(doc, start, [history(), keymap.of(defaultKeymap)]);
-    for (let i = 0; i < 2; i++) {
-      const event = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
-      view.contentDOM.dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(true);
-      expect(view.state.doc.toString()).toBe(doc);
-      expect(view.state.selection.main.head).toBe(start);
-      expect(view.state.field(tableDeletionSelectionField)).toBeNull();
-      expect(undoDepth(view.state)).toBe(0);
-    }
-    view.dispatch({ selection: { anchor: start + 1 } });
     dispatchKey(view, 'Backspace');
-    expect(view.state.doc.toString()).toBe(TABLE + '\nomething else.');
+    dispatchKey(view, 'Escape');
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
-  });
-
-  it('paints the existing whole-table outline on first Backspace and deletes only on the next press', () => {
-    const doc = TABLE + '\n';
-    const { view, controller } = mountRootView(doc, doc.length, history());
-    const widget = view.dom.querySelector<HTMLElement>('.cm-table-widget')!;
-    const scroll = widget.querySelector<HTMLElement>('.cm-table-scroll')!;
-    const overlay = scroll.querySelector<HTMLElement>('.cm-table-selection-overlay')!;
-    const rect = (left: number, top: number, width: number, height: number) =>
-      ({ left, top, width, height, right: left + width, bottom: top + height } as DOMRect);
-    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(rect(20, 30, 400, 100));
-    const cells = widget.querySelectorAll('th,td');
-    for (let i = 0; i < cells.length; i++) vi.spyOn(cells[i]!, 'getBoundingClientRect')
-      .mockReturnValue(rect(20 + (i % 2) * 100, 30 + Math.floor(i / 2) * 36, 100, 36));
-    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
     dispatchKey(view, 'Backspace');
     expect(view.state.field(tableDeletionSelectionField)).toBe(0);
-    expect(scroll.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
-    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
-    expect(overlay.style.left).toBe('-1px');
-    expect(overlay.style.top).toBe('-1px');
-    expect(overlay.style.width).toBe('202px');
-    expect(overlay.style.height).toBe('74px');
-    expect(widget.querySelectorAll('.cm-table-engine-selected')).toHaveLength(0);
+    dispatchKey(view, 'Escape');
+    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+    expect(view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]')).toBeNull();
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toEqual({ tableFrom: 0, caret: start });
+    view.dispatch({ selection: { anchor: start + 1 } });
+    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe(TABLE + '\nomething else.');
+  });
+
+  it('paints the root background on the first Backspace from a blank line and deletes on the next', () => {
+    const doc = TABLE + '\n';
+    const { view, controller } = mountRootView(doc, doc.length, history());
+    const painted = () => view.dom.querySelector('.cm-table-widget[data-table-root-selected="true"]');
+    expect(painted()).toBeNull();
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toBe(0);
+    expect(painted()).not.toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(view.dom.querySelector('.cm-table-engine-selected')).toBeNull();
     expect(controller.nested).toBeNull();
     expect(view.state.doc.toString()).toBe(doc);
     expect(view.state.selection.main.head).toBe(doc.length);
     expect(undoDepth(view.state)).toBe(0);
     dispatchKey(view, 'Backspace');
     expect(view.state.doc.toString()).toBe('\n');
-    expect(view.dom.querySelector('.cm-table-selection-overlay')).toBeNull();
+    expect(painted()).toBeNull();
     expect(undoDepth(view.state)).toBe(1);
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
-    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(painted()).toBeNull();
   });
 
   it('does nothing when the line below the table is not blank', () => {
