@@ -76,4 +76,13 @@ export function isFoldable(state: EditorState, line: Line): boolean {
   return getFoldRange(state, line) !== null;
 }
 
-
+/** Read the existing CM6 fold state without introducing a second owner. */
+export function findFold(state: EditorState, from: number, to: number): FoldRange | null {
+  let found: FoldRange | null = null;
+  foldedRanges(state).between(from, to, (foldFrom, foldTo) => {
+    if (!found || found.from > foldFrom) {
+      found = { from: foldFrom, to: foldTo };
+    }
+  });
+  return found;
+}
