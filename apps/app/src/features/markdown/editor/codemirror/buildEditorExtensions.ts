@@ -202,19 +202,16 @@ export interface BuildEditorExtensionsOptions {
  *
  * `before + rendering + table + after` is exactly the list this file has always returned.
  */
-export interface EditorExtensionParts {
+interface EditorModeParts {
   readonly before: Extension[];
-  readonly rendering: Extension[];
   readonly table: Extension[];
   readonly after: Extension[];
 }
 
-export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions): EditorExtensionParts {
+/** Construct stable rendering only when building a new view. */
+function buildRenderingExtensions(options: Omit<BuildEditorExtensionsOptions, 'readOnly'>): Extension[] {
   const {
     resolveWikiLink,
-    getWikiLinkSuggestions,
-    getEmbedSuggestions,
-    getHeadingSuggestions,
     resolveEmbedImage,
     resolveEmbedPdf,
     resolvePageEmbed,
@@ -224,23 +221,16 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     onOpenPdfMenu,
     onOpenPage,
     onOpenNoteEmbedMenu,
-    onOpenFencedCodeMenu,
-    onOpenUrlPasteMenu,
-    onOpenTableHandleMenu,
     resolveImageSrc,
-    pasteAssets: getPasteAssets,
     resolveTag,
-    getTagSuggestions,
     resolveDate,
-    onTaskCheckboxToggled,
-    readOnly,
     ancestry = ROOT_ANCESTRY,
     maxEmbedDepth,
     getFoldStateStore,
     hostPageId,
   } = options;
 
-  const rendering: Extension[] = [
+  return [
     markdownLanguageExtension(),
     blockRangeSelection(),
     ...fencedCodeHighlighting(),
@@ -286,6 +276,25 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     leadingIndentDecoration(),
     inlineTokenMouseExtensions({ resolveWikiLink, resolveTag, resolveDate }),
   ];
+}
+
+/** Only these groups are reconfigured when a live editor changes mode. */
+function buildModeExtensions(options: BuildEditorExtensionsOptions): EditorModeParts {
+  const {
+    resolveWikiLink,
+    getWikiLinkSuggestions,
+    getEmbedSuggestions,
+    getHeadingSuggestions,
+    onOpenFencedCodeMenu,
+    onOpenUrlPasteMenu,
+    onOpenTableHandleMenu,
+    pasteAssets: getPasteAssets,
+    resolveTag,
+    getTagSuggestions,
+    resolveDate,
+    onTaskCheckboxToggled,
+    readOnly,
+  } = options;
 
   const table: Extension[] = [
     // Static cells in both modes use the same live resolver getters as prose.
@@ -305,7 +314,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     tableDeletionSelectionField,
   ];
 
-  if (readOnly) return { before: [], rendering, table, after: [tableRootSelectionSnap()] };
+  if (readOnly) return { before: [], table, after: [tableRootSelectionSnap()] };
 
   const before: Extension[] = [
     tableRootSelectionSnap(),
@@ -345,12 +354,13 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     semanticCompletionExtensions({ getWikiLinkSuggestions, getTagSuggestions, getEmbedSuggestions, getHeadingSuggestions }),
   ];
 
-  return { before, rendering, table, after };
+  return { before, table, after };
 }
 
 /** The flat list — a note embed's nested view (read-only, never switched) and any caller that does not switch modes. */
 export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Extension[] {
-  const { before, rendering, table, after } = buildEditorExtensionParts(options);
+  const rendering = buildRenderingExtensions(options);
+  const { before, table, after } = buildModeExtensions(options);
 
   return [...before, ...rendering, ...table, ...after];
 }
@@ -374,11 +384,12 @@ export function buildSwitchableEditorExtensions(
   readOnly: boolean,
   trailingWhenEditable: readonly Extension[] = []
 ): Extension[] {
-  const parts = buildEditorExtensionParts({ ...options, readOnly });
+  const rendering = buildRenderingExtensions(options);
+  const parts = buildModeExtensions({ ...options, readOnly });
 
   return [
     editingBeforeCompartment.of(parts.before),
-    ...parts.rendering,
+    ...rendering,
     tableModeCompartment.of(parts.table),
     editingAfterCompartment.of(readOnly ? parts.after : [...parts.after, ...trailingWhenEditable]),
   ];
@@ -397,7 +408,7 @@ export function switchEditorMode(
   readOnly: boolean,
   trailingWhenEditable: readonly Extension[] = []
 ): void {
-  const parts = buildEditorExtensionParts({ ...options, readOnly });
+  const parts = buildModeExtensions({ ...options, readOnly });
 
   view.dispatch({
     effects: [

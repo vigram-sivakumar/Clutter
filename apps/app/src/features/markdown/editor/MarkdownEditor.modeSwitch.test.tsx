@@ -9,6 +9,12 @@ import { EditorView } from '@codemirror/view';
 
 import { MarkdownEditor } from './MarkdownEditor';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
+import { inlinePreviewExtensions } from './codemirror/highlight/inlineLivePreviewRegion';
+
+vi.mock('./codemirror/highlight/inlineLivePreviewRegion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./codemirror/highlight/inlineLivePreviewRegion')>();
+  return { ...actual, inlinePreviewExtensions: vi.fn(actual.inlinePreviewExtensions) };
+});
 
 /**
  * Archiving or restoring an open page flips the editor's `readOnly` prop. The live `EditorView` is
@@ -61,6 +67,17 @@ const clickCell = (cell: Element) => {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('archive → restore keeps the same editor', () => {
+  it('does not construct stable inline rendering again during repeated mode switches', () => {
+    const { setMode } = mount(DOC, false);
+    const initialCalls = vi.mocked(inlinePreviewExtensions).mock.calls.length;
+    expect(initialCalls).toBeGreaterThan(0);
+
+    for (const mode of [true, false, true, false]) {
+      setMode(mode);
+      expect(vi.mocked(inlinePreviewExtensions).mock.calls).toHaveLength(initialCalls);
+    }
+  });
+
   it('the EditorView and its .cm-editor element survive both switches', () => {
     const { viewOf, setMode, container } = mount(DOC, false);
     const view = viewOf();

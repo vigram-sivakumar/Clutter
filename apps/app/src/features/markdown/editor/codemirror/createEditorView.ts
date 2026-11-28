@@ -59,17 +59,8 @@ import {
  */
 const externalSync = Annotation.define<boolean>();
 
-/**
- * Read-only support (docs/editor-architecture-decisions.md, "Note
- * embeds: nested read-only `EditorView`..."). Not a toggleable Compartment
- * — this app has no product-level Edit/Read mode for the normal,
- * top-level note; the only consumer of `readOnly` is a note embed's
- * nested `EditorView` (`NoteEmbedWidget.ts`), which is always constructed
- * read-only and never toggled afterward, so a plain, fixed-at-construction
- * extension pair is the smaller, correct mechanism — a `Compartment`
- * would be unnecessary complexity for a value that never changes after
- * construction.
- */
+/** Shared read-only facet compartment: live archive/restore can switch in place;
+ * nested note embeds are created read-only and never switch. */
 const readOnlyCompartment = new Compartment();
 
 /**
@@ -140,12 +131,9 @@ export interface CreateEditorViewOptions {
    */
   readonly canEdit?: () => boolean;
   /**
-   * Defaults to editable (`false`). Fixed for this view's lifetime — the
-   * only caller that passes `true` (`NoteEmbedWidget.ts`, a note embed's
-   * nested `EditorView`) never toggles it afterward, so there is no
-   * corresponding "change it later" API; a caller that genuinely needed
-   * that would construct a fresh `EditorView` instead, the same way any
-   * other CM6 option here would be changed.
+   * Initial mode, defaults to editable (`false`). Live top-level editors switch via
+   * readOnlyModeEffect together with the mode-dependent extension groups;
+   * nested note embeds remain read-only for their lifetime.
    */
   readonly readOnly?: boolean;
   /**
