@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
-import { history, undo, redo, undoDepth } from '@codemirror/commands';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { defaultKeymap, history, undo, redo, undoDepth } from '@codemirror/commands';
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableCellEditor, type TableCellEditor } from '../table-engine/tableCellEditor';
@@ -59,6 +59,60 @@ describe('tableWholeDeletionKeymap — first Backspace below table arms whole-ta
     dispatchKey(view, 'Backspace');
 
     expect(view.dom.querySelector('.cm-table-wrapper-selected')).toBeTruthy();
+  });
+
+  it('protects the adjacent non-empty line from default Backspace without arming deletion', () => {
+    const doc = TABLE + '\nSomething else.';
+    const start = TABLE.length + 1;
+    const { view } = mountRootView(doc, start, [history(), keymap.of(defaultKeymap)]);
+    for (let i = 0; i < 2; i++) {
+      const event = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
+      view.contentDOM.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(view.state.selection.main.head).toBe(start);
+      expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+      expect(undoDepth(view.state)).toBe(0);
+    }
+    view.dispatch({ selection: { anchor: start + 1 } });
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe(TABLE + '\nomething else.');
+    expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+  });
+
+  it('paints the existing whole-table outline on first Backspace and deletes only on the next press', () => {
+    const doc = TABLE + '\n';
+    const { view, controller } = mountRootView(doc, doc.length, history());
+    const widget = view.dom.querySelector<HTMLElement>('.cm-table-widget')!;
+    const scroll = widget.querySelector<HTMLElement>('.cm-table-scroll')!;
+    const overlay = scroll.querySelector<HTMLElement>('.cm-table-selection-overlay')!;
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height } as DOMRect);
+    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(rect(20, 30, 400, 100));
+    const cells = widget.querySelectorAll('th,td');
+    for (let i = 0; i < cells.length; i++) vi.spyOn(cells[i]!, 'getBoundingClientRect')
+      .mockReturnValue(rect(20 + (i % 2) * 100, 30 + Math.floor(i / 2) * 36, 100, 36));
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableDeletionSelectionField)).toBe(0);
+    expect(scroll.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+    expect(overlay.style.left).toBe('-1px');
+    expect(overlay.style.top).toBe('-1px');
+    expect(overlay.style.width).toBe('202px');
+    expect(overlay.style.height).toBe('74px');
+    expect(widget.querySelectorAll('.cm-table-engine-selected')).toHaveLength(0);
+    expect(controller.nested).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(doc.length);
+    expect(undoDepth(view.state)).toBe(0);
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe('\n');
+    expect(view.dom.querySelector('.cm-table-selection-overlay')).toBeNull();
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
   });
 
   it('does nothing when the line below the table is not blank', () => {
@@ -173,6 +227,7 @@ describe('tableWholeDeletionKeymap — second press deletes the table', () => {
     // Move the selection elsewhere (simulating a click/arrow move away).
     view.dispatch({ selection: { anchor: blankDoc.length } });
     expect(view.state.field(tableDeletionSelectionField)).toBeNull();
+    expect(view.dom.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
 
     dispatchKey(view, 'Backspace'); // ordinary backspace now — deletes a character of "Below.", not the table
     expect(view.state.doc.toString()).not.toBe(`\n${TABLE}`);

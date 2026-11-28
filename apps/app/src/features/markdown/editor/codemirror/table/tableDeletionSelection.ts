@@ -98,15 +98,17 @@ export const tableDeletionSelectionField = StateField.define<number | null>({
   },
 });
 
-/** Whether `range` is a collapsed caret sitting on the blank line immediately below `table` — one of the two positions this whole feature is scoped to. */
-function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
-  if (!range.empty) {
-    return false;
-  }
+/** A Backspace here would consume the boundary newline and merge the
+ * following line into the table's hidden source. */
+function isCaretAtLineStartBelowTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
+  if (!range.empty) return false;
   const line = state.doc.lineAt(range.head);
-  if (line.length !== 0) return false;
-  const distance = line.number - state.doc.lineAt(table.to).number;
-  return distance === 1;
+  return range.head === line.from && line.number === state.doc.lineAt(table.to).number + 1;
+}
+
+/** Only an empty adjacent line may arm whole-table deletion from below. */
+function isCaretJustBelowTable(state: EditorState, range: SelectionRange, table: TableInfo): boolean {
+  return state.doc.lineAt(range.head).length === 0 && isCaretAtLineStartBelowTable(state, range, table);
 }
 
 /**
@@ -132,13 +134,14 @@ function isCaretAdjacentToTable(state: EditorState, range: SelectionRange, table
   return isCaretJustBelowTable(state, range, table) || isCaretJustAboveTable(state, range, table);
 }
 
-/** The table whose own blank line directly below it currently holds a collapsed caret at `pos` — `null` if `pos` isn't on any such line. The Backspace-only arming trigger for the "below" direction. */
-function findTableAboveBlankLine(state: EditorState, range: SelectionRange): TableInfo | null {
-  if (state.doc.lineAt(range.head).length !== 0) return null;
-  return findAllTables(state).find((table) => projectableTableSnapshot(state.doc.toString(), table.node) !== null && isCaretJustBelowTable(state, range, table)) ?? null;
+/** Resolve a projected table immediately above the caret's line start.
+ * Blank lines can arm deletion; non-empty lines must never merge into it. */
+function findTableAboveLineStart(state: EditorState, range: SelectionRange): TableInfo | null {
+  if (!range.empty || range.head !== state.doc.lineAt(range.head).from) return null;
+  return findAllTables(state).find((table) => projectableTableSnapshot(state.doc.toString(), table.node) !== null && isCaretAtLineStartBelowTable(state, range, table)) ?? null;
 }
 
-/** The table whose own first line directly follows the line ending at `pos` — `null` if `pos` isn't at such a line's own end. The Delete-only arming trigger for the "above" direction, mirroring `findTableAboveBlankLine`. */
+/** The table whose own first line directly follows the line ending at `pos` — `null` if `pos` isn't at such a line's own end. The Delete-only arming trigger for the "above" direction, mirroring `findTableAboveLineStart`. */
 function findTableBelowLineEnd(state: EditorState, pos: number): TableInfo | null {
   const line = state.doc.lineAt(pos);
   if (pos !== line.to) {
@@ -191,14 +194,13 @@ export function tableWholeDeletionKeymap(): Extension {
     if (completed !== null) {
       return completed;
     }
-    // Arming trigger: only from the blank line below a table — a plain
-    // Backspace at the end of an ordinary line (the "above" position)
-    // must keep doing ordinary character deletion, never arm anything.
-    const table = findTableAboveBlankLine(view.state, sel);
-    if (!table) {
-      return false;
+    // Protect the physical table boundary before the default keymap can
+    // delete its newline. Only an empty adjacent line arms deletion.
+    const table = findTableAboveLineStart(view.state, sel);
+    if (!table) return false;
+    if (isCaretJustBelowTable(view.state, sel, table)) {
+      view.dispatch({ effects: tableDeletionSelectionChanged.of(table.from) });
     }
-    view.dispatch({ effects: tableDeletionSelectionChanged.of(table.from) });
     return true;
   };
 
