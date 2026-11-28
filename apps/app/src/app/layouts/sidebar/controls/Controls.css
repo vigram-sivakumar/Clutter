@@ -9,11 +9,3 @@
 
   z-index: 2;
 }
-
-.create-controls {
-  display: flex;
-}
-
-.create-dropdown {
-  width: var(--height-xs);
-}
