@@ -362,7 +362,12 @@ export function listLineDecoration(): Extension {
         // The line after a pending hard break is decorated only while the caret is on it.
         const pendingChanged =
           update.selectionSet && pendingBreakLineNumber(update.startState) !== pendingBreakLineNumber(update.state);
-        if (update.docChanged || update.viewportChanged || pendingChanged) {
+        // The parser can publish a newer tree without a document edit (for example,
+        // after background parsing). The gutter is derived from that tree too.
+        if (
+          update.docChanged || update.viewportChanged || pendingChanged ||
+          syntaxTree(update.startState) !== syntaxTree(update.state)
+        ) {
           this.decorations = buildListLineDecorations(update.view);
         }
       }
