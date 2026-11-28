@@ -67,3 +67,5 @@ Why it was large: the prefilter text was built with `String.replace`, which retu
 ## Amendment (2026-11-28): Search launcher placement
 
 Search is a standalone icon button before the existing Create split control, not a member of the four sidebar navigation tabs. The same AppLayout-owned openSearch callback serves the launcher and Cmd/Ctrl+K. Opening or dismissing Search does not change the selected sidebar tab. Preserve the existing dialog, focus return, search service and legacy saved Search-tab handling. This is a presentation simplification only.
+
+The owner subsequently simplified Create to one existing `notePencil` icon button opening the same menu, removing the plus/chevron split. Search remains immediately before Create. Note creation remains available through the menu and Cmd+N; no action handler or shortcut changes.
