@@ -1,22 +1,11 @@
 .controls {
   display: flex;
-  /* The sidebar-toggle button that used to sit here (space-between'd
-     against .create-controls) now renders in SidebarToggle instead,
-     absolutely positioned over this same top-left corner by
-     SidebarToggle.css — .controls itself only lays out create-controls
-     now, flex-end keeps it pinned to the trailing edge the way
-     space-between used to with two children. */
+  /* SidebarToggle is positioned separately at the leading edge. Keep Search and Create together at the trailing edge. */
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-4);
   color: var(--foreground-tertiary);
   padding-right: var(--sidebar-padding-inline);
 
   z-index: 2;
-}
-
-.create-controls {
-  display: flex;
-}
-
-.create-dropdown {
-  width: var(--height-xs);
 }

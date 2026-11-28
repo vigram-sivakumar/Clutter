@@ -189,8 +189,7 @@ export function Sidebar({
   const tabs: Array<{
     // Typed as SidebarTab so a new tab can't be added here without also
     // being accepted as restorable by WorkspaceSessionStore (ADR-035).
-    // 'search' is the one exception: it is an action (it opens the overlay), never a tab the sidebar rests on.
-    value: SidebarTab | 'search';
+    value: SidebarTab;
     icon: SystemIcon;
     emoji?: string;
     panel: ReactNode;
@@ -338,11 +337,6 @@ export function Sidebar({
         />
       ),
     },
-    {
-      value: 'search',
-      icon: getSystemLocationPresentation('search').icon,
-      panel: null,
-    },
   ];
 
   // One implementation each for the Create menu and the native File menu.
@@ -411,6 +405,7 @@ export function Sidebar({
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
       <Controls
+        onOpenSearch={onOpenSearch}
         onNewNote={newNote}
         onOpenDailyNote={openDailyNote}
         onNewTask={() => setCreationDialog('task')}
@@ -435,12 +430,7 @@ export function Sidebar({
       <div className="sidebar--tabs">
         <Tabs
           value={workspace.activeSidebarTab}
-          // The Search tab is an action: it opens the overlay and leaves the sidebar on the tab it was showing.
-          onValueChange={(tab) =>
-            tab === 'search'
-              ? onOpenSearch()
-              : workspace.setActiveSidebarTab(tab)
-          }
+          onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
         >
           {tabs.map((tab) => (
             <Tab

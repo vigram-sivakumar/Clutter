@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '@app/layouts/app-layout/AppLayout';
@@ -69,6 +69,25 @@ describe('global shortcuts, through the real layout', () => {
     await waitFor(() => expect(activeTab()).toBe('sidebar.tab.notes'));
     press({ code: 'Digit2' });
     await waitFor(() => expect(activeTab()).toBe('sidebar.tab.daily-notes'));
+  });
+
+  it('the Search button opens the same overlay without being a sidebar tab or changing navigation', async () => {
+    const application = makeApplication();
+    render(<ShortcutsProvider><AppLayout application={application} /></ShortcutsProvider>);
+    press({ code: 'Digit3' });
+    await waitFor(() => expect(activeTab()).toBe('sidebar.tab.tasks'));
+    const sidebar = screen.getByTestId('sidebar');
+    expect([...sidebar.querySelectorAll('.sidebar--tabs .tab')].map(tab => tab.getAttribute('data-testid'))).toEqual([
+      'sidebar.tab.notes', 'sidebar.tab.daily-notes', 'sidebar.tab.tasks', 'sidebar.tab.tags',
+    ]);
+    const search = screen.getByRole('button', { name: 'Search' });
+    expect(search.closest('.sidebar--tabs')).toBeNull();
+    search.focus();
+    fireEvent.click(search);
+    await waitFor(() => expect(document.querySelector('.search-overlay')).not.toBeNull());
+    expect(activeTab()).toBe('sidebar.tab.tasks');
+    expect(application.workspace.activeSidebarTab).toBe('tasks');
+    expect(document.activeElement).toBe(document.querySelector('.search-overlay input'));
   });
 
   it('⌘K opens the Search overlay and leaves the sidebar tab alone', async () => {

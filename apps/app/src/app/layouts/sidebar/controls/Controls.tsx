@@ -19,13 +19,13 @@ import { useRef } from 'react';
  * state where ADR-027 put it (Workspace's navigation-history stacks,
  * NavigationRouter.back()/forward()).
  *
- * The create controls are a launcher, not a second creation system: `+` is
- * the fast path (New note, immediately), the chevron opens the menu of every
- * standalone creation type. Every handler is the same action the matching
+ * The Create button is a launcher, not a second creation system: it opens
+ * the menu of every standalone creation type. Every handler is the same action the matching
  * sidebar panel entry point calls — see Sidebar.tsx for the wiring. Nothing
  * here creates anything itself, and nothing switches the active sidebar tab.
  */
 interface ControlsProps {
+  readonly onOpenSearch: () => void;
   readonly onNewNote: () => void;
   readonly onOpenDailyNote: () => void;
   readonly onNewTask: () => void;
@@ -36,6 +36,7 @@ interface ControlsProps {
 }
 
 export function Controls({
+  onOpenSearch,
   onNewNote,
   onOpenDailyNote,
   onNewTask,
@@ -46,8 +47,8 @@ export function Controls({
 }: ControlsProps) {
   const menu = useOverlay<HTMLButtonElement>();
   // The chosen action's own surface (a dialog's field, a new draft's editor) takes focus; the menu
-  // must not hand it back to the chevron. Overlay consumes the flag on each close, so it is set
-  // again by every choice (Escape and outside clicks still restore focus to the chevron).
+  // must not hand it back to the Create button. Overlay consumes the flag on each close, so it is set
+  // again by every choice (Escape and outside clicks still restore focus to the Create button).
   const suppressReturnFocusRef = useRef(false);
 
   const choose =
@@ -60,31 +61,29 @@ export function Controls({
 
   return (
     <div className="controls" data-tauri-drag-region>
-      <div className="create-controls">
-        <Button
-          isIconOnly
-          size="medium"
-          variant="ghost"
-          aria-label="New note"
-          onClick={onNewNote}
-        >
-          <AppIcon icon="plus" />
-        </Button>
-        <Button
-          ref={menu.anchorRef}
-          className="create-dropdown"
-          isIconOnly
-          size="medium"
-          variant="ghost"
-          isActive={menu.open}
-          aria-label="Create"
-          aria-haspopup="menu"
-          aria-expanded={menu.open}
-          onClick={menu.toggle}
-        >
-          <AppIcon icon="caretDown" size={12} />
-        </Button>
-      </div>
+      <Button
+        isIconOnly
+        size="medium"
+        variant="ghost"
+        aria-label="Search"
+        onClick={onOpenSearch}
+      >
+        <AppIcon icon={getSystemLocationPresentation('search').icon} />
+      </Button>
+      <Button
+        ref={menu.anchorRef}
+        isIconOnly
+        size="medium"
+        variant="ghost"
+        isActive={menu.open}
+        aria-label="Create"
+        title="Create"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        onClick={menu.toggle}
+      >
+        <AppIcon icon="notePencil" />
+      </Button>
 
       <Overlay
         open={menu.open}

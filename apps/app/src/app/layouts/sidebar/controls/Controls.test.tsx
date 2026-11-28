@@ -26,6 +26,7 @@ afterEach(() => {
 
 function renderControls() {
   const handlers = {
+    onOpenSearch: vi.fn(),
     onNewNote: vi.fn(),
     onOpenDailyNote: vi.fn(),
     onNewTask: vi.fn(),
@@ -46,16 +47,9 @@ describe('Controls no longer renders navigation history (relocated to PageTopBar
     expect(container.querySelector('.history-controls')).toBeNull();
   });
 
-  it('leaves the create buttons enabled, no longer gated on navigation history', () => {
-    const { container } = renderControls();
-
-    const buttons = container.querySelectorAll<HTMLButtonElement>(
-      '.create-controls button'
-    );
-    expect(buttons).toHaveLength(2);
-    for (const button of buttons) {
-      expect(button.disabled).toBe(false);
-    }
+  it('leaves the Create button enabled, no longer gated on navigation history', () => {
+    renderControls();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
   });
 });
 
@@ -67,23 +61,38 @@ describe('Controls no longer renders the sidebar-toggle button (moved to Sidebar
   });
 });
 
-describe('Controls creation launcher', () => {
-  it('+ creates a note immediately, without opening the menu', () => {
-    const { onNewNote } = renderControls();
-
-    fireEvent.click(screen.getByRole('button', { name: 'New note' }));
-
-    expect(onNewNote).toHaveBeenCalledTimes(1);
+describe('Controls Search launcher', () => {
+  it('renders Search before the single Create button and dispatches only Search', () => {
+    const handlers = renderControls();
+    const buttons = [...handlers.container.querySelectorAll('.controls button')];
+    expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(['Search', 'Create']);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(handlers.onOpenSearch).toHaveBeenCalledTimes(1);
+    for (const handler of [handlers.onNewNote, handlers.onOpenDailyNote, handlers.onNewTask, handlers.onNewFolder, handlers.onNewTag, handlers.onNewTemplate, handlers.onUpload]) {
+      expect(handler).not.toHaveBeenCalled();
+    }
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+});
 
-  it('the chevron opens the menu without creating anything', () => {
+describe('Controls creation launcher', () => {
+  it('uses the existing notePencil icon and no separate immediate-create button', () => {
+    renderControls();
+    const create = screen.getByRole('button', { name: 'Create' });
+    expect(create.querySelector('[data-icon="notePencil"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'New note' })).toBeNull();
+    expect(create).toHaveAttribute('title', 'Create');
+    expect(create).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('the Create button opens the menu without creating anything', () => {
     const handlers = renderControls();
 
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toHaveClass('button--active');
+    expect(screen.getByRole('button', { name: 'Create' })).toHaveAttribute('aria-expanded', 'true');
     for (const handler of [
       handlers.onNewNote,
       handlers.onOpenDailyNote,
