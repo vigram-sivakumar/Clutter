@@ -31,7 +31,6 @@ import { AutoDeleteArchivedSetting } from './auto-delete-archived-setting/AutoDe
 import { ShowAssetsInFoldersSetting } from './assets-setting/ShowAssetsInFoldersSetting';
 import { CoverPositionSetting } from './cover-position-setting/CoverPositionSetting';
 import { FolderItemsSetting } from './folder-items-setting/FolderItemsSetting';
-import { SidebarSetting } from './sidebar-setting/SidebarSetting';
 import { StartupSetting } from './startup-setting/StartupSetting';
 import { LaunchAtLoginSetting } from './launch-at-login-setting/LaunchAtLoginSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
@@ -93,7 +92,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
   const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
   const pageId = shared?.pageId ?? localPageId;
   const setPageId = shared?.setPageId ?? setLocalPageId;
-  // Bumped after a reset: a control that keeps its own copy of its value (the Startup ones) re-reads it on remount.
+  // Bumped after a reset: a control that keeps its own copy of its value (Startup) re-reads it on remount.
   const [resetVersion, setResetVersion] = useState(0);
 
   const selectedSpace = isSpacePageId(pageId)
@@ -156,7 +155,6 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
               <SettingsGroup title="Startup">
                 <LaunchAtLoginSetting />
                 <StartupSetting />
-                <SidebarSetting />
               </SettingsGroup>
               <SettingsGroup title="Calendar">
                 <WeekStartSetting />
