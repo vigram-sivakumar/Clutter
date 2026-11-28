@@ -351,10 +351,13 @@ export class TableCellEditor {
   }
 
   private navigateTab(backwards: boolean): boolean {
-    if (this.interactionTable === null) return false;
+    if (this.interactionTable === null || this.nested?.composing) return false;
     const from = this.interactionTable;
-    const next = tabInteraction(this.interaction, this.shape(from), backwards);
-    if (next.kind !== 'none') return this.select(from, next);
+    const next = focusCell(tabInteraction(this.interaction, this.shape(from), backwards));
+    if (next) {
+      this.cancelDrag();
+      return this.enterCell(from, next, 'end');
+    }
     return this.leaveTable(from, backwards);
   }
 
@@ -381,8 +384,8 @@ export class TableCellEditor {
     return true;
   }
 
-  /** Restore legacy active-cell arrow semantics without changing the
-   * accepted caret-free selection and Tab behaviour. */
+  /** Restore legacy active-cell arrow semantics without changing
+   * intentional caret-free selection. */
   private navigateEditingArrow(direction: Direction): boolean {
     if (!this.active || !this.nested || this.nested.composing) return false;
     const { tableFrom, cell } = this.active;
@@ -730,7 +733,7 @@ export class TableCellEditor {
     if (!mark) { this.root.focus(); return; }
     try {
       if (this.select(mark.tableFrom, mark.interaction, true)) {
-        // select() establishes the same focus repair used by Tab.
+        // select() establishes the same focus repair used by explicit cell selection.
         return;
       }
     } catch (error) {

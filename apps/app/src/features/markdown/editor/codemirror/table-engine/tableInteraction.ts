@@ -42,8 +42,8 @@ export function isSelected(state: TableInteraction, cell: CellAddress, shape: Ta
     cell.col >= bounds.left && cell.col <= bounds.right;
 }
 
-/** Tab uses row-major order and never produces an editing state.
- * At either edge, the view owns focus transfer outside the table.
+/** Resolve the row-major destination without mounting an editor.
+ * The controller owns activation, caret placement and focus transfer at edges.
  */
 export function tabInteraction(state: TableInteraction, shape: TableShape, backwards: boolean): TableInteraction {
   const cell = focusCell(state);

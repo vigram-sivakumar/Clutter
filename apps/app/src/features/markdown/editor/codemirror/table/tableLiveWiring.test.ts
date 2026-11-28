@@ -203,21 +203,115 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
   const selected = (view: EditorView) => Array.from(view.dom.querySelectorAll('.cm-table-engine-selected [data-cell]'))
     .map(cell => (cell as HTMLElement).dataset.cell);
 
-  it('Tab exits editing into a caret-free cell, Shift-Tab wraps, F2 mounts a fresh editor', () => {
+  it('Tab and Shift-Tab edit successive cells at the end, wrap rows, and retain Escape/F2 selection', () => {
     const view = mount(doc, false);
-    clickCell(findCell(view, 'Role'));
-    const nested = view.plugin(tableCellEditor)!.nested!;
-    key(nested.contentDOM, 'Tab');
-    expect(selected(view)).toEqual(['1,0']);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Name'));
+    const controller = view.plugin(tableCellEditor)!;
+    const depth = undoDepth(view.state);
+    const redo = redoDepth(view.state);
+    for (const [backwards, expected] of [[false, 'Role'], [false, 'Vik'], [false, 'Designer'], [true, 'Vik'], [true, 'Role'], [true, 'Name']] as const) {
+      const previous = controller.nested!;
+      key(previous.contentDOM, 'Tab', backwards);
+      const nested = controller.nested!;
+      expect(previous.dom.isConnected).toBe(false);
+      expect(nested).not.toBe(previous);
+      expect(nested.state.doc.toString()).toBe(expected);
+      expect(nested.state.selection.main.empty).toBe(true);
+      expect(nested.state.selection.main.head).toBe(expected.length);
+      expect(document.activeElement).toBe(nested.contentDOM);
+      expect(view.dom.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+      expect(selected(view)).toEqual([]);
+    }
+    const nested = controller.nested!;
+    key(nested.contentDOM, 'Escape');
     expect(nested.dom.isConnected).toBe(false);
-    expect(document.activeElement).toBe(host(view, 1, 0));
-    key(host(view, 1, 0), 'Tab', true);
-    expect(selected(view)).toEqual(['0,1']);
-    key(host(view, 0, 1), 'F2');
-    expect(view.plugin(tableCellEditor)!.nested).not.toBe(nested);
-    expect(view.plugin(tableCellEditor)!.nested!.state.doc.toString()).toBe('Role');
+    expect(selected(view)).toEqual(['0,0']);
+    expect(document.activeElement).toBe(host(view, 0, 0));
+    key(host(view, 0, 0), 'F2');
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
     expect(selected(view)).toEqual([]);
     expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(depth);
+    expect(redoDepth(view.state)).toBe(redo);
+  });
+
+  it.each(['', 'First<br>Last', 'Designer'])('Tab activates destination and typing appends: %s', destination => {
+    const source = doc.replace('| Vik | Designer |', '| Vik | ' + destination + ' |');
+    const view = mount(source, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Vik'));
+    const controller = view.plugin(tableCellEditor)!;
+    const depth = undoDepth(view.state);
+    key(controller.nested!.contentDOM, 'Tab');
+    const nested = controller.nested!;
+    expect(nested.state.doc.toString()).toBe(destination);
+    expect(nested.state.selection.main.head).toBe(destination.length);
+    expect(nested.state.selection.main.empty).toBe(true);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(undoDepth(view.state)).toBe(depth);
+    nested.dispatch({ ...nested.state.replaceSelection('!'), userEvent: 'input.type' });
+    const edited = source.replace('| Vik | ' + destination + ' |', '| Vik | ' + destination + '! |');
+    expect(nested.state.doc.toString()).toBe(destination + '!');
+    expect(view.state.doc.toString()).toBe(edited);
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    key(nested.contentDOM, 'Tab', true);
+    expect(controller.nested!.state.doc.toString()).toBe('Vik');
+    expect(controller.nested!.state.selection.main.head).toBe(3);
+    expect(undoDepth(view.state)).toBe(depth + 1);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(redo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(edited);
+  });
+
+  it('Tab and Shift-Tab from an intentional cell selection activate the next or previous editor', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Name'));
+    const controller = view.plugin(tableCellEditor)!;
+    key(controller.nested!.contentDOM, 'Escape');
+    expect(selected(view)).toEqual(['0,0']);
+    key(host(view, 0, 0), 'Tab');
+    expect(controller.nested!.state.doc.toString()).toBe('Role');
+    expect(controller.nested!.state.selection.main.head).toBe(4);
+    expect(selected(view)).toEqual([]);
+    key(controller.nested!.contentDOM, 'Escape');
+    expect(selected(view)).toEqual(['0,1']);
+    key(host(view, 0, 1), 'Tab', true);
+    expect(controller.nested!.state.doc.toString()).toBe('Name');
+    expect(controller.nested!.state.selection.main.head).toBe(4);
+    expect(selected(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it('Shift-Tab from the first cell transfers focus to preceding root Markdown', () => {
+    const view = mount(doc, false);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    clickCell(findCell(view, 'Name'));
+    const controller = view.plugin(tableCellEditor)!;
+    key(controller.nested!.contentDOM, 'Tab', true);
+    expect(controller.nested).toBeNull();
+    expect(selected(view)).toEqual([]);
+    expect(view.hasFocus).toBe(true);
+    expect(view.state.selection.main.head).toBe(doc.indexOf('| Name') - 1);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it('Shift-Tab at the first document position preserves the active editor', () => {
+    const view = mount(TABLE, false);
+    clickCell(findCell(view, 'Name'));
+    const controller = view.plugin(tableCellEditor)!;
+    const nested = controller.nested!;
+    nested.dispatch({ selection: { anchor: 2 } });
+    key(nested.contentDOM, 'Tab', true);
+    expect(controller.nested).toBe(nested);
+    expect(nested.state.selection.main.head).toBe(2);
+    expect(document.activeElement).toBe(nested.contentDOM);
+    expect(view.state.doc.toString()).toBe(TABLE);
   });
 
   it('Enter edits vertically at the end of the destination cell without changing source or history', () => {
@@ -273,6 +367,8 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
     const controller = view.plugin(tableCellEditor)!;
     const depth = undoDepth(view.state);
     key(controller.nested!.contentDOM, 'Tab');
+    expect(controller.nested!.state.doc.toString()).toBe('Role');
+    key(controller.nested!.contentDOM, 'Escape');
     expect(selected(view)).toEqual(['0,1']);
     key(host(view, 0, 1), 'Enter');
     expect(controller.nested!.state.doc.toString()).toBe('Designer');
@@ -1019,7 +1115,7 @@ describe('engine staged structural commands (M8 candidate)', () => {
     press(true); expect(view.state.doc.toString()).toBe(col);
     expect(redoDepth(view.state)).toBe(0);
   });
-  it('routes native history events from a Tab-selected cell through one root history', async () => {
+  it('routes native history events from an explicitly selected cell through one root history', async () => {
     const source = 'Before\n\n| Name | Sex | Age |\n| --- | --- | --- |\n| Sow |  | 28 |\n| Vigram | Male | 32 |\n| Ram | Male | 31 |\n\nAfter';
     const view = mountHistory(source);
     const controller = view.plugin(tableCellEditor)!;
@@ -1029,6 +1125,8 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(moved).not.toContain('table-col-widths');
     clickCell(findCell(view, 'Sow'));
     controller.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(controller.nested!.state.doc.toString()).toBe('28');
+    controller.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(select(view)).toEqual(['1,1']);
     const cell = host(view, 1, 1);
     expect(document.activeElement).toBe(cell);
@@ -1049,11 +1147,13 @@ describe('engine staged structural commands (M8 candidate)', () => {
     expect(view.dom.querySelectorAll('tr')).toHaveLength(4);
   });
 
-  it('keeps a Tab selection through an unrelated prefix edit', async () => {
+  it('keeps an explicit cell selection through an unrelated prefix edit', async () => {
     const source = 'Before\n\n' + TABLE + '\n\nAfter';
     const view = mountHistory(source);
     clickCell(findCell(view, 'Vik'));
     view.plugin(tableCellEditor)!.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(view.plugin(tableCellEditor)!.nested!.state.doc.toString()).toBe('Designer');
+    view.plugin(tableCellEditor)!.nested!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(select(view)).toEqual(['1,1']);
     view.dispatch({ changes: { from: 0, insert: 'Prefix\n\n' } });
     await Promise.resolve();

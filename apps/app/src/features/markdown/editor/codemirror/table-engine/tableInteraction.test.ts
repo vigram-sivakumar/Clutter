@@ -5,7 +5,7 @@ const shape = { rows: 3, cols: 3 };
 const cell = (row: number, col: number): TableInteraction => ({ kind: 'cell', cell: { row, col } });
 
 describe('table interaction state', () => {
-  it('exits editing in either Tab direction, without creating a caret state', () => {
+  it('resolves either Tab destination independently of editor activation', () => {
     const edit: TableInteraction = { kind: 'editing', cell: { row: 1, col: 1 } };
     expect(tabInteraction(edit, shape, false)).toEqual(cell(1, 2));
     expect(tabInteraction(edit, shape, true)).toEqual(cell(1, 0));
