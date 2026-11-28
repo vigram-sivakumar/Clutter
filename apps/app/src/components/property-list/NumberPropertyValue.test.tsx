@@ -75,6 +75,17 @@ describe('NumberPropertyValue — read-only', () => {
 });
 
 describe('NumberPropertyValue — editable', () => {
+  it.each(['42.5', 'invalid', ''])('Escape discards draft %j without committing on blur', (draft) => {
+    const onCommit = vi.fn();
+    render(<NumberPropertyValue name="Count" value={1234.5} editable onCommit={onCommit} />);
+    act(() => getField().focus());
+    type(draft);
+    fireEvent.keyDown(getField(), { key: 'Escape' });
+    expect(getField().value).toBe(formatNumberPropertyValue(1234.5));
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(getField());
+  });
+
   it('renders the existing single-line Input, formatted at rest and raw while editing', () => {
     render(<NumberPropertyValue name="Count" value={1234.5} editable onCommit={() => {}} />);
 

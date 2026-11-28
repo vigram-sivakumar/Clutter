@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
@@ -16,7 +16,7 @@ import { AppIcon } from '@shared/icon';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
-import { useRejectShake } from './useRejectShake';
+import { useValidatedPropertyDraft } from './useValidatedPropertyDraft';
 
 type UrlPropertyValueProps = {
   /** The property's name — used only as the field's accessible label. */
@@ -212,55 +212,8 @@ interface UrlPropertyEditorProps {
  * clears the value — there is no separate Clear action for a URL.
  */
 function UrlPropertyEditor({ name, value, onCommit }: UrlPropertyEditorProps) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const { shakeClassName, shake } = useRejectShake();
-
-  const isEditing = draft !== null;
-
-  /** Commits the draft when it is valid (or emptied); returns whether it was accepted. */
-  function commitDraft(text: string): boolean {
-    if (text.trim() === '') {
-      if (value !== null) {
-        onCommit(null);
-      }
-      return true;
-    }
-
-    const url = parseUrlPropertyInput(text);
-
-    if (url === null) {
-      return false;
-    }
-
-    if (url !== value) {
-      onCommit(url);
-    }
-
-    return true;
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (draft !== null && !commitDraft(draft)) {
-      shake();
-      return;
-    }
-
-    setDraft(null);
-  }
-
-  function handleBlur() {
-    if (draft !== null) {
-      commitDraft(draft);
-    }
-
-    setDraft(null);
-  }
+  const { draft, setDraft, startEditing, handleKeyDown, handleBlur, shakeClassName, isEditing } =
+    useValidatedPropertyDraft(value, parseUrlPropertyInput, onCommit);
 
   return (
     <Input
@@ -281,7 +234,7 @@ function UrlPropertyEditor({ name, value, onCommit }: UrlPropertyEditorProps) {
       // own actions slot does for a read-only URL.
       trailing={!isEditing && value ? <UrlActions url={value} /> : undefined}
       value={draft ?? value ?? ''}
-      onFocus={() => setDraft(value ?? '')}
+      onFocus={() => startEditing(value ?? '')}
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}

@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import type { KeyboardEvent } from 'react';
-
 import { Input } from '@components/input/Input';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
-import { useRejectShake } from './useRejectShake';
+import { useValidatedPropertyDraft } from './useValidatedPropertyDraft';
 
 type NumberPropertyValueProps = {
   /** The property's name — used only as the field's accessible label. */
@@ -126,55 +123,8 @@ interface NumberPropertyEditorProps {
  * invalid text and changes the value on scroll.
  */
 function NumberPropertyEditor({ name, value, onCommit }: NumberPropertyEditorProps) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const { shakeClassName, shake } = useRejectShake();
-
-  const isEditing = draft !== null;
-
-  /** Commits the draft when it is valid (or emptied); returns whether it was accepted. */
-  function commitDraft(text: string): boolean {
-    if (text.trim() === '') {
-      if (value !== null) {
-        onCommit(null);
-      }
-      return true;
-    }
-
-    const number = parseNumberPropertyInput(text);
-
-    if (number === null) {
-      return false;
-    }
-
-    if (number !== value) {
-      onCommit(number);
-    }
-
-    return true;
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (draft !== null && !commitDraft(draft)) {
-      shake();
-      return;
-    }
-
-    setDraft(null);
-  }
-
-  function handleBlur() {
-    if (draft !== null) {
-      commitDraft(draft);
-    }
-
-    setDraft(null);
-  }
+  const { draft, setDraft, startEditing, handleKeyDown, handleBlur, shakeClassName, isEditing } =
+    useValidatedPropertyDraft(value, parseNumberPropertyInput, onCommit);
 
   const restingText = value === null ? '' : formatNumberPropertyValue(value);
 
@@ -189,7 +139,7 @@ function NumberPropertyEditor({ name, value, onCommit }: NumberPropertyEditorPro
       inputMode="decimal"
       placeholder="Empty"
       value={draft ?? restingText}
-      onFocus={() => setDraft(value === null ? '' : numberPropertyEditText(value))}
+      onFocus={() => startEditing(value === null ? '' : numberPropertyEditText(value))}
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}

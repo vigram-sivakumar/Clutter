@@ -132,6 +132,17 @@ describe('UrlPropertyValue — read-only', () => {
 });
 
 describe('UrlPropertyValue — editable', () => {
+  it.each(['https://another.example.com', 'invalid', ''])('Escape discards draft %j without committing on blur', (draft) => {
+    const onCommit = vi.fn();
+    render(<UrlPropertyValue name="Site" value={'https://example.com'} editable onCommit={onCommit} />);
+    act(() => getField().focus());
+    type(draft);
+    fireEvent.keyDown(getField(), { key: 'Escape' });
+    expect(getField().value).toBe('https://example.com');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(getField());
+  });
+
   it('renders a single-line input showing the URL, styled as a link at rest', () => {
     render(<StatefulUrl initial="https://example.com" />);
 
