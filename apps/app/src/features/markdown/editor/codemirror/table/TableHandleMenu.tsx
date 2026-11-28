@@ -118,8 +118,8 @@ export interface TableHandleMenuProps {
   /** Symmetric to `onDeleteRow`, for "Delete column" (`deleteColumnSelection`). */
   readonly onDeleteColumn: () => void;
   /**
-   * "Format table" — reuses `tableColumnNormalization.ts`'s own explicit
-   * `normalizeTableAt`, the table-wide analogue of `FencedCodeActionsMenu`'s
+   * "Format table" — routes through the table engine's validated format
+   * command, the table-wide analogue of `FencedCodeActionsMenu`'s
    * own "Format code" (same manual-trigger-only model, same `brush` icon).
    * Table-wide, not row/column-scoped — appears identically in both the row
    * and column handle menus, since it acts on the whole table regardless of

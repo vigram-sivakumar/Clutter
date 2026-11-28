@@ -5,7 +5,13 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { findAllTables } from './tableGeometry';
-import { computeTableNormalizationChange, normalizeAllTablesInMarkdown } from './tableColumnNormalization';
+import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
+import { createTableTransaction } from '../table-engine/tableTransaction';
+import { planTableEdit } from '../table-engine/tableCommands';
+import { TableEngineError } from '../table-engine/tableModel';
+import { formatTablesForTest } from '../table-engine/tableFormatTestFixtures';
+
+const parse = (source: string) => sharedMarkdownParser.parse(source);
 
 const mountedViews: EditorView[] = [];
 
@@ -31,15 +37,15 @@ function mountRootView(doc: string): EditorView {
 function normalize(doc: string): string {
   const view = mountRootView(doc);
   const table = findAllTables(view.state)[0]!;
-  const change = computeTableNormalizationChange(view.state, table);
-  if (!change) {
+  const transaction = createTableTransaction(view.state, table.from, { kind: 'format' }, parse);
+  if (!transaction) {
     return doc;
   }
-  view.dispatch({ changes: [change] });
+  view.dispatch(transaction);
   return view.state.doc.toString();
 }
 
-describe('computeTableNormalizationChange', () => {
+describe('explicit Format table root transaction', () => {
   it('aligns a simple 3-column table to its widest cell per column', () => {
     const doc = '| Name | Role | City |\n| ---- | ---- | ---- |\n| Vik | Designer | Delhi |\n| Alex | Engineer | Come on man this is really long table cell |';
     expect(normalize(doc)).toBe(
@@ -120,22 +126,22 @@ describe('computeTableNormalizationChange', () => {
 
     const view = mountRootView(once);
     const table = findAllTables(view.state)[0]!;
-    expect(computeTableNormalizationChange(view.state, table)).toBeNull();
+    expect(createTableTransaction(view.state, table.from, { kind: 'format' }, parse)).toBeNull();
   });
 
-  it('returns null for a malformed table with no delimiter row', () => {
-    const view = mountRootView('| A | B |\nnot a table');
-    const table = findAllTables(view.state)[0];
-    if (table) {
-      expect(computeTableNormalizationChange(view.state, table)).toBeNull();
-    }
+  it('refuses to format malformed source with no delimiter row', () => {
+    const doc = '| A | B |\nnot a table';
+    const view = mountRootView(doc);
+    expect(findAllTables(view.state)).toHaveLength(0);
+    expect(() => planTableEdit(doc, 0, { kind: 'format' }, parse)).toThrow(TableEngineError);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 });
 
-describe('normalizeAllTablesInMarkdown — the headless, save-path entry point', () => {
+describe('formatTablesForTest — canonical formatter used by persistence fixtures', () => {
   it('a long cell determines its own column width', () => {
     const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     const cityWidth = result.split('\n')[2]!.split('|')[3]!.length;
     expect(result.split('\n')[0]!.split('|')[3]!.length).toBe(cityWidth);
     expect(result.split('\n')[3]!.split('|')[3]!.length).toBe(cityWidth);
@@ -144,7 +150,7 @@ describe('normalizeAllTablesInMarkdown — the headless, save-path entry point',
 
   it('pads short cells out to the column width', () => {
     const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result).toBe(
       '| Name | Role | City                                        |\n' +
         '| ---- | ---- | ------------------------------------------- |\n' +
@@ -156,43 +162,43 @@ describe('normalizeAllTablesInMarkdown — the headless, save-path entry point',
   it('keeps empty cells padded to the column width, not collapsed', () => {
     const doc =
       '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |\n|  |  |  |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     const lastLine = result.split('\n').at(-1)!;
     expect(lastLine).toBe('|      |      |                                             |');
   });
 
   it('completes ragged Markdown into a rectangular, normalized table', () => {
     const doc = '| Name | Role | City |\n| --- | --- | --- |\n|  |  | Bangalore |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result).toBe('| Name | Role | City      |\n| ---- | ---- | --------- |\n|      |      | Bangalore |');
   });
 
   it('preserves alignment markers while realigning widths', () => {
     const doc = '| Name | Role | City |\n| :--- | :--: | ---: |\n| Vik | Designer | Delhi |\n| Alex | Engineer | Come on man this is really long table cells |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result.split('\n')[1]).toBe('| :--- | :------: | ------------------------------------------: |');
   });
 
   it('preserves escaped pipes as literal cell content', () => {
     const doc = '| A | B |\n| --- | --- |\n| a \\| b | c |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result).toContain('a \\| b');
   });
 
   it('leaves non-table Markdown completely unchanged (same string reference)', () => {
     const doc = '# Heading\n\nSome *paragraph* text with a [[WikiLink]] and no tables at all.\n\n- a list\n- item two';
-    expect(normalizeAllTablesInMarkdown(doc)).toBe(doc);
+    expect(formatTablesForTest(doc)).toBe(doc);
   });
 
   it('is a no-op (same string reference, no diff churn) when every table is already normalized', () => {
     const doc = '| Name | Role     |\n| ---- | -------- |\n| Vik  | Designer |\n\nSome trailing prose.';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result).toBe(doc);
   });
 
   it('normalizes multiple tables in the same document independently', () => {
     const doc = '| A | B |\n| --- | --- |\n| x | Long content here |\n\nSome text between.\n\n| C | D |\n| --- | --- |\n| y | z |';
-    const result = normalizeAllTablesInMarkdown(doc);
+    const result = formatTablesForTest(doc);
     expect(result).toContain('| A | B                 |');
     expect(result).toContain('| C | D |');
   });

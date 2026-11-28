@@ -147,13 +147,17 @@ describe('a Markdown table with formatted cells', () => {
 
     expect(tables).toBe(1);
     expect(cells).toHaveLength(8);
-    expect(renderInlineMarkdown(cells[0]!, { styled: true })).toBe('<strong class="tok-strong">Bold</strong>');
-    expect(renderInlineMarkdown(cells[1]!, { styled: true })).toBe('<em class="tok-emphasis">Italic</em>');
-    expect(renderInlineMarkdown(cells[2]!, { styled: true })).toBe('<code class="tok-code cm-table-cell-code">code</code>');
-    expect(renderInlineMarkdown(cells[3]!, { styled: true })).toBe('<span class="tok-highlight">Mark</span>');
-    expect(renderInlineMarkdown(cells[4]!, { styled: true })).toBe('plain <strong class="tok-strong">b</strong> and <em class="tok-emphasis">i</em>');
-    expect(renderInlineMarkdown(cells[5]!, { styled: true })).toBe('<code class="tok-code cm-table-cell-code">a</code> <span class="tok-highlight">m</span>');
-    expect(renderInlineMarkdown(cells[6]!, { styled: true })).toBe('<strong class="tok-strong">bold <em class="tok-emphasis">both</em></strong>');
+    const root = mountRoot(FORMATTED);
+    const painted = Array.from(root.dom.querySelectorAll('th > .cm-table-cell-wrapper, td > .cm-table-cell-wrapper'));
+    expect(painted).toHaveLength(8);
+    expect(painted[0]!.innerHTML).toBe('<strong class="tok-strong">Bold</strong>');
+    expect(painted[1]!.innerHTML).toBe('<em class="tok-emphasis">Italic</em>');
+    expect(painted[2]!.innerHTML).toBe('<code class="tok-code cm-table-cell-code">code</code>');
+    expect(painted[3]!.innerHTML).toBe('<span class="tok-highlight">Mark</span>');
+    expect(painted[4]!.innerHTML).toBe('plain <strong class="tok-strong">b</strong> and <em class="tok-emphasis">i</em>');
+    expect(painted[5]!.innerHTML).toBe('<code class="tok-code cm-table-cell-code">a</code> <span class="tok-highlight">m</span>');
+    expect(painted[6]!.innerHTML).toBe('<strong class="tok-strong">bold <em class="tok-emphasis">both</em></strong>');
+    expect(root.state.doc.toString()).toBe(FORMATTED);
     // On-screen markup matches Live Preview; clipboard HTML keeps semantic mark.
     expect(renderInlineMarkdown(cells[3]!)).toBe('<mark class="cm-table-cell-highlight">Mark</mark>');
     expect(renderInlineMarkdown(cells[5]!)).toBe('<code class="cm-table-cell-code">a</code> <mark class="cm-table-cell-highlight">m</mark>');

@@ -60,3 +60,7 @@ The owner pushed the local unfinished test on `testing/table-final-recovery` at 
 ## Nested strike follow-up
 
 Recovered test and fixture cleanup accepted at 35f27973 (17,910/967). Deeper review established a pre-existing live strike ownership mismatch against STRIKETHROUGH.md: the old shared live tests explicitly expected an outer styled tok-strike ancestor containing a tok-strike Link. The new candidate extends the canonical protected-range complement to live struck containers/explicit link labels, retaining their base formatting and separate underline, plus strict four-surface tests. This is not a table-only workaround. Candidate verification pending; see progress ledger. No runtime cleanup based on unverified dead-code guesses.
+
+## Proven reference cleanup
+
+Owner supplied exact-branch grep at 938ec7a4. Legacy width normalisation has no production caller; canonical Format table uses planTableEdit and serializeFormattedTable. Remove the obsolete module and migrate tests to canonical formatting, including the injected non-identity persistence fixture. Remove the test-only styled string option after migrating assertions onto actual painted DOM. Retain live save policy, unstyled clipboard bytes and shared projection internals. Candidate awaits automated regression; CSP and IME remain open.

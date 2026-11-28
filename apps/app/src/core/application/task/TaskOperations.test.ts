@@ -1310,10 +1310,10 @@ describe('Tidy up adds only task lines to user Markdown', () => {
 
 
 it('recovers privately when an open Daily Note was normalized during its save', async () => {
-  const { normalizeAllTablesInMarkdown } = await import('../../../features/markdown/editor/codemirror/table/tableColumnNormalization');
+  const { formatTablesForTest } = await import('../../../features/markdown/editor/codemirror/table-engine/tableFormatTestFixtures');
   const raw = '- [ ] Move exactly once @2026-11-20';
   const source = { ...buildPage('inbox-source', raw), path: `${ROOT}/.clutter/inbox.md` };
-  const env = setup(source, undefined, normalizeAllTablesInMarkdown);
+  const env = setup(source, undefined, formatTablesForTest);
   await env.fileSystem.createDirectory(`${ROOT}/.clutter`);
   const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
   const targetPath = DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 20));
@@ -1332,7 +1332,7 @@ it('recovers privately when an open Daily Note was normalized during its save', 
   const { VaultScanner } = await import('../../vault/ingest/VaultScanner');
   const { VaultBuilder } = await import('../../vault/ingest/VaultBuilder');
   const { vault } = new VaultBuilder(new UuidGenerator()).build(await new VaultScanner(env.fileSystem).scan(ROOT));
-  const restarted = setup(vault.getPage(source.id)!, { vault, fileSystem: env.fileSystem }, normalizeAllTablesInMarkdown);
+  const restarted = setup(vault.getPage(source.id)!, { vault, fileSystem: env.fileSystem }, formatTablesForTest);
   await restarted.taskOperations.tidyInbox(ROOT, source.id);
   expect(vault.getPage(target)!.source.markdown).toBe(savedBody);
   expect([...vault.tasks()]).toHaveLength(1);

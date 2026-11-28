@@ -24,7 +24,7 @@ import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
-import { normalizeAllTablesInMarkdown } from '../../../features/markdown/editor/codemirror/table/tableColumnNormalization';
+import { formatTablesForTest } from '../../../features/markdown/editor/codemirror/table-engine/tableFormatTestFixtures';
 import { markdownForTableSave } from '../../../features/markdown/editor/codemirror/table-engine/tableSavePolicy';
 
 /** Thin `writeFile` call-counter, wrapping `InMemoryVaultFileSystem` — the same purpose `GatedVaultFileSystem` serves in `PageOperations.requestSave.test.ts`, minus the hold/release machinery this file doesn't need. */
@@ -61,21 +61,9 @@ class CountingVaultFileSystem implements VaultFileSystem {
   }
 }
 
-/**
- * Integration coverage for the durable-save boundary's table normalization
- * (see this session's own investigation): `PageOperations.save()` applies
- * an injected `normalizeMarkdownForSave` hook to the string handed to the
- * Persistence Gate, never to `DocumentSession`'s own committed revision —
- * this file proves that boundary end-to-end, using the *real*
- * `normalizeAllTablesInMarkdown` (`tableColumnNormalization.ts`), not a
- * stand-in, so a regression in the wiring (wrong parameter, wrong
- * function, applied to the wrong string) would actually fail here. Per-
- * table normalization *rules* (long-cell-determines-width, alignment
- * markers, escaped pipes, ragged completion, idempotency) already have
- * their own exhaustive coverage in `tableColumnNormalization.test.ts` —
- * this file only proves the persistence-boundary wiring, not the algorithm
- * itself, per "don't create a second normalization algorithm."
- */
+/** Integration coverage of the injected durable-save policy: a non-identity
+ * fixture delegates to the real explicit Format table command. Production
+ * uses the identity markdownForTableSave policy, covered below. */
 
 const ROOT = '/vault';
 const ARCHIVE_FOLDER_ID = 'folder-archive';
@@ -200,7 +188,7 @@ describe('PageOperations.save — table normalization at the durable-save bounda
   it('(A) editing a table and saving writes normalized Markdown to disk', async () => {
     const page = buildPage('Before');
     const { fileSystem, pageOperations } = setup(page, {
-      normalizeMarkdownForSave: normalizeAllTablesInMarkdown,
+      normalizeMarkdownForSave: formatTablesForTest,
     });
 
     await pageOperations.open(page.id);
@@ -215,7 +203,7 @@ describe('PageOperations.save — table normalization at the durable-save bounda
   it('(H) non-table Markdown is written unchanged', async () => {
     const page = buildPage('Before');
     const { fileSystem, pageOperations } = setup(page, {
-      normalizeMarkdownForSave: normalizeAllTablesInMarkdown,
+      normalizeMarkdownForSave: formatTablesForTest,
     });
     const prose = '# Heading\n\nSome *paragraph* text, no tables here at all.';
 
@@ -230,7 +218,7 @@ describe('PageOperations.save — table normalization at the durable-save bounda
   it('normalization is applied to the durable write, never to the in-memory committed session', async () => {
     const page = buildPage('Before');
     const { documentRegistry, pageOperations } = setup(page, {
-      normalizeMarkdownForSave: normalizeAllTablesInMarkdown,
+      normalizeMarkdownForSave: formatTablesForTest,
     });
 
     await pageOperations.open(page.id);
@@ -249,7 +237,7 @@ describe('PageOperations.save — table normalization at the durable-save bounda
   it('(I) a second save with no new edits does not re-write the file (dirty-state tracking is unaffected by normalization)', async () => {
     const page = buildPage('Before');
     const { fileSystem, pageOperations } = setup(page, {
-      normalizeMarkdownForSave: normalizeAllTablesInMarkdown,
+      normalizeMarkdownForSave: formatTablesForTest,
     });
 
     await pageOperations.open(page.id);
@@ -279,7 +267,7 @@ describe('PageOperations.save — table normalization at the durable-save bounda
 describe('verified durable body mutations', () => {
   it('accepts the existing normalized disk representation without changing the editor content', async () => {
     const page = buildPage(COMPACT_TABLE);
-    const { vault, documentRegistry, pageOperations } = setup(page, { normalizeMarkdownForSave: normalizeAllTablesInMarkdown });
+    const { vault, documentRegistry, pageOperations } = setup(page, { normalizeMarkdownForSave: formatTablesForTest });
     await pageOperations.open(page.id);
     const task = '\n- [ ] Transferred task @2026-11-20';
     await expect(pageOperations.mutateBodyAndSave(page.id, (body) => body + task)).resolves.toBeUndefined();
@@ -291,7 +279,7 @@ describe('verified durable body mutations', () => {
 
   it('keeps the existing closed-document mutation path unchanged', async () => {
     const page = buildPage(COMPACT_TABLE);
-    const { vault, pageOperations } = setup(page, { normalizeMarkdownForSave: normalizeAllTablesInMarkdown });
+    const { vault, pageOperations } = setup(page, { normalizeMarkdownForSave: formatTablesForTest });
     await pageOperations.mutateBodyAndSave(page.id, (body) => body + '\n- [ ] Transferred task');
     expect(vault.getPage(page.id)!.source.markdown).toBe(COMPACT_TABLE + '\n- [ ] Transferred task');
   });

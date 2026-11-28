@@ -1,6 +1,21 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { paintInlineMarkdown, renderInlineMarkdown } from './renderInlineMarkdown';
 
-import { renderInlineMarkdown } from './renderInlineMarkdown';
+function paint(source: string): HTMLElement {
+  const parent = document.body.appendChild(document.createElement('div'));
+  const view = new EditorView({ state: EditorState.create({ doc: '' }), parent });
+  const host = document.createElement('span');
+  try {
+    paintInlineMarkdown(host, source, view);
+    return host;
+  } finally {
+    view.destroy();
+    parent.remove();
+  }
+}
 
 describe('renderInlineMarkdown', () => {
   it('renders plain text unchanged', () => {
@@ -34,7 +49,7 @@ describe('renderInlineMarkdown', () => {
     '[label][reference]',
     '[label][]',
   ])('keeps destinationless syntax literal: %s', (source) => {
-    expect(renderInlineMarkdown(source, { styled: true })).toBe(source);
+    expect(paint(source).textContent).toBe(source);
     expect(renderInlineMarkdown(source)).toBe(source);
   });
 
@@ -81,10 +96,18 @@ describe('renderInlineMarkdown', () => {
     expect(renderInlineMarkdown('`**x**`')).toBe('<code class="cm-table-cell-code">**x**</code>');
   });
 
-  it('adds the editor tok-* classes only when styled, so cells match paragraphs', () => {
-    expect(renderInlineMarkdown('**b** *i* ~~s~~ ==h== `c`', { styled: true })).toBe(
-      '<strong class="tok-strong">b</strong> <em class="tok-emphasis">i</em> <s class="tok-strike">s</s> <span class="tok-highlight">h</span> <code class="tok-code cm-table-cell-code">c</code>'
-    );
+  it('paints actual editor tok-* classes and keeps clipboard HTML unstyled', () => {
+    const host = paint('**b** *i* ~~s~~ ==h== `c`');
+    expect(host.textContent).toBe('b i s h c');
+    for (const [selector, value] of [
+      ['strong.tok-strong', 'b'], ['em.tok-emphasis', 'i'], ['.tok-strike', 's'],
+      ['span.tok-highlight', 'h'], ['code.tok-code.cm-table-cell-code', 'c'],
+    ] as const) {
+      expect(host.querySelector(selector)?.textContent).toBe(value);
+    }
     expect(renderInlineMarkdown('**b**')).toBe('<strong>b</strong>');
+    expect(renderInlineMarkdown('**b** *i* ~~s~~ ==h== `c`')).toBe(
+      '<strong>b</strong> <em>i</em> <s>s</s> <mark class="cm-table-cell-highlight">h</mark> <code class="cm-table-cell-code">c</code>'
+    );
   });
 });
