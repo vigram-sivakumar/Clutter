@@ -11,6 +11,7 @@ import { completionStatus, currentCompletions, startCompletion } from '@codemirr
 import { completionPopupDOM } from '../completionPopup/completionTooltipSpace';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
+import { createEditorView } from '../createEditorView';
 import { refreshInlinePresentation } from '../highlight/inlineLivePreviewRegion';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { cspNonceExtension } from '../cspNonce';
@@ -3057,7 +3058,16 @@ describe('leading table separator — root caret focus', () => {
     const view = mount(TABLE, false);
     click(separator(view)!, 2);
     expect(view.state.doc.toString()).toBe(TABLE);
-    const readOnlyView = mount(TABLE, true);
+    // buildEditorExtensions alone chooses read-only rendering, but the
+    // actual editor factory installs the native read-only/editable facets.
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const readOnlyView = createEditorView({
+      doc: TABLE, parent, readOnly: true,
+      extensions: buildEditorExtensions({ ...REQUIRED, readOnly: true, hostPageId: 'test-page' }),
+    });
+    mountedViews.push(readOnlyView);
+    expect(readOnlyView.state.readOnly).toBe(true);
     expect(separator(readOnlyView)).toBeNull();
     expect(readOnlyView.state.doc.toString()).toBe(TABLE);
   });

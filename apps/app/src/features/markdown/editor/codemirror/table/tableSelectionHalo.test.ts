@@ -513,3 +513,30 @@ describe('shared document range paint for rendered tables', () => {
     expect(css).toMatch(/background: var\(--selection-surface\);/);
   });
 });
+
+describe('neutral table focus — no additional selection paint', () => {
+  it('suppresses the native outline only on the editable projection focus target', () => {
+    const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8');
+    const rule = css.match(/\.cm-editor\s+\.cm-table-widget\[data-table-engine-cells='true'\]:focus\s*\{([^}]*)\}/);
+    expect(rule).not.toBeNull();
+    expect(rule![1]).toMatch(/outline\s*:\s*none\s*;/);
+    const view = mount(BASIC_TABLE);
+    const controller = view.plugin(tableCellEditor)!;
+    expect(controller.enterCell(0, { row: 1, col: 0 }, 'end')).toBe(true);
+    const widget = view.dom.querySelector<HTMLElement>('.cm-table-widget')!;
+    widget.querySelector('.cm-table-wrapper')!.dispatchEvent(new MouseEvent('mousedown', {
+      button: 0, bubbles: true, cancelable: true,
+    }));
+    expect(document.activeElement).toBe(widget);
+    expect(widget.matches(".cm-editor .cm-table-widget[data-table-engine-cells='true']:focus")).toBe(true);
+    expect(controller.nested).toBeNull();
+    expect(widget.dataset.tableRootSelected).toBe('false');
+    expect(widget.classList.contains('cm-block-range-selected')).toBe(false);
+    expect(widget.querySelector('.cm-table-selection-overlay-visible')).toBeNull();
+    expect(view.state.doc.toString()).toBe(BASIC_TABLE);
+    // Intentional selection still belongs to the existing overlay.
+    expect(controller.selectBlock(0)).toBe(true);
+    expect(widget.querySelector('.cm-table-wrapper-selected')).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(BASIC_TABLE);
+  });
+});

@@ -381,6 +381,14 @@
   background-color: transparent !important;
 }
 
+/* The outer editable projection can own neutral focus when no real
+ * text line exists. It is not a selection; suppress the native focus
+ * ring on this programmatic parking target only. Cell/axis outlines,
+ * root document tint and focusable controls keep their existing paint. */
+.cm-editor .cm-table-widget[data-table-engine-cells='true']:focus {
+  outline: none;
+}
+
 /* Engine selection uses the existing continuous, rounded overlay rather
  * than painting independent inset edges on each cell. */
 .cm-editor [data-table-engine-cells='true'] [data-cell]:focus {
