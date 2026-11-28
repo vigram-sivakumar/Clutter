@@ -21,3 +21,7 @@ Runtime/test tree at 6dbb88ea7d1bc0ba69ffce54cf4c0c18b79d8d20 (ADR-only a4eee655
 ## Owner-approved icon revision — preflight
 
 At 061aab57 the shared note-pencil.svg contains the supplied outline and diagonal, but lacks the new pencil-tip circle. Owner requests replacement geometry. Spec §12 presentation only: retain existing registered notePencil, 16×16 viewBox, AppIcon sizing/stroke policy; no new icon, state, APIs or persistence. Use currentColor for the stroke and explicitly fill the otherwise invisible circle with currentColor; preserve supplied coordinates. This shared asset also appears in existing resource actions, so verify those as well as Create in light/dark modes. Previous runtime remains unverified; combined gate still required. No concurrent write surface, no main promotion.
+
+## Superseding icon revision
+
+Owner supplied two outlined paths replacing the previous diagonal and dot. Candidate 6b0a8f79d28f31e422c035a5915065d5e87e0266 preserves both exact path geometries, viewBox and round caps, with currentColor and the existing AppIcon 1.2px default stroke/size policy instead of hardcoded colour or per-path stroke widths. Migrated the previous icon test to assert both new paths, theme stroke and absence of the retired circle. Diff limited to the shared SVG and icon regression test plus this ledger. Main unchanged at bb181321; no new architectural surface. Targeted icon and shell tests, build, full regression and native acceptance remain pending for the combined candidate.
