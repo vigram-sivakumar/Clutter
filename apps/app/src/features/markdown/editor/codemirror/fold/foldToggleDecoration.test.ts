@@ -115,10 +115,10 @@ describe('foldToggleDecoration — Phase 1 scope: headings and fenced code, list
     expect(classes['```ts']).toBeNull();
   });
 
-  it('an indented-paragraph fold owner (Phase 3) gets no cm-fold-heading-* class', () => {
+  it('an indented paragraph has no fold affordance', () => {
     const view = mount('Parent with child\n    Child paragraph');
     const classes = headingFoldClassesByOwner(view);
-    expect(classes['Parent with child']).toBeNull();
+    expect(classes['Parent with child']).toBeUndefined();
   });
 
   it('a folded heading keeps its cm-fold-heading-{n} class (already-folded path, not just offer-to-fold)', () => {
@@ -148,99 +148,31 @@ describe('foldToggleDecoration — Phase 1 scope: headings and fenced code, list
   });
 });
 
-/**
- * Phase 3: indentation-based paragraph folding
- * (`indentedParagraphFoldService.ts`). Every case here mirrors the bug
- * report's own required-behavior list verbatim, plus the blank-line and
- * indentation-threshold decisions that report explicitly asked to be
- * investigated rather than guessed at (see that file's own doc comment
- * for the reasoning behind each).
- */
-describe('foldToggleDecoration — Phase 3: indentation-based paragraph folding', () => {
-  it('two ordinary paragraphs (no indentation relationship) get no toggle', () => {
-    const view = mount('Parent paragraph\n\nAnother paragraph');
+describe('foldToggleDecoration — paragraphs remain expanded', () => {
+  it.each([
+    'Parent paragraph\n\nAnother paragraph',
+    'This is a new line\nThis is another line below the paragraph',
+    'Parent with child\n    Child paragraph',
+    'Parent with child\n    Child paragraph\n    More child content',
+    'Parent blank normal\n\nNormal paragraph after blank',
+    'Parent blank indented\n\n    Indented after blank',
+    'Parent\n Child indented by one space only',
+    'Parent\n    Child\nSibling back at column 0',
+    '- Item\n    Continuation of the item, still indented',
+    'Parent\\\n    Child',
+  ])('does not offer a toggle or hide content: %s', (doc) => {
+    const view = mount(doc);
     expect(toggleTextsByOwner(view)).toEqual([]);
+    expect(view.dom.querySelector('.cm-foldPlaceholder')).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
+    for (const line of doc.split('\n').filter(Boolean)) {
+      expect(view.dom.querySelector('.cm-content')?.textContent).toContain(line.trim());
+    }
   });
 
-  it('consecutive non-indented lines (one merged Paragraph node) get no toggle', () => {
-    const view = mount('This is a new line\nThis is another line below the paragraph');
-    expect(toggleTextsByOwner(view)).toEqual([]);
-  });
-
-  it('a parent paragraph with one indented child gets a toggle, on the parent\'s own first line', () => {
-    const view = mount('Parent with child\n    Child paragraph');
-    expect(toggleTextsByOwner(view)).toEqual(['Parent with child']);
-  });
-
-  it('a parent paragraph with multiple indented children (no blank lines between them) still gets exactly one toggle, on the parent', () => {
-    const view = mount('Parent with child\n    Child paragraph\n    More child content');
-    expect(toggleTextsByOwner(view)).toEqual(['Parent with child']);
-  });
-
-  it('a parent, then a blank line, then a normal (non-indented) paragraph gets no toggle', () => {
-    const view = mount('Parent blank normal\n\nNormal paragraph after blank');
-    expect(toggleTextsByOwner(view)).toEqual([]);
-  });
-
-  it('a blank line always ends the run, even toward a more-indented paragraph on the other side of it — no accidental foldability from "content exists below"', () => {
-    const view = mount('Parent blank indented\n\n    Indented after blank');
-    expect(toggleTextsByOwner(view)).toEqual([]);
-  });
-
-  it('the indentation threshold is "strictly greater than the parent\'s own," not a multiple of the 4-space indent unit', () => {
-    const view = mount('Parent\n Child indented by one space only');
-    expect(toggleTextsByOwner(view)).toEqual(['Parent']);
-  });
-
-  it('a sibling line back at the parent\'s own indentation level ends the fold — only the genuinely deeper lines are hidden', () => {
-    const view = mount('Parent\n    Child\nSibling back at column 0');
-    expect(toggleTextsByOwner(view)).toEqual(['Parent']);
-
-    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
-    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    const text = view.dom.querySelector('.cm-content')?.textContent ?? '';
-    expect(text).toContain('Parent');
-    expect(text).not.toContain('Child');
-    expect(text).toContain('Sibling back at column 0');
-  });
-
-  it('folding a parent paragraph hides only the indented descendants, leaving the parent line itself visible', () => {
-    const view = mount('Parent with child\n    Child paragraph\n    More child content');
-    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
-    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    const text = view.dom.querySelector('.cm-content')?.textContent ?? '';
-    expect(text).toContain('Parent with child');
-    expect(text).not.toContain('Child paragraph');
-    expect(text).not.toContain('More child content');
-    expect(view.state.doc.toString()).toBe('Parent with child\n    Child paragraph\n    More child content');
-  });
-
-  it('unfolding restores the indented content exactly', () => {
-    const view = mount('Parent with child\n    Child paragraph');
-    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
-    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
-    collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(view.dom.querySelector('.cm-content')?.textContent).toContain('Child paragraph');
-  });
-
-  it('does not interfere with headings, lists, or fenced code in the same document', () => {
-    const view = mount(
-      '# Heading\nheading body\n\n- Item\n    - Nested\n\n```ts\ncode\n```\n\nParent with child\n    Child paragraph'
-    );
-    const owners = toggleTextsByOwner(view);
-    expect(owners).toContain('# Heading');
-    expect(owners).not.toContain('- Item');
-    expect(owners).toContain('```ts');
-    expect(owners).toContain('Parent with child');
-    expect(owners).toHaveLength(3);
-  });
-
-  it('a list item\'s own indented content is never mistaken for a paragraph-fold owner — resolveLineIndentContext already routes it to `kind: \'list\'`', () => {
-    const view = mount('- Item\n    Continuation of the item, still indented');
-    expect(toggleTextsByOwner(view)).toEqual([]);
+  it('only headings and fenced code get toggles in a mixed note', () => {
+    const view = mount('# Heading\nheading body\n\n- Item\n    - Nested\n\n~~~ts\ncode\n~~~\n\nParent with child\n    Child paragraph');
+    expect(toggleTextsByOwner(view)).toEqual(['# Heading', '~~~ts']);
   });
 });
 
