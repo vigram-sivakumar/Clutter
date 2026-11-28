@@ -317,7 +317,7 @@ interface PageHostProps {
   ) => void;
   /** Legacy persisted completion preferences, still used by the separate Inbox collection. */
   readonly tasksViewConfig: TaskDisplayConfig;
-  /** The Tasks page's selected tab, and its change handler — owned and persisted by AppLayout. */
+  /** The Tasks page's selected tab and change handler — derived from TasksViewConfigStore by AppLayout. */
   readonly tasksTab: TasksTabValue;
   readonly onTasksTabChange: (next: TasksTabValue) => void;
   /**
