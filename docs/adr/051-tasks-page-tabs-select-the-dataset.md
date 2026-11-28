@@ -8,7 +8,7 @@ ADR-050 removed the unreachable Today / Overdue / Upcoming / Completed task *vie
 
 ## Decision
 
-- The selected tab is page-local UI state owned by `AppLayout` (not a `FilteredView`, not in `Workspace` or history) and passed to `PageHost`. `TasksTabs` is controlled; `TASKS_TAB_VIEW` maps each tab to the dataset it shows.
+- The selected tab is presentation state owned by `TasksViewConfigStore` (not a `FilteredView`, not in `Workspace` or history). `AppLayout` derives it from the subscribed snapshot via `resolveTasksTab` and passes it to `PageHost`; it keeps no local mirror. `TasksTabs` is controlled; `TASKS_TAB_VIEW` maps each tab to the dataset it shows.
 - **Persisted across restarts**, as a display preference of the Tasks view: `TasksViewConfigStore` gains an optional `selectedTab` string in its existing `tasksViewConfig` entry of `.clutter/workspace.json` (per vault, never Gate-backed, merged field-by-field so it and the display preferences never overwrite each other). The store holds it as a plain string, like `hiddenGroups`; `resolveTasksTab` validates it and an unrecognised value opens Today. `Workspace` and `WorkspaceSessionStore` are untouched (ADR-035's enumerated session state is unchanged).
 - `tasksForView` supplies the datasets the strip needs. The current four-tab mapping and Today membership are defined by ADR-078. They are datasets of the one Task Collection: the same `view:tasks` configuration, the same renderer, the same sort. Completed-task visibility is explicit in the datasets; Show completed / Auto-sort completed controls are removed from Settings and the collection Configure menu.
 - `FilteredView`, `NavigationRouter`, the collection-key and session-restore code stay as ADR-050 left them: only `tasks-all` and `tasks-unscheduled` are navigable. The tab datasets are reachable only as tabs; they are not separate navigable `FilteredView` identities.
@@ -21,4 +21,6 @@ ADR-050 removed the unreachable Today / Overdue / Upcoming / Completed task *vie
 ## Consequences
 
 - Every tab's membership is defined in one place (`tasksForView`). Completed tasks are separated from active datasets and excluded from the sidebar. The References section keeps its independent completion-date ordering (ADR-077).
-- The page reopens on the tab it was left on, including after an app restart. The current default is Today (ADR-078). Navigating away and back keeps the selection (it is app state, not component state).
+- The page reopens on the tab it was left on, including after an app restart. The current default is Today (ADR-078). Navigating away and back keeps the selection (it is store state, not component state).
+
+**Amendment (2026-11-28):** Owner-approved state consolidation removes AppLayout's duplicate local selection; the existing observable per-Space store is the single source of truth. No change to persistence, validation, datasets, or future multiple-window scope (ADR-073).
