@@ -139,6 +139,17 @@ describe('foldSemanticsKeymap — closes the native foldable() fallback loophole
     expect(view.state.doc.toString()).toBe(doc);
   });
 
+  it.each(['Parent\n    Child', 'Parent\\\n    Child', 'Parent\n Child\nSibling'])('paragraph indentation never creates folds: %s', (doc) => {
+    const view = mount(doc);
+    for (let n = 1; n <= view.state.doc.lines; n++) {
+      view.dispatch({ selection: { anchor: view.state.doc.line(n).from } });
+      pressFoldShortcut(view, '[');
+    }
+    view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: '[', ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    expect(foldedRangeList(view)).toEqual([]);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
   it('Ctrl-Alt-] (unfoldAll) unfolds every currently-folded range', () => {
     const doc = '# Heading\nbody';
     const view = mount(doc);
