@@ -3,41 +3,10 @@ import type { Command, KeyBinding } from '@codemirror/view';
 
 import { findFold, getFoldRange } from './foldSemantics';
 
-/**
- * Clutter's own replacements for `@codemirror/language`'s `foldCode`/
- * `unfoldCode`/`foldAll` — bound at higher keymap precedence than
- * `foldKeymap` (`createEditorView.ts`) so these run *instead of* the
- * native commands, never alongside them. Each one is a thin wrapper: find
- * the line(s) in scope, then ask `foldSemantics.ts` — never
- * `@codemirror/language`'s own `foldable()` — what's foldable there.
- *
- * **Why this exists**: `foldCode`/`foldAll`'s own native implementations
- * call `foldable()` directly, which consults every registered
- * `foldService` and then falls back to the generic native `foldNodeProp`
- * answer the instant every service declines. `listItemFoldService.ts`'s
- * registered service correctly declines (`null`) for a list item with no
- * genuine descendant — but that `null` only means "try the next one," not
- * "there is definitively nothing here," so the native fallback still
- * fires and still returns the old, lazy-continuation-corrupted
- * `ListItem`/`Task` boundary. Confirmed directly: dispatching the native
- * `foldable()` query for `- [ ] Parent\nSibling paragraph` (no genuine
- * child) returned a real, non-null range covering `Sibling paragraph`,
- * even with `listItemFoldService()` registered. The inline toggle
- * (`foldToggleDecoration.ts`) was never exposed to this, because it never
- * called `foldable()` generically in the first place — it always called
- * the shared range-computation function directly. This module gives
- * Clutter's own keyboard shortcuts (`Ctrl-Shift-[`/`Cmd-Alt-[`,
- * `Ctrl-Shift-]`/`Cmd-Alt-]`, `Ctrl-Alt-[`, `Ctrl-Alt-]`) that exact same
- * property, closing the last entry point that could still reach the
- * native fallback for a construct `foldSemantics.ts` overrides.
- *
- * `unfoldCode`/`unfoldAll`'s own logic never touches `foldable()` at all
- * (they only ever read *existing* fold state via `findFold`/the fold
- * field directly) — reimplemented here anyway, using `foldSemantics.ts`'s
- * own `findFold`, purely so this file is the one place all four commands
- * live, rather than mixing "two reimplemented, two left as the native
- * import." No behavior difference from native `unfoldCode`/`unfoldAll`
- * for these two.
+/** Clutter's fold commands share the positive eligibility policy in
+ * foldSemantics.ts. Native foldCode/foldAll call foldable() directly and
+ * would fall back to generic Markdown paragraph/list folds. Native CM6
+ * effects and fold state remain the sole mechanism for actual folding.
  */
 
 function currentLine(view: Parameters<Command>[0]) {
