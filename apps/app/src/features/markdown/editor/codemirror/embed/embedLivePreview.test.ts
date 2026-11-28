@@ -8,6 +8,7 @@ import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableWidgetDecoration } from '../table/tableWidgetField';
 import { computeImagePresentationUpdate, getImagePresentation } from '../mediaPresentation/mediaPresentationUpdate';
+import { getImageUiState, presentationOnlyEdit, setImageUiState } from '../image/imageUiState';
 import { findAllTables } from '../table/tableGeometry';
 import { embedLivePreview } from './embedLivePreview';
 import { blockRangeSelection } from '../blockRangeSelection';
@@ -1063,18 +1064,37 @@ describe('image embed presentation immediately below a projected table', () => {
         expect(view.dom.querySelector('.cm-image-container--' + mode)).not.toBeNull();
         expect(getImagePresentation(view.state, view.state.doc.length).mode).toBe(mode);
       };
+      // Match MarkdownEditor.applyImageMenuPresentation's production
+      // transaction (also pinned by ImageWidget.presentationUpdate.test.ts):
+      // persisted source plus the live UI mode, in post-change coordinates.
+      const selectMode = (mode: 'fill' | 'fit') => {
+        const pos = prefix.length;
+        const to = view.state.doc.length;
+        const ui = getImageUiState(view.state, pos, to);
+        const changes = computeImagePresentationUpdate(view.state, to, {
+          ...getImagePresentation(view.state, to), mode,
+        });
+        const mapped = view.state.changes(changes);
+        view.dispatch({
+          changes,
+          effects: [
+            setImageUiState.of({
+              pos: mapped.mapPos(pos),
+              to: mapped.mapPos(to, 1),
+              state: { ...ui, displayMode: mode },
+            }),
+            presentationOnlyEdit.of(null),
+          ],
+        });
+      };
       assertBlocks(source, 'fill');
-      view.dispatch({ changes: computeImagePresentationUpdate(view.state, view.state.doc.length, {
-        ...getImagePresentation(view.state, view.state.doc.length), mode: 'fit',
-      }) });
+      selectMode('fit');
       assertBlocks(fit, 'fit');
       expect(undo(view)).toBe(true);
       assertBlocks(source, 'fill');
       expect(redo(view)).toBe(true);
       assertBlocks(fit, 'fit');
-      view.dispatch({ changes: computeImagePresentationUpdate(view.state, view.state.doc.length, {
-        ...getImagePresentation(view.state, view.state.doc.length), mode: 'fill',
-      }) });
+      selectMode('fill');
       assertBlocks(source, 'fill');
     } finally {
       view.destroy();
