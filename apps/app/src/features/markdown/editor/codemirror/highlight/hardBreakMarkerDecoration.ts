@@ -81,7 +81,7 @@ export function isPendingBreak(state: EditorState, lineFrom: number, lineTo: num
     return false;
   }
 
-  // An odd run of backslashes ends the line (an even run is escaped, literal text), inside a paragraph.
+  // An odd run of backslashes ends the line (an even run is escaped, literal text), inside paragraph or task text.
   const trailing = /\\*$/.exec(doc.sliceString(lineFrom, lineTo))?.[0].length ?? 0;
   if (trailing % 2 === 0) {
     return false;
@@ -91,7 +91,7 @@ export function isPendingBreak(state: EditorState, lineFrom: number, lineTo: num
     node;
     node = node.parent
   ) {
-    if (node.name === 'Paragraph') {
+    if (node.name === 'Paragraph' || node.name === 'Task') {
       return true;
     }
   }
