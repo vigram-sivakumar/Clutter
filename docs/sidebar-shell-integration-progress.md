@@ -19,3 +19,7 @@ Architecture contracts and exclusions from each source ledger remain in force. C
 ## Combined acceptance — 2026-11-28
 
 Owner reports all combined verification checks passed (targeted tests, build, full regression and native checklist), and requests proceeding to the next step. No combined console transcript, actual test count or duration supplied; record owner-confirmed acceptance, not independently observed counts. Candidate checkpoint at acceptance 9337d914b49128ae21f5b88898fdab962b8dbef9, merged runtime/test tree 9af5012cc81fd4e79aba3742dee3bae842774447. Main and development heads verified unchanged. Next step is explicit approval for fast-forward promotion to development/table-editor; no shared-branch changes in this ledger-only checkpoint.
+
+## Owner promotion approval
+
+Owner explicitly approves promotion of testing/sidebar-shell-integration to development/table-editor, keeping main unchanged, and requests the next architecture simplification audit. Combined verification is owner-confirmed; actual count/duration not supplied. Accepted runtime/test tree 9af5012c; subsequent checkpoints are ledger-only. Fast-forward only; no main/release/tag changes. Next audit is read-only until scope is separately approved.
