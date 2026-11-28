@@ -395,3 +395,49 @@ describe('List hard-break candidate edge cases', () => {
     expect(enter('- first\\\\\n  second|')).toBe('- first\\\\\n  second\n  |');
   });
 });
+
+
+describe('Repeated hard breaks preserve marker-line geometry', () => {
+  function assertMarkerGutter(view: EditorView, index: number) {
+    const rows = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+    const marker = rows[index]!;
+    expect(marker.classList.contains('cm-list-line')).toBe(true);
+    expect(parseFloat(marker.style.getPropertyValue('--list-indent-px'))).toBeGreaterThan(0);
+    // A marker row must pull back its whole gutter, not a continuation's source indentation.
+    const consumed = marker.style.getPropertyValue('--list-line-consumed-px');
+    expect(consumed).toBe('');
+  }
+
+  it('opens the supplied ordered-item source with an unindented marker and consistent continuation gutters', () => {
+    const view = mount('1. .cm\\\n   -edito\\\n   r .cm-ta\\\n   sk-completed, .cm-editor .cm-task-completed \\\n   span{color: var(--foreground-placeholder);\\\n   text-decoration-color: var(--foreground-placeholder);\\\n   } Change this decoration color to lighter shade|\n+ Fix the font family');
+    assertMarkerGutter(view, 0);
+    const rows = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+    const gutter = rows[0]!.style.getPropertyValue('--list-indent-px');
+    for (const row of rows.slice(1, 7)) {
+      expect(row.classList.contains('cm-list-line')).toBe(true);
+      expect(row.style.getPropertyValue('--list-indent-px')).toBe(gutter);
+      expect(parseFloat(row.style.getPropertyValue('--list-line-consumed-px'))).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps marker geometry after repeated splits in the first and continuation lines without remounting', () => {
+    const view = mount('1. First item\n2. .cm|-editor .cm-task-completed\n3. Next item');
+    press(view, 'Enter', true);
+    ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+    expect(shown(view)).toBe('1. First item\n2. .cm\\\n   |-editor .cm-task-completed\n3. Next item');
+    assertMarkerGutter(view, 1);
+    view.dispatch({ selection: EditorSelection.cursor(view.state.selection.main.head + '-edito'.length) });
+    press(view, 'Enter', true);
+    ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+    expect(shown(view)).toBe('1. First item\n2. .cm\\\n   -edito\\\n   |r .cm-task-completed\n3. Next item');
+    assertMarkerGutter(view, 1);
+    view.dispatch({ selection: EditorSelection.cursor(view.state.selection.main.head + 'r .cm-ta'.length) });
+    press(view, 'Enter', true);
+    ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+    expect(shown(view)).toBe('1. First item\n2. .cm\\\n   -edito\\\n   r .cm-ta\\\n   |sk-completed\n3. Next item');
+    assertMarkerGutter(view, 1);
+    assertMarkerGutter(view, 5);
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    assertMarkerGutter(view, 1);
+  });
+});
