@@ -367,3 +367,31 @@ describe('List hard-break keyboard contract (diagnostic regression cases)', () =
     expect(shown(view)).toBe('- first\n- |');
   });
 });
+
+
+describe('List hard-break candidate edge cases', () => {
+  it.each([
+    ['unchecked task', '- [ ] first|', '- [ ] first\\\n  |', '- [ ] first\n- [ ] |'],
+    ['checked task', '- [x] first|', '- [x] first\\\n  |', '- [x] first\n- [ ] |'],
+    ['ordered task', '1. [ ] first|', '1. [ ] first\\\n   |', '1. [ ] first\n2. [ ] |'],
+  ])('Shift+Enter stays in %s text, then Enter starts an unchecked sibling', (_name, source, soft, next) => {
+    const view = mount(source);
+    press(view, 'Enter', true);
+    ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+    expect(shown(view)).toBe(soft);
+    press(view, 'Enter');
+    expect(shown(view)).toBe(next);
+  });
+
+  it('continues an ordered list and shifts the sequential tail', () => {
+    expect(enter('1. first\\\n   second|\n2. third')).toBe('1. first\\\n   second\n2. |\n3. third');
+  });
+
+  it('continues a list inside a standard quote', () => {
+    expect(enter('> - first\\\n>   second|')).toBe('> - first\\\n>   second\n> - |');
+  });
+
+  it('keeps an ordinary indented paragraph containing an escaped backslash on the generic path', () => {
+    expect(enter('- first\\\\\n  second|')).toBe('- first\\\\\n  second\n  |');
+  });
+});
