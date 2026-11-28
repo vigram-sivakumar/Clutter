@@ -71,7 +71,7 @@ import { ReferencesDisplayStore } from './references/ReferencesDisplayStore';
 import { TemplateUsageStore } from './templates/TemplateUsageStore';
 import { PreferredTemplatesStore } from './templates/PreferredTemplatesStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
-import { WorkspaceSessionStore, type SidebarTab } from './workspace/WorkspaceSessionStore';
+import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
 import { SpaceProfileStore, type SpaceProfile } from './space/SpaceProfileStore';
 import { TagMetadataStore } from '../vault/persistence/TagMetadataStore';
 import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
@@ -1084,14 +1084,10 @@ export class Application {
    * the fallback navigation can overwrite the saved session before it was
    * restored.
    */
-  public async open(options: { startup?: StartupBehavior; sidebarTab?: SidebarTab } = {}): Promise<void> {
+  public async open(options: { startup?: StartupBehavior } = {}): Promise<void> {
     await ensureSpaceAccessIfDesktop(this.rootPath);
     await registerVaultAssetScope(this.rootPath);
     await this.fileSystemWatcher.start(this.rootPath);
-
-    // The user's configured default tab wins over the tab saved with the last session (seeded in
-    // bootstrap()). Set before persistence attaches, so the saved session then records it like any change.
-    if (options.sidebarTab) this.workspace.setActiveSidebarTab(options.sidebarTab);
 
     await this.restoreLastSessionOrFallback(options.startup ?? 'last-opened-note');
 
