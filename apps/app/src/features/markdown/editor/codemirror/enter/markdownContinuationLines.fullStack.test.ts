@@ -59,11 +59,12 @@ function mount(source: string): EditorView {
   return view;
 }
 
-function press(view: EditorView, key: 'Enter' | 'Backspace'): boolean {
+function press(view: EditorView, key: 'Enter' | 'Backspace', shiftKey = false): boolean {
   const event = new KeyboardEvent('keydown', {
     key,
     code: key,
     keyCode: key === 'Enter' ? 13 : 8,
+    shiftKey,
     bubbles: true,
     cancelable: true,
   });
@@ -322,5 +323,47 @@ describe('A task line holding inline tokens: Enter and Backspace at the text sta
 
   it('Backspace at the text start removes only the separator, with tokens later on the line', () => {
     expect(backspace(`- [ ] |${LINE}`)).toBe(`- [ ]|${LINE}`);
+  });
+});
+
+
+// New requirements: explicit hard-break continuations are not ordinary indented paragraphs.
+describe('List hard-break keyboard contract (diagnostic regression cases)', () => {
+  it('splits CSS-like text on the first line of an already multiline ordered item', () => {
+    const view = mount('2. .cm-editor .cm-task-completed,| .cm-editor span{color: var(--foreground-placeholder);\\\n   text-decoration-color: var(--foreground-placeholder);\\\n   } Change this decoration color to lighter shade');
+    press(view, 'Enter', true);
+    expect(shown(view)).toBe('2. .cm-editor .cm-task-completed,\\\n   | .cm-editor span{color: var(--foreground-placeholder);\\\n   text-decoration-color: var(--foreground-placeholder);\\\n   } Change this decoration color to lighter shade');
+  });
+
+  it.each([
+    ['before existing break', '- first|\\\n  second'],
+    ['after existing break', '- first\\|\n  second'],
+  ])('inserts another hard break at the visual end (%s)', (_name, source) => {
+    const view = mount(source);
+    press(view, 'Enter', true);
+    expect(shown(view)).toBe('- first\\\n  |\\\n  second');
+  });
+
+  it.each([
+    ['bullet', '- first\\\n  second|', '- first\\\n  second\n- |'],
+    ['star', '* first\\\n  second|', '* first\\\n  second\n* |'],
+    ['plus', '+ first\\\n  second|', '+ first\\\n  second\n+ |'],
+    ['ordered', '2. first\\\n   second|', '2. first\\\n   second\n3. |'],
+    ['task', '- [ ] first\\\n  second|', '- [ ] first\\\n  second\n- [ ] |'],
+    ['completed task', '- [x] first\\\n  second|', '- [x] first\\\n  second\n- [ ] |'],
+    ['nested', '- parent\n  - first\\\n    second|', '- parent\n  - first\\\n    second\n  - |'],
+    ['multiple breaks', '- first\\\n  second\\\n  third|', '- first\\\n  second\\\n  third\n- |'],
+    ['mid-line', '- first\\\n  sec|ond', '- first\\\n  sec\n- |ond'],
+  ])('Enter creates a sibling from a %s hard-break continuation', (_name, source, expected) => {
+    expect(enter(source)).toBe(expected);
+  });
+
+  it('Enter immediately after Shift+Enter replaces the pending break with a sibling', () => {
+    const view = mount('- first|');
+    press(view, 'Enter', true);
+    ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+    expect(shown(view)).toBe('- first\\\n  |');
+    press(view, 'Enter');
+    expect(shown(view)).toBe('- first\n- |');
   });
 });
