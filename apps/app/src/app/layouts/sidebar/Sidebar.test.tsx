@@ -472,7 +472,7 @@ describe('Sidebar: shared New folder dialog', () => {
 
     fireEvent.change(field, { target: { value: '  Projects  ' } });
     fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: '  Client work  ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(field.closest('form')!).getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument());
     expect(create).toHaveBeenCalledTimes(1);
@@ -499,11 +499,11 @@ describe('Sidebar: shared New folder dialog', () => {
     const { application, field } = setupFolderDialog();
     const create = vi.spyOn(application.folderOperations, 'create');
     fireEvent.change(field, { target: { value: 'a/b' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(field.closest('form')!).getByRole('button', { name: 'Create' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('can’t contain'));
     expect(create).not.toHaveBeenCalled();
     fireEvent.change(field, { target: { value: 'Valid' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(field.closest('form')!).getByRole('button', { name: 'Create' }));
     await waitFor(() => expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument());
     expect(create).toHaveBeenCalledWith('Valid', null);
   });
