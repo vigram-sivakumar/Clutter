@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { forceParsing } from '@codemirror/language';
+import { foldedRanges, forceParsing } from '@codemirror/language';
+import { undoDepth } from '@codemirror/commands';
 import type { EditorView } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
@@ -64,22 +65,7 @@ describe('foldToggleDecoration — Phase 1 scope: headings and fenced code, list
     expect(toggleTextsByOwner(view)).toContain('```ts');
   });
 
-  /**
-   * Regression coverage for a real bug found during live verification:
-   * `@codemirror/lang-markdown`'s own generic `foldNodeProp` branch makes
-   * *any* multi-line `Paragraph` node foldable (it only excludes
-   * `Document`/heading/list, not `Paragraph`) — before
-   * `isInScopeFoldOwner`'s allowlist existed, this widget faithfully
-   * surfaced that native range as a working "fold this ordinary paragraph
-   * in half" control the moment two source lines merged into one
-   * `Paragraph` node, which happens for perfectly ordinary continuation
-   * text with no blank line between two lines — not just for genuinely
-   * indented content. Phase 3 (`indentedParagraphFoldService.ts`, tested
-   * separately below) now legitimately makes a paragraph foldable when it
-   * genuinely owns more-indented content — this test only pins down that
-   * *this* case, an ordinary same-indentation continuation, must never be
-   * mistaken for that.
-   */
+  /** Ordinary and indented prose must never acquire the native generic paragraph fold. */
   it('two ordinary consecutive lines merged into one Paragraph node get no toggle (the reported bug)', () => {
     const view = mount('This is a new line\nThis is another line below the paragraph');
     expect(toggleTextsByOwner(view)).toEqual([]);
@@ -145,6 +131,24 @@ describe('foldToggleDecoration — Phase 1 scope: headings and fenced code, list
     expect(collapsedToggle.dataset.folded).toBe('true');
     collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(view.dom.querySelector('.cm-content')?.textContent).toContain('body line');
+  });
+
+  it('collapsing and reopening a parent heading preserves the child heading fold without changing source or history', () => {
+    const doc = '# Parent\nintro\n## Child\nchild body\n# Next\nnext body';
+    const view = mount(doc);
+    const toggle = (label: string) => Array.from(view.dom.querySelectorAll<HTMLButtonElement>('.cm-fold-toggle'))
+      .find(el => el.closest('.cm-line')?.textContent?.startsWith(label))!;
+    const before = undoDepth(view.state);
+    toggle('## Child').click();
+    expect(foldedRanges(view.state).size).toBe(1);
+    toggle('# Parent').click();
+    expect(view.dom.querySelector('.cm-content')?.textContent).not.toContain('## Child');
+    toggle('# Parent').click();
+    expect(view.dom.querySelector('.cm-content')?.textContent).toContain('## Child');
+    expect(view.dom.querySelector('.cm-content')?.textContent).not.toContain('child body');
+    expect(toggle('## Child').dataset.folded).toBe('true');
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(undoDepth(view.state)).toBe(before);
   });
 });
 
