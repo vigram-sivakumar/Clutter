@@ -11,6 +11,7 @@
  * - Automatically delete archived items: never carried over. It deletes data, so turning it on in a Space the user
  *   did not enable it for would be a change they never asked for; every Space starts with it off, and the old
  *   value is discarded.
+ * - Retired sidebar startup keys: never read or migrated, cleared only on explicit settings reset.
  */
 export const LEGACY_COVER_POSITION_KEY = 'clutter-default-cover-position';
 export const LEGACY_AUTO_DELETE_ARCHIVED_KEY = 'clutter-auto-delete-archived';
