@@ -1687,10 +1687,14 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     return ranges;
   }
 
-  function foldFirstRegion(container: HTMLElement, from: number, to: number): void {
+  function foldFirstRegion(container: HTMLElement, lineNumber = 1): { from: number; to: number } {
     const dom = container.querySelector<HTMLElement>('.cm-editor')!;
     const view = EditorView.findFromDOM(dom)!;
-    view.dispatch({ effects: [foldEffect.of({ from, to })] });
+    const line = view.state.doc.line(lineNumber);
+    const range = foldable(view.state, line.from, line.to)!;
+    expect(range).not.toBeNull();
+    view.dispatch({ effects: [foldEffect.of(range)] });
+    return range;
   }
 
   /** Lets FoldStateStore's fire-and-forget persistence write complete. */
@@ -1706,7 +1710,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     const first = render(
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
     );
-    foldFirstRegion(first.container, 0, 11);
+    const range = foldFirstRegion(first.container);
     first.unmount();
     await flushMicrotasks();
 
@@ -1714,7 +1718,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
     );
 
-    expect(foldedRangesIn(second.container)).toEqual([{ from: 0, to: 11 }]);
+    expect(foldedRangesIn(second.container)).toEqual([range]);
   });
 
   it('fold -> persist -> simulate app restart (fresh FoldStateStore.load over the same filesystem) -> reopen note -> fold is restored', async () => {
@@ -1725,7 +1729,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     const first = render(
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={beforeRestart} />
     );
-    foldFirstRegion(first.container, 0, 11);
+    const range = foldFirstRegion(first.container);
     first.unmount();
     await flushMicrotasks();
 
@@ -1736,7 +1740,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={afterRestart} />
     );
 
-    expect(foldedRangesIn(reopened.container)).toEqual([{ from: 0, to: 11 }]);
+    expect(foldedRangesIn(reopened.container)).toEqual([range]);
   });
 
   it('multiple folded regions restore correctly', async () => {
@@ -1747,11 +1751,8 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     const first = render(
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
     );
-    const dom = first.container.querySelector<HTMLElement>('.cm-editor')!;
-    const view = EditorView.findFromDOM(dom)!;
-    view.dispatch({
-      effects: [foldEffect.of({ from: 0, to: 11 }), foldEffect.of({ from: 20, to: 31 })],
-    });
+    const firstRange = foldFirstRegion(first.container, 1);
+    const secondRange = foldFirstRegion(first.container, 3);
     first.unmount();
     await flushMicrotasks();
 
@@ -1759,10 +1760,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
       <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
     );
 
-    expect(foldedRangesIn(second.container)).toEqual([
-      { from: 0, to: 11 },
-      { from: 20, to: 31 },
-    ]);
+    expect(foldedRangesIn(second.container)).toEqual([firstRange, secondRange]);
   });
 
   it('different notes maintain independent fold states', async () => {
@@ -1774,7 +1772,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     const noteA = render(
       <MarkdownEditor pageId="note-a" markdown={markdownA} foldStateStore={foldStateStore} />
     );
-    foldFirstRegion(noteA.container, 0, 16);
+    const range = foldFirstRegion(noteA.container);
     noteA.unmount();
     await flushMicrotasks();
 
@@ -1792,7 +1790,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
       <MarkdownEditor pageId="note-b" markdown={markdownB} foldStateStore={foldStateStore} />
     );
 
-    expect(foldedRangesIn(reopenedA.container)).toEqual([{ from: 0, to: 16 }]);
+    expect(foldedRangesIn(reopenedA.container)).toEqual([range]);
     expect(foldedRangesIn(reopenedB.container)).toEqual([]);
   });
 
@@ -1819,7 +1817,7 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     const first = render(
       <MarkdownEditor pageId="note-a" markdown={originalMarkdown} foldStateStore={foldStateStore} />
     );
-    foldFirstRegion(first.container, 0, 11);
+    foldFirstRegion(first.container);
     first.unmount();
     await flushMicrotasks();
 
