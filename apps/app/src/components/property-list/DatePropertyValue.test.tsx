@@ -625,6 +625,34 @@ describe('DatePropertyValue — Clear', () => {
 });
 
 describe('DatePropertyValue — calendar dismissal', () => {
+  it.each(['1/1/2026', '31/9/2026', ''])('Escape discards draft %j and a later blur cannot commit it', (draft) => {
+    const onCommit = vi.fn();
+    render(
+      <>
+        <DatePropertyValue name="Due" value="2025-09-15" format={formatDatePropertyValue} editable onCommit={onCommit} />
+        <button type="button">elsewhere</button>
+      </>
+    );
+
+    act(() => getField().focus());
+    type(draft);
+    fireEvent.keyDown(getField(), { key: 'Escape' });
+
+    expect(isCalendarOpen()).toBe(false);
+    expect(getField().value).toBe('15 September 2025');
+    expect(document.activeElement).toBe(getField());
+    act(() => screen.getByRole('button', { name: 'elsewhere' }).focus());
+    expect(onCommit).not.toHaveBeenCalled();
+
+    act(() => getField().focus());
+    expect(isCalendarOpen()).toBe(true);
+    expect(calendarMonthYear()).toBe('September 2025');
+    expect(selectedDay()).toBe('15');
+    type('20 September 2025');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('2025-09-20');
+  });
+
   it('keeps focus in the input when pressing inside the calendar', () => {
     render(<StatefulDate initial="2025-09-15" />);
 

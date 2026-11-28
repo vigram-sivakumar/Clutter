@@ -119,6 +119,9 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   }
 
   function close() {
+    // Dismissing the calendar (including Escape) abandons the typed draft.
+    // A later blur must not commit a date that the user already cancelled.
+    resetDraft();
     ignoreNextFocusRef.current = true;
     setOpen(false);
   }
@@ -182,7 +185,6 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   }
 
   function handleSelect(isoDate: string) {
-    resetDraft();
     onCommit(isoDate);
     close();
   }
