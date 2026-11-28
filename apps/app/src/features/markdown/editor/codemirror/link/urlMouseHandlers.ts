@@ -10,8 +10,8 @@ import { isUrlNode } from './urlEngagement';
  * own named export since it's exercised directly in tests, mirroring
  * `linkMouseHandlers.ts`'s `handleLinkClick`.
  */
-export function handleUrlClick(view: EditorView, pos: number, altKey: boolean): boolean {
-  return handleTokenClick(view, pos, altKey, isUrlNode, getUrlActivation);
+export function handleUrlClick(view: EditorView, pos: number): boolean {
+  return handleTokenClick(view, pos, isUrlNode, getUrlActivation);
 }
 
 /**

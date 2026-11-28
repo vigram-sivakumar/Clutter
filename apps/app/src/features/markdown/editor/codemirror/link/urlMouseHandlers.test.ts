@@ -29,7 +29,7 @@ describe('handleUrlClick', () => {
     const view = mountView(doc);
     const inside = doc.indexOf('example');
 
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(true);
     expect(mockOpen).toHaveBeenCalledWith('https://example.com/a?b=1');
@@ -42,7 +42,7 @@ describe('handleUrlClick', () => {
     const view = mountView(doc);
     const inside = doc.indexOf('example');
 
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(true);
     expect(mockOpen).toHaveBeenCalledWith('https://example.com/a');
@@ -52,7 +52,7 @@ describe('handleUrlClick', () => {
     const doc = 'before https://example.com/a after';
     const view = mountView(doc);
 
-    const handled = handleUrlClick(view, 2, false);
+    const handled = handleUrlClick(view, 2);
 
     expect(handled).toBe(false);
   });
@@ -65,7 +65,7 @@ describe('handleUrlClick', () => {
     const inside = doc.indexOf('example');
 
     view.dispatch({ selection: { anchor: inside } });
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe('handleUrlClick', () => {
     const view = mountView(doc);
     const labelInside = doc.indexOf('Google') + 2;
 
-    const handled = handleUrlClick(view, labelInside, false);
+    const handled = handleUrlClick(view, labelInside);
 
     expect(handled).toBe(false);
   });
@@ -95,7 +95,7 @@ describe('handleUrlClick', () => {
     const view = mountView(doc);
     const inside = doc.indexOf('example');
 
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe('handleUrlClick — cursor inside an enclosing formatting construct but
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**", outside the Autolink
     const inside = doc.indexOf('example');
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ describe('handleUrlClick — cursor inside an enclosing formatting construct but
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "~~", outside the URL
     const inside = doc.indexOf('example');
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe('handleUrlClick — cursor inside an enclosing formatting construct but
 
     view.dispatch({ selection: { anchor: 0 } });
     const inside = doc.indexOf('example');
-    const handled = handleUrlClick(view, inside, false);
+    const handled = handleUrlClick(view, inside);
 
     expect(handled).toBe(true);
     expect(mockOpen).toHaveBeenCalledWith('https://example.com/a');

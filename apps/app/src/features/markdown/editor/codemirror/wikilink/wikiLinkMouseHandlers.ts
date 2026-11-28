@@ -16,10 +16,9 @@ import type { ResolveWikiLink } from './wikiLinkResolution';
 export function handleWikiLinkClick(
   view: EditorView,
   pos: number,
-  altKey: boolean,
   getResolver: () => ResolveWikiLink | undefined
 ): boolean {
-  return handleTokenClick(view, pos, altKey, isWikiLinkNode, (v, node) =>
+  return handleTokenClick(view, pos, isWikiLinkNode, (v, node) =>
     getWikiLinkActivation(v, node, getResolver)
   );
 }

@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
 import { getDateActivation } from './dateActivation';
 import { findAtRestDateAt } from './dateEngagement';
 import { handleDateClick } from './dateMouseHandlers';
@@ -45,7 +46,7 @@ describe('handleDateClick', () => {
     const view = mountView('Text before @2026-08-20', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleDateClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleDateClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -57,7 +58,7 @@ describe('handleDateClick', () => {
     const view = mountView('Text before @2026-08-20', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleDateClick(view, nodeFrom + 3, true, () => resolver);
+    const handled = handleRenderedTokenPress(new MouseEvent('mousedown', { button: 0, altKey: true, cancelable: true }), () => handleDateClick(view, nodeFrom + 3, () => resolver));
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -67,7 +68,7 @@ describe('handleDateClick', () => {
     const resolver: ResolveDate = () => ({ activate: vi.fn() });
     const view = mountView('Text before @2026-08-20', resolver);
 
-    const handled = handleDateClick(view, 2, false, () => resolver);
+    const handled = handleDateClick(view, 2, () => resolver);
 
     expect(handled).toBe(false);
   });
@@ -79,7 +80,7 @@ describe('handleDateClick', () => {
     const nodeFrom = 'Text before '.length;
 
     view.dispatch({ selection: { anchor: nodeFrom + 3 } });
-    const handled = handleDateClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleDateClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -89,7 +90,7 @@ describe('handleDateClick', () => {
     const view = mountView('Text before @2026-08-20');
     const nodeFrom = 'Text before '.length;
 
-    expect(() => handleDateClick(view, nodeFrom + 2, false, () => undefined)).not.toThrow();
+    expect(() => handleDateClick(view, nodeFrom + 2, () => undefined)).not.toThrow();
   });
 
   describe('invalid (shape-valid, calendar-invalid) Date — non-interactive, not a clickable token', () => {
@@ -99,7 +100,7 @@ describe('handleDateClick', () => {
       const view = mountView('Text before @2026-13-45', resolver);
       const nodeFrom = 'Text before '.length;
 
-      const handled = handleDateClick(view, nodeFrom + 3, false, () => resolver);
+      const handled = handleDateClick(view, nodeFrom + 3, () => resolver);
 
       // `handled === false` is exactly the signal `tokenMouseHandlers.ts`'s
       // real `mousedown` DOM handler uses to decide whether to call
@@ -116,7 +117,7 @@ describe('handleDateClick', () => {
       const view = mountView('Text before @2026-13-45', resolver);
       const nodeFrom = 'Text before '.length;
 
-      const handled = handleDateClick(view, nodeFrom + 3, true, () => resolver);
+      const handled = handleRenderedTokenPress(new MouseEvent('mousedown', { button: 0, altKey: true, cancelable: true }), () => handleDateClick(view, nodeFrom + 3, () => resolver));
 
       expect(handled).toBe(false);
       expect(activate).not.toHaveBeenCalled();
@@ -141,7 +142,7 @@ describe('handleDateClick', () => {
       const view = mountView('@2026-13-45 @2026-08-20', resolver);
       const validNodeFrom = '@2026-13-45 '.length;
 
-      const handled = handleDateClick(view, validNodeFrom + 3, false, () => resolver);
+      const handled = handleDateClick(view, validNodeFrom + 3, () => resolver);
 
       expect(handled).toBe(true);
       expect(activate).toHaveBeenCalledTimes(1);
@@ -171,7 +172,7 @@ describe('handleDateClick — cursor elsewhere in an enclosing formatting constr
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Date
     const clickPos = doc.indexOf('2026') + 2;
-    const handled = handleDateClick(view, clickPos, false, () => resolver);
+    const handled = handleDateClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -185,7 +186,7 @@ describe('handleDateClick — cursor elsewhere in an enclosing formatting constr
 
     view.dispatch({ selection: { anchor: 1 } }); // inside the outer "**", flush against the Date on both sides
     const clickPos = doc.indexOf('2026') + 2;
-    const handled = handleDateClick(view, clickPos, false, () => resolver);
+    const handled = handleDateClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -199,7 +200,7 @@ describe('handleDateClick — cursor elsewhere in an enclosing formatting constr
 
     view.dispatch({ selection: { anchor: 0 } });
     const clickPos = doc.indexOf('2026') + 2;
-    const handled = handleDateClick(view, clickPos, false, () => resolver);
+    const handled = handleDateClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -249,7 +250,7 @@ describe('clicking a Date opens the daily note of its calendar date, whatever th
     const view = mountView(`Text before ${reference}`, resolve);
     resolve.mockClear();
 
-    const handled = handleDateClick(view, 'Text before '.length + 3, false, () => resolve);
+    const handled = handleDateClick(view, 'Text before '.length + 3, () => resolve);
 
     expect(handled).toBe(true);
     expect(resolve).toHaveBeenCalledTimes(1);
@@ -269,7 +270,7 @@ describe('several Date references in one paragraph', () => {
     const starts = [...doc.matchAll(/@\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/g)].map((m) => m.index!);
     starts.forEach((start, i) => {
       resolve.mockClear();
-      expect(handleDateClick(view, start + 4, false, () => resolve)).toBe(true);
+      expect(handleDateClick(view, start + 4, () => resolve)).toBe(true);
       expect(resolve).toHaveBeenCalledTimes(1);
       expect(resolve).toHaveBeenCalledWith(expected[i]);
     });
@@ -280,9 +281,9 @@ describe('several Date references in one paragraph', () => {
     const view = mountView(doc, resolve);
     resolve.mockClear();
 
-    expect(handleDateClick(view, doc.indexOf(' C '), false, () => resolve)).toBe(true); // end of the date before it, a real boundary
+    expect(handleDateClick(view, doc.indexOf(' C '), () => resolve)).toBe(true); // end of the date before it, a real boundary
     resolve.mockClear();
-    expect(handleDateClick(view, doc.indexOf('C') , false, () => resolve)).toBe(false);
+    expect(handleDateClick(view, doc.indexOf('C') , () => resolve)).toBe(false);
     expect(resolve).not.toHaveBeenCalled();
   });
 
@@ -291,7 +292,7 @@ describe('several Date references in one paragraph', () => {
     const view = mountView('x @2026-13-45T12:00 y', resolve);
     resolve.mockClear();
 
-    expect(handleDateClick(view, 8, false, () => resolve)).toBe(false);
+    expect(handleDateClick(view, 8, () => resolve)).toBe(false);
     expect(resolve).not.toHaveBeenCalled();
   });
 });

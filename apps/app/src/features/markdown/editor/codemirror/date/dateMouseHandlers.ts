@@ -15,10 +15,9 @@ import type { ResolveDate } from './dateResolution';
 export function handleDateClick(
   view: EditorView,
   pos: number,
-  altKey: boolean,
   getResolver: () => ResolveDate | undefined
 ): boolean {
-  return handleTokenClick(view, pos, altKey, isDateNode, (v, node) =>
+  return handleTokenClick(view, pos, isDateNode, (v, node) =>
     getDateActivation(v, node, getResolver)
   );
 }

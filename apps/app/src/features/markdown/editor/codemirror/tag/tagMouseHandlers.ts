@@ -15,10 +15,9 @@ import type { ResolveTag } from './tagResolution';
 export function handleTagClick(
   view: EditorView,
   pos: number,
-  altKey: boolean,
   getResolver: () => ResolveTag | undefined
 ): boolean {
-  return handleTokenClick(view, pos, altKey, isTagNode, (v, node) =>
+  return handleTokenClick(view, pos, isTagNode, (v, node) =>
     getTagActivation(v, node, getResolver)
   );
 }

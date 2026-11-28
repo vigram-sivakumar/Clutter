@@ -76,4 +76,26 @@ describe('WikiLink click activation — real DOM event path', () => {
 
     expect(activate).toHaveBeenCalledTimes(1);
   });
+
+  it('the platform edit modifier reveals source without activating or changing Markdown', () => {
+    const activate = vi.fn();
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const doc = 'Text before [[Projects/Page]]';
+    const view = mountView(doc, resolver);
+    try {
+      const widget = view.dom.querySelector('[data-wikilink-status]')!;
+      expect(widget).not.toBeNull();
+      view.posAtCoords = () => 'Text before '.length + 3;
+      const event = new MouseEvent('mousedown', {
+        bubbles: true, cancelable: true, button: 0, metaKey: true, ctrlKey: true,
+      });
+      widget.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(activate).not.toHaveBeenCalled();
+      expect(view.state.selection.main.head).toBe(doc.length - 2);
+      expect(view.state.doc.toString()).toBe(doc);
+    } finally {
+      view.destroy();
+    }
+  });
 });

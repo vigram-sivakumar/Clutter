@@ -40,7 +40,7 @@ describe('handleLinkClick', () => {
     const view = mountView(doc);
     const labelInside = doc.indexOf('Google') + 2;
 
-    const handled = handleLinkClick(view, labelInside, false);
+    const handled = handleLinkClick(view, labelInside);
 
     expect(handled).toBe(true);
     expect(mockOpen).toHaveBeenCalledWith('https://google.com');
@@ -50,7 +50,7 @@ describe('handleLinkClick', () => {
     const doc = 'before [Google](https://google.com) after';
     const view = mountView(doc);
 
-    const handled = handleLinkClick(view, 2, false);
+    const handled = handleLinkClick(view, 2);
 
     expect(handled).toBe(false);
   });
@@ -63,7 +63,7 @@ describe('handleLinkClick', () => {
     const labelInside = doc.indexOf('Google') + 2;
 
     view.dispatch({ selection: { anchor: labelInside } }); // engage it first
-    const handled = handleLinkClick(view, labelInside, false);
+    const handled = handleLinkClick(view, labelInside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('handleLinkClick', () => {
     const view = mountView(doc);
     const inside = doc.indexOf('Display') + 2;
 
-    const handled = handleLinkClick(view, inside, false);
+    const handled = handleLinkClick(view, inside);
 
     expect(handled).toBe(false);
   });
@@ -86,7 +86,7 @@ describe('handleLinkClick', () => {
     const view = mountView(doc);
     const labelInside = doc.indexOf('text') + 1;
 
-    handleLinkClick(view, labelInside, false);
+    handleLinkClick(view, labelInside);
 
     expect(mockOpen).toHaveBeenCalledWith('https://example.com');
   });
@@ -107,7 +107,7 @@ describe('handleLinkClick — cursor inside an enclosing formatting construct bu
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**", outside the Link
     const labelInside = doc.indexOf('Google') + 2;
-    const handled = handleLinkClick(view, labelInside, false);
+    const handled = handleLinkClick(view, labelInside);
 
     expect(handled).toBe(false);
     expect(mockOpen).not.toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe('handleLinkClick — cursor inside an enclosing formatting construct bu
 
     view.dispatch({ selection: { anchor: 0 } });
     const labelInside = doc.indexOf('Google') + 2;
-    const handled = handleLinkClick(view, labelInside, false);
+    const handled = handleLinkClick(view, labelInside);
 
     expect(handled).toBe(true);
     expect(mockOpen).toHaveBeenCalledWith('https://google.com');

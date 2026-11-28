@@ -3,10 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
-import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
+import { inlinePreviewExtensions } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { dateSelectionSnap } from './dateSelectionSnap';
 import type { ResolveDate } from './dateResolution';
 
 function mountView(doc: string, resolver?: ResolveDate): EditorView {
@@ -16,14 +14,7 @@ function mountView(doc: string, resolver?: ResolveDate): EditorView {
     doc,
     extensions: [
       markdownLanguageExtension(),
-      inlineLivePreviewRegion(
-        createInlineLivePreviewParticipants({
-          resolveWikiLink: () => undefined,
-          resolveTag: () => undefined,
-          resolveDate: () => resolver,
-        })
-      ),
-      dateSelectionSnap(),
+      inlinePreviewExtensions({ resolveDate: () => resolver }),
     ],
   });
   return new EditorView({ state, parent });
@@ -31,23 +22,23 @@ function mountView(doc: string, resolver?: ResolveDate): EditorView {
 
 const resolved = (): ResolveDate => () => ({ activate: vi.fn() });
 
-describe('dateSelectionSnap — the one gap native atomicRanges genuinely leaves', () => {
-  it('a selection endpoint landing strictly inside an at-rest Date snaps to the nearer boundary', () => {
+describe('Date selection — production inline extensions leave selection to CodeMirror', () => {
+  it('preserves an explicitly dispatched selection endpoint inside an at-rest token', () => {
     // "x @2026-08-20 y" -- node spans [2, 13). Endpoint at 4 is strictly
     // inside, closer to 2 than to 13.
     const view = mountView('x @2026-08-20 y', resolved());
 
     view.dispatch({ selection: { anchor: 0, head: 4 } });
 
-    expect(view.state.selection.main.to).toBe(2);
+    expect(view.state.selection.main.to).toBe(4);
   });
 
-  it('snaps to the far boundary when the inside endpoint is closer to it', () => {
+  it('preserves a reverse selection endpoint near the far boundary', () => {
     const view = mountView('x @2026-08-20 y', resolved());
 
     view.dispatch({ selection: { anchor: 15, head: 12 } });
 
-    expect(view.state.selection.main.from).toBe(13);
+    expect(view.state.selection.main.from).toBe(12);
   });
 
   it('does not touch a selection that spans fully across the node from outside to outside', () => {
@@ -59,7 +50,7 @@ describe('dateSelectionSnap — the one gap native atomicRanges genuinely leaves
     expect(view.state.selection.main.to).toBe(15);
   });
 
-  it('never applies to a document-changing transaction', () => {
+  it('does not interfere with a document-changing transaction', () => {
     const view = mountView('x @2026-08-20 y', resolved());
 
     view.dispatch({ changes: { from: 4, insert: '!' } });
@@ -67,7 +58,7 @@ describe('dateSelectionSnap — the one gap native atomicRanges genuinely leaves
     expect(view.state.doc.toString()).toBe('x @2!026-08-20 y');
   });
 
-  it('an already-engaged Date is never snapped', () => {
+  it('an already-engaged Date keeps the requested selection', () => {
     const view = mountView('x @2026-08-20 y', resolved());
     view.dispatch({ selection: { anchor: 5 } }); // engage it first
 

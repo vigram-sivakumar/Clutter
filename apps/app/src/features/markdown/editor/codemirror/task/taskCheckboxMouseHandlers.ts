@@ -18,7 +18,7 @@ export function handleTaskCheckboxClick(
   pos: number,
   requestImmediateSave?: () => void
 ): boolean {
-  return handleTokenClick(view, pos, false, isTaskMarkerNode, (v, node) =>
+  return handleTokenClick(view, pos, isTaskMarkerNode, (v, node) =>
     getTaskCheckboxActivation(v, node, requestImmediateSave)
   );
 }

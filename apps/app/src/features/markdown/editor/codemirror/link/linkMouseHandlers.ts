@@ -11,8 +11,8 @@ import { isLinkNode } from './linkEngagement';
  * since it's exercised directly in tests, mirroring
  * `wikiLinkMouseHandlers.ts`'s `handleWikiLinkClick`.
  */
-export function handleLinkClick(view: EditorView, pos: number, altKey: boolean): boolean {
-  return handleTokenClick(view, pos, altKey, isLinkNode, getLinkActivation);
+export function handleLinkClick(view: EditorView, pos: number): boolean {
+  return handleTokenClick(view, pos, isLinkNode, getLinkActivation);
 }
 
 /**

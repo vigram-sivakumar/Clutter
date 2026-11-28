@@ -23,31 +23,20 @@ export type GetTokenActivation = (
  * directly rather than synthesizing coordinates jsdom can't resolve. Works
  * correctly in a real browser regardless.
  *
- * `_altKey` is accepted (kept in the signature — every caller, including
- * every kind-specific wrapper and its tests, still passes it) but no
- * longer changes behavior — a click always activates. It previously
- * dispatched a custom selection to "engage" the token instead of
- * activating it; that was Clutter-authored cursor repositioning with no
- * CM6 equivalent, removed as part of the cursor/selection behavior reset
- * (placing the caret inside a token to edit it is ordinary
- * click-to-position-cursor, which CM6 already does natively once this
- * handler declines to intercept the click).
- *
  * Returns `true` if a token was at `pos` and something happened (so the
  * caller knows to `preventDefault()`), `false` otherwise.
  */
 export function handleTokenClick(
   view: EditorView,
   pos: number,
-  _altKey: boolean,
   isTokenNode: TokenNodePredicate,
   getActivation: GetTokenActivation
 ): boolean {
   const node = findAtRestTokenAt(view.state, pos, isTokenNode);
-  if (!node) {
-    return false;
-  }
+  return node ? activateToken(view, node, getActivation) : false;
+}
 
+function activateToken(view: EditorView, node: TokenNodeRange, getActivation: GetTokenActivation): boolean {
   const activate = getActivation(view, node);
   if (!activate) {
     return false;
@@ -170,23 +159,9 @@ export function isTokenEditPress(event: MouseEvent): boolean {
   return mac ? event.metaKey : event.ctrlKey;
 }
 
-/**
- * The ⌘-click decision, with an explicit position like `handleTokenClick` (and for the same reason). When a token is
- * at rest at `pos`, puts the caret at `caretFor(node)` — inside the token, so it reveals its source — and returns
- * `true`; anything else returns `false` and the click is left to CM6 (a second cursor, ordinarily). A read-only view
- * has nothing to edit, so it declines too and the ordinary activation applies.
- */
-export function handleTokenEditClick(
-  view: EditorView,
-  pos: number,
-  isTokenNode: TokenNodePredicate,
-  caretFor: TokenEditCaret
-): boolean {
+/** Edit an already-resolved token; a read-only view falls back to activation. */
+function editToken(view: EditorView, node: TokenNodeRange, caretFor: TokenEditCaret): boolean {
   if (view.state.readOnly) {
-    return false;
-  }
-  const node = findAtRestTokenAt(view.state, pos, isTokenNode);
-  if (!node) {
     return false;
   }
   const caret = Math.min(Math.max(caretFor(view, node), node.from), node.to);
@@ -236,17 +211,15 @@ export function tokenMouseHandlers(
         return false;
       }
 
-      // Reject before handleTokenClick's own (position-only) lookup runs
-      // — see isWithinTokenBounds's doc comment for exactly why a
-      // position match alone isn't sufficient here.
+      // Resolve once; a position match alone is not a rendered hit.
       const node = findAtRestTokenAt(view.state, pos, isTokenNode);
-      if (node && !isWithinTokenBounds(view, node, event.clientX, event.clientY)) {
+      if (!node || !isWithinTokenBounds(view, node, event.clientX, event.clientY)) {
         return false;
       }
 
       const handled = handleRenderedTokenPress(event,
-        () => handleTokenClick(view, pos, event.altKey, isTokenNode, getActivation),
-        editCaret ? () => handleTokenEditClick(view, pos, isTokenNode, editCaret) : undefined);
+        () => activateToken(view, node, getActivation),
+        editCaret ? () => editToken(view, node, editCaret) : undefined);
       if (handled) options.onHandled?.();
       return handled;
     },

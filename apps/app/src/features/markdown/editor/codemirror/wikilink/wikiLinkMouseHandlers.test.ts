@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
 import { handleWikiLinkClick } from './wikiLinkMouseHandlers';
 import type { ResolveWikiLink } from './wikiLinkResolution';
 
@@ -41,7 +42,7 @@ describe('handleWikiLinkClick', () => {
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -53,7 +54,7 @@ describe('handleWikiLinkClick', () => {
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 3, true, () => resolver);
+    const handled = handleRenderedTokenPress(new MouseEvent('mousedown', { button: 0, altKey: true, cancelable: true }), () => handleWikiLinkClick(view, nodeFrom + 3, () => resolver));
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -63,7 +64,7 @@ describe('handleWikiLinkClick', () => {
     const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate: vi.fn() });
     const view = mountView('Text before [[Projects/Page]]', resolver);
 
-    const handled = handleWikiLinkClick(view, 2, false, () => resolver);
+    const handled = handleWikiLinkClick(view, 2, () => resolver);
 
     expect(handled).toBe(false);
   });
@@ -75,7 +76,7 @@ describe('handleWikiLinkClick', () => {
     const nodeFrom = 'Text before '.length;
 
     view.dispatch({ selection: { anchor: nodeFrom + 3 } }); // engage it first
-    const handled = handleWikiLinkClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -85,7 +86,7 @@ describe('handleWikiLinkClick', () => {
     const view = mountView('Text before [[Projects/Page]]');
     const nodeFrom = 'Text before '.length;
 
-    expect(() => handleWikiLinkClick(view, nodeFrom + 2, false, () => undefined)).not.toThrow();
+    expect(() => handleWikiLinkClick(view, nodeFrom + 2, () => undefined)).not.toThrow();
   });
 
   // Regression guard for the icon/DOM-structure consistency fix
@@ -101,7 +102,7 @@ describe('handleWikiLinkClick', () => {
     const view = mountView('Text before [[Missing note]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -133,7 +134,7 @@ describe('handleWikiLinkClick — cursor inside an enclosing formatting construc
     // Click lands well inside the WikiLink's own text ("Page"), not at
     // either boundary.
     const clickPos = doc.indexOf('Page') + 2;
-    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+    const handled = handleWikiLinkClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -147,7 +148,7 @@ describe('handleWikiLinkClick — cursor inside an enclosing formatting construc
 
     view.dispatch({ selection: { anchor: 1 } }); // inside the "~~", outside the WikiLink
     const clickPos = doc.indexOf('Page') + 2;
-    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+    const handled = handleWikiLinkClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -161,7 +162,7 @@ describe('handleWikiLinkClick — cursor inside an enclosing formatting construc
 
     view.dispatch({ selection: { anchor: 0 } }); // nowhere near the construct
     const clickPos = doc.indexOf('Page') + 2;
-    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+    const handled = handleWikiLinkClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -181,7 +182,7 @@ describe('handleWikiLinkClick — empty/whitespace-only WikiLink is never naviga
     const view = mountView('Text before [[]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 1, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 1, () => resolver);
 
     expect(handled).toBe(false);
     expect(create).not.toHaveBeenCalled();
@@ -193,7 +194,7 @@ describe('handleWikiLinkClick — empty/whitespace-only WikiLink is never naviga
     const view = mountView('Text before [[ ]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 1, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 1, () => resolver);
 
     expect(handled).toBe(false);
     expect(create).not.toHaveBeenCalled();
@@ -204,7 +205,7 @@ describe('handleWikiLinkClick — empty/whitespace-only WikiLink is never naviga
     const view = mountView('Text before [[]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    handleWikiLinkClick(view, nodeFrom + 1, false, () => resolver);
+    handleWikiLinkClick(view, nodeFrom + 1, () => resolver);
 
     expect(resolver).not.toHaveBeenCalled();
   });
@@ -215,7 +216,7 @@ describe('handleWikiLinkClick — empty/whitespace-only WikiLink is never naviga
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleWikiLinkClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleWikiLinkClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);

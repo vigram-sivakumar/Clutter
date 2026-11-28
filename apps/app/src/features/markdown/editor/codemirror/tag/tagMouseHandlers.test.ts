@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { handleRenderedTokenPress } from '../semanticToken/tokenMouseHandlers';
 import { handleTagClick } from './tagMouseHandlers';
 import type { ResolveTag } from './tagResolution';
 
@@ -36,7 +37,7 @@ describe('handleTagClick', () => {
     const view = mountView('Text before #project', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleTagClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleTagClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -48,7 +49,7 @@ describe('handleTagClick', () => {
     const view = mountView('Text before #project', resolver);
     const nodeFrom = 'Text before '.length;
 
-    const handled = handleTagClick(view, nodeFrom + 3, true, () => resolver);
+    const handled = handleRenderedTokenPress(new MouseEvent('mousedown', { button: 0, altKey: true, cancelable: true }), () => handleTagClick(view, nodeFrom + 3, () => resolver));
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -58,7 +59,7 @@ describe('handleTagClick', () => {
     const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate: vi.fn() });
     const view = mountView('Text before #project', resolver);
 
-    const handled = handleTagClick(view, 2, false, () => resolver);
+    const handled = handleTagClick(view, 2, () => resolver);
 
     expect(handled).toBe(false);
   });
@@ -70,7 +71,7 @@ describe('handleTagClick', () => {
     const nodeFrom = 'Text before '.length;
 
     view.dispatch({ selection: { anchor: nodeFrom + 3 } }); // engage it first
-    const handled = handleTagClick(view, nodeFrom + 3, false, () => resolver);
+    const handled = handleTagClick(view, nodeFrom + 3, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -80,7 +81,7 @@ describe('handleTagClick', () => {
     const view = mountView('Text before #project');
     const nodeFrom = 'Text before '.length;
 
-    expect(() => handleTagClick(view, nodeFrom + 2, false, () => undefined)).not.toThrow();
+    expect(() => handleTagClick(view, nodeFrom + 2, () => undefined)).not.toThrow();
   });
 });
 
@@ -111,7 +112,7 @@ describe('handleTagClick — cursor elsewhere in an enclosing formatting constru
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Tag
     const clickPos = doc.indexOf('project') + 2;
-    const handled = handleTagClick(view, clickPos, false, () => resolver);
+    const handled = handleTagClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
@@ -125,7 +126,7 @@ describe('handleTagClick — cursor elsewhere in an enclosing formatting constru
 
     view.dispatch({ selection: { anchor: 1 } }); // inside the outer "**", flush against the Tag on both sides
     const clickPos = doc.indexOf('project') + 2;
-    const handled = handleTagClick(view, clickPos, false, () => resolver);
+    const handled = handleTagClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(false);
     expect(activate).not.toHaveBeenCalled();
@@ -139,7 +140,7 @@ describe('handleTagClick — cursor elsewhere in an enclosing formatting constru
 
     view.dispatch({ selection: { anchor: 0 } });
     const clickPos = doc.indexOf('project') + 2;
-    const handled = handleTagClick(view, clickPos, false, () => resolver);
+    const handled = handleTagClick(view, clickPos, () => resolver);
 
     expect(handled).toBe(true);
     expect(activate).toHaveBeenCalledTimes(1);
