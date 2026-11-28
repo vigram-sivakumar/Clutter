@@ -259,6 +259,8 @@ describe('engine staged keyboard interaction (M5 candidate)', () => {
 
   it('Shift-Enter inserts a visual break in the current cell, keeps exact source and root history', () => {
     const view = mount(doc, false);
+    // mount() installs feature extensions only; mirror the root history in createEditorView.
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
     clickCell(findCell(view, 'Designer'));
     const controller = view.plugin(tableCellEditor)!;
     const nested = controller.nested!;
